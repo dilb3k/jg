@@ -1,15 +1,20 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native'
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 interface Props {
   active: string
-  onChange: (slug: string) => void
+  onChange: (id: string) => void
   categories: { id: string; title: string }[]
 }
 
 export function CategoryTabs({ active, onChange, categories }: Props) {
   return (
-    <View className="bg-[#101010] px-4 py-3">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+    <View className="bg-[#101010] border-b border-white/5">
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        className="px-4 py-3"
+        contentContainerStyle={{ gap: 24 }}
+      >
         {categories.map((cat) => {
           const isActive = active === cat.id
 
@@ -17,7 +22,8 @@ export function CategoryTabs({ active, onChange, categories }: Props) {
             <TouchableOpacity
               key={cat.id}
               onPress={() => onChange(cat.id)}
-              className="mr-6"
+              activeOpacity={0.7}
+              className="relative"
             >
               <Text
                 className={`text-sm ${
@@ -28,7 +34,7 @@ export function CategoryTabs({ active, onChange, categories }: Props) {
               </Text>
 
               {isActive && (
-                <View className="h-[2px] bg-red-500 mt-1 rounded-full" />
+                <View className="absolute -bottom-3 left-0 right-0 h-[2px] bg-red-500 rounded-full" />
               )}
             </TouchableOpacity>
           )

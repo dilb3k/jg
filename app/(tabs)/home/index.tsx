@@ -25,6 +25,7 @@ export interface Movie {
   age_rating: number
   poster_url: string
   imdb_rating: string
+  views_count?: number
 }
 
 export interface Carousel {
@@ -51,6 +52,8 @@ export default function Home() {
   const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0)
   const [loading, setLoading] = useState(true)
 
+  const scrollViewRef = useRef<ScrollView>(null)
+  const categoryRefs = useRef<{ [key: string]: number }>({})
   const carouselInterval = useRef<NodeJS.Timeout | null>(null)
 
   /* =======================
@@ -76,7 +79,7 @@ export default function Home() {
         const genreCategories: Category[] = await Promise.all(
           genres.map(async (genre: any) => {
             const moviesRes = await api.get(
-              `/api/v1/movies?genre=${genre.slug}&page=1&per_page=10`
+              `/api/v1/movies/by-genre/${genre.id}?page=1&per_page=20`
             )
 
             return {
@@ -90,13 +93,35 @@ export default function Home() {
         )
 
         setCategories(genreCategories)
-        setActiveCategory(genreCategories[0]?.id)
+        if (genreCategories.length > 0) {
+          setActiveCategory(genreCategories[0].id)
+        }
       }
     } catch (e) {
       console.log('FETCH ERROR', e)
     } finally {
       setLoading(false)
     }
+  }
+
+  /* =======================
+     CATEGORY SCROLL
+  ======================= */
+
+  const scrollToCategory = (categoryId: string) => {
+    setActiveCategory(categoryId)
+    
+    const yOffset = categoryRefs.current[categoryId]
+    if (yOffset !== undefined && scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({
+        y: yOffset,
+        animated: true,
+      })
+    }
+  }
+
+  const handleCategoryLayout = (categoryId: string, y: number) => {
+    categoryRefs.current[categoryId] = y
   }
 
   /* =======================
@@ -146,8 +171,9 @@ export default function Home() {
       <StatusBar barStyle="light-content" />
 
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={[1]} // 👈 CATEGORY FIXED
+        stickyHeaderIndices={[1]}
       >
         {/* 0 — HERO */}
         {currentCarousel && (
@@ -158,22 +184,23 @@ export default function Home() {
           />
         )}
 
-        {/* 1 — FIXED CATEGORY */}
+        {/* 1 — FIXED CATEGORY TABS */}
         <CategoryTabs
           categories={categories.map((c) => ({
             id: c.id,
             title: c.title,
           }))}
           active={activeCategory}
-          onChange={setActiveCategory}
+          onChange={scrollToCategory}
         />
 
-        {/* 2 — LIST */}
+        {/* 2 — CATEGORY SECTIONS */}
         <View className="pb-20">
           {categories.map((category) => (
             <CategorySection
               key={category.id}
               category={category}
+              onLayout={(y) => handleCategoryLayout(category.id, y)}
             />
           ))}
         </View>

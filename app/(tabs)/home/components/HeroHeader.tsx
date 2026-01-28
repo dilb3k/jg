@@ -2,7 +2,7 @@ import { Image, TouchableOpacity, View } from 'react-native'
 
 export function HeroHeader() {
   return (
-    <View className="absolute top-0 left-0 right-0 flex-row justify-between items-center px-4 pt-12">
+    <View className="absolute top-0 left-0 right-0 flex-row justify-between items-center px-4 pt-12 z-10">
       <TouchableOpacity>
         <Image
           source={{ uri: 'https://via.placeholder.com/100/4a5568/ffffff?text=U' }}
@@ -10,7 +10,6 @@ export function HeroHeader() {
         />
       </TouchableOpacity>
 
-      {/* vaqtincha icon o‘rniga nuqta */}
       <View className="w-6 h-6 rounded-full bg-white/20" />
     </View>
   )

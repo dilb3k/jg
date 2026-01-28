@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router'
-import { Dimensions, Image, View } from 'react-native'
+import { Dimensions, Image, TouchableOpacity, View } from 'react-native'
 import { CarouselIndicators } from './CarouselIndicators'
 import { HeroHeader } from './HeroHeader'
 import { HeroInfo } from './HeroInfo'
@@ -17,35 +17,40 @@ export function HeroCarousel({
 }) {
   const router = useRouter()
 
-  const handleWatchPress = () => {
+  const handleOpenMovie = () => {
     router.push({
       pathname: '/movie/[id]',
       params: {
-        id: carousel.movie.id,
+        id: carousel.movie.id, // 🔥 SHU MUHIM
       },
     })
   }
 
   return (
-    <View style={{ height: height * 0.85 }} className="relative">
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={handleOpenMovie}
+      style={{ height: height * 0.85 }}
+      className="relative"
+    >
       <Image
         source={{ uri: carousel.poster_url }}
         style={{ width: '100%', height: height * 0.85 }}
-        className="absolute inset-0"
         resizeMode="cover"
       />
 
-      <View className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/90" />
+      <View className="absolute inset-0 bg-black/60" />
 
       <HeroHeader />
+
       <HeroInfo
         movie={carousel.movie}
-        onWatchPress={handleWatchPress}
+        onWatchPress={handleOpenMovie}
       />
 
       <View className="absolute bottom-[-10px] left-0 right-0">
         <CarouselIndicators length={total} current={index} />
       </View>
-    </View>
+    </TouchableOpacity>
   )
 }

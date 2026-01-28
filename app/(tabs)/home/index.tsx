@@ -1,17 +1,15 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   View,
   ScrollView,
   ActivityIndicator,
   StatusBar,
-  Dimensions,
 } from 'react-native'
-import { api } from '@/services/api'
 
+import { api } from '@/services/api'
 import { HeroCarousel } from './components/HeroCarousel'
 import { CategorySection } from './components/CategorySection'
-
-const { height } = Dimensions.get('window')
+import { CategoryTabs } from './components/CategoryTabs'
 
 /* =======================
    TYPES
@@ -27,14 +25,11 @@ export interface Movie {
   age_rating: number
   poster_url: string
   imdb_rating: string
-  views_count: number
 }
 
 export interface Carousel {
   id: string
-  movie_id: string
   poster_url: string
-  order_number: number
   movie: Movie
 }
 
@@ -51,74 +46,54 @@ export interface Category {
 export default function Home() {
   const [carousels, setCarousels] = useState<Carousel[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [activeCategory, setActiveCategory] = useState<string>('')
+
   const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0)
   const [loading, setLoading] = useState(true)
 
-  const carouselIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const carouselInterval = useRef<NodeJS.Timeout | null>(null)
 
   /* =======================
-     FETCH DATA
+     FETCH
   ======================= */
 
   const fetchData = async () => {
     try {
       setLoading(true)
 
-      const [carouselRes, popularRes, latestRes] = await Promise.all([
+      const [carouselRes, genresRes] = await Promise.all([
         api.get('/api/v1/carousels'),
-        api.get('/api/v1/movies/popular?page=1&per_page=20'),
-        api.get('/api/v1/movies/latest?page=1&per_page=20'),
+        api.get('/api/v1/movies/genres'),
       ])
 
       if (carouselRes.data.success) {
         setCarousels(carouselRes.data.data)
       }
 
-      const newCategories: Category[] = []
+      if (genresRes.data.success) {
+        const genres = genresRes.data.data.items
 
-      if (popularRes.data.success) {
-        newCategories.push({
-          id: 'popular',
-          title: 'Популярно',
-          movies: popularRes.data.data,
-        })
+        const genreCategories: Category[] = await Promise.all(
+          genres.map(async (genre: any) => {
+            const moviesRes = await api.get(
+              `/api/v1/movies?genre=${genre.slug}&page=1&per_page=10`
+            )
 
-        newCategories.push({
-          id: 'comedy',
-          title: 'Комедия',
-          movies: popularRes.data.data.slice(5, 10),
-        })
+            return {
+              id: genre.id,
+              title: genre.name,
+              movies: moviesRes.data.success
+                ? moviesRes.data.data
+                : [],
+            }
+          })
+        )
 
-        newCategories.push({
-          id: 'bestseller',
-          title: 'Бестселлер недели',
-          movies: popularRes.data.data.slice(10, 15),
-        })
+        setCategories(genreCategories)
+        setActiveCategory(genreCategories[0]?.id)
       }
-
-      if (latestRes.data.success) {
-        newCategories.push({
-          id: 'new',
-          title: 'Новинки',
-          movies: latestRes.data.data,
-        })
-
-        newCategories.push({
-          id: 'fantasy',
-          title: 'Фэнтесика',
-          movies: latestRes.data.data.slice(5, 10),
-        })
-
-        newCategories.push({
-          id: 'trailers',
-          title: 'Новые трейлеры',
-          movies: latestRes.data.data.slice(10, 15),
-        })
-      }
-
-      setCategories(newCategories)
-    } catch (error) {
-      console.log('FETCH ERROR:', error)
+    } catch (e) {
+      console.log('FETCH ERROR', e)
     } finally {
       setLoading(false)
     }
@@ -130,17 +105,11 @@ export default function Home() {
 
   useEffect(() => {
     fetchData()
-
-    return () => {
-      if (carouselIntervalRef.current) {
-        clearInterval(carouselIntervalRef.current)
-      }
-    }
   }, [])
 
   useEffect(() => {
     if (carousels.length > 0) {
-      carouselIntervalRef.current = setInterval(() => {
+      carouselInterval.current = setInterval(() => {
         setCurrentCarouselIndex((prev) =>
           (prev + 1) % carousels.length
         )
@@ -148,8 +117,8 @@ export default function Home() {
     }
 
     return () => {
-      if (carouselIntervalRef.current) {
-        clearInterval(carouselIntervalRef.current)
+      if (carouselInterval.current) {
+        clearInterval(carouselInterval.current)
       }
     }
   }, [carousels.length])
@@ -176,8 +145,11 @@ export default function Home() {
     <View className="flex-1 bg-[#101010]">
       <StatusBar barStyle="light-content" />
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* HERO */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[1]} // 👈 CATEGORY FIXED
+      >
+        {/* 0 — HERO */}
         {currentCarousel && (
           <HeroCarousel
             carousel={currentCarousel}
@@ -186,7 +158,17 @@ export default function Home() {
           />
         )}
 
-        {/* CATEGORIES */}
+        {/* 1 — FIXED CATEGORY */}
+        <CategoryTabs
+          categories={categories.map((c) => ({
+            id: c.id,
+            title: c.title,
+          }))}
+          active={activeCategory}
+          onChange={setActiveCategory}
+        />
+
+        {/* 2 — LIST */}
         <View className="pb-20">
           {categories.map((category) => (
             <CategorySection

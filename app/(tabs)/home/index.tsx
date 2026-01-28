@@ -8,10 +8,12 @@ import {
 
 import { api } from '@/services/api'
 import { Movie } from '@/shared/types/movie'
+import { WatchHistoryItem } from '@/shared/types/watch-history'
 
 import { HeroCarousel } from './components/HeroCarousel'
 import { CategorySection } from './components/CategorySection'
 import { CategoryTabs } from './components/CategoryTabs'
+import { WatchHistorySection } from './components/WatchHistorySection'
 
 /* =======================
    TYPES (LOCAL)
@@ -36,6 +38,7 @@ export interface Category {
 export default function Home() {
   const [carousels, setCarousels] = useState<Carousel[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [watchHistory, setWatchHistory] = useState<WatchHistoryItem[]>([])
   const [activeCategory, setActiveCategory] = useState<string>('')
 
   const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0)
@@ -53,19 +56,35 @@ export default function Home() {
     try {
       setLoading(true)
 
-      const [carouselRes, genresRes] = await Promise.all([
-        api.get('/api/v1/carousels'),
-        api.get('/api/v1/movies/genres'),
-      ])
+      const [carouselRes, genresRes, historyRes] =
+        await Promise.allSettled([
+          api.get('/api/v1/carousels'),
+          api.get('/api/v1/movies/genres'),
+          api.get('/api/v1/history/continue-watching?limit=10'),
+        ])
 
       /* ---------- CAROUSELS ---------- */
-      if (carouselRes.data?.success) {
-        setCarousels(carouselRes.data.data)
+      if (
+        carouselRes.status === 'fulfilled' &&
+        carouselRes.value.data?.success
+      ) {
+        setCarousels(carouselRes.value.data.data)
+      }
+
+      /* ---------- WATCH HISTORY ---------- */
+      if (
+        historyRes.status === 'fulfilled' &&
+        historyRes.value.data?.success
+      ) {
+        setWatchHistory(historyRes.value.data.data)
       }
 
       /* ---------- GENRES + MOVIES ---------- */
-      if (genresRes.data?.success) {
-        const genres = genresRes.data.data.items
+      if (
+        genresRes.status === 'fulfilled' &&
+        genresRes.value.data?.success
+      ) {
+        const genres = genresRes.value.data.data.items
 
         const genreCategories: Category[] = await Promise.all(
           genres.map(async (genre: any) => {
@@ -92,7 +111,7 @@ export default function Home() {
         }
       }
     } catch (e) {
-      console.log('FETCH ERROR ❌', e)
+      console.log('HOME FETCH ERROR ❌', e)
     } finally {
       setLoading(false)
     }
@@ -169,7 +188,7 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
         stickyHeaderIndices={[1]}
       >
-        {/* 0 — HERO */}
+        {/* 0 — HERO CAROUSEL */}
         {currentCarousel && (
           <HeroCarousel
             carousel={currentCarousel}
@@ -188,16 +207,22 @@ export default function Home() {
           onChange={scrollToCategory}
         />
 
-        {/* 2 — CATEGORY SECTIONS */}
+        {/* 2 — CATEGORY SECTIONS + WATCH HISTORY */}
         <View className="pb-20">
-          {categories.map((category) => (
-            <CategorySection
-              key={category.id}
-              category={category}
-              onLayout={(y) =>
-                handleCategoryLayout(category.id, y)
-              }
-            />
+          {categories.map((category, index) => (
+            <View key={category.id}>
+              <CategorySection
+                category={category}
+                onLayout={(y) =>
+                  handleCategoryLayout(category.id, y)
+                }
+              />
+
+              {/* 🔥 HAR 2 TA CATEGORY’DAN KEYIN */}
+              {(index + 1) % 2 === 0 && (
+                <WatchHistorySection items={watchHistory} />
+              )}
+            </View>
           ))}
         </View>
       </ScrollView>

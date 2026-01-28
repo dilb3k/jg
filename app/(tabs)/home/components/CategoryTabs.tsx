@@ -1,16 +1,18 @@
+import { useRouter } from 'expo-router';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 interface Props {
   active: string
-  onChange: (id: string) => void
   categories: { id: string; title: string }[]
 }
 
-export function CategoryTabs({ active, onChange, categories }: Props) {
+export function CategoryTabs({ active, categories }: Props) {
+  const router = useRouter()
+
   return (
     <View className="bg-[#101010] border-b border-white/5">
-      <ScrollView 
-        horizontal 
+      <ScrollView
+        horizontal
         showsHorizontalScrollIndicator={false}
         className="px-4 py-3"
         contentContainerStyle={{ gap: 24 }}
@@ -21,13 +23,23 @@ export function CategoryTabs({ active, onChange, categories }: Props) {
           return (
             <TouchableOpacity
               key={cat.id}
-              onPress={() => onChange(cat.id)}
               activeOpacity={0.7}
               className="relative"
+              onPress={() =>
+                router.push({
+                  pathname: '/(tabs)/home/category/[id]',
+                  params: {
+                    id: cat.id,
+                    title: cat.title,
+                  },
+                })
+              }
             >
               <Text
                 className={`text-sm ${
-                  isActive ? 'text-white font-semibold' : 'text-white/50'
+                  isActive
+                    ? 'text-white font-semibold'
+                    : 'text-white/50'
                 }`}
               >
                 {cat.title}

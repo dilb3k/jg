@@ -17,9 +17,14 @@ export function HeroCarousel({
 }) {
   const router = useRouter()
 
-  // const handleWatchPress = () => {
-  //   router.push(`/movie/${carousel.movie.id}`)
-  // }
+  const handleWatchPress = () => {
+    router.push({
+      pathname: '/movie/[id]',
+      params: {
+        id: carousel.movie.id,
+      },
+    })
+  }
 
   return (
     <View style={{ height: height * 0.85 }} className="relative">
@@ -30,15 +35,15 @@ export function HeroCarousel({
         resizeMode="cover"
       />
 
-      {/* Dark gradient overlay */}
       <View className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/90" />
 
       <HeroHeader />
       <HeroInfo
         movie={carousel.movie}
-        // onWatchPress={handleWatchPress}
+        onWatchPress={handleWatchPress}
       />
-      <View className='absolute bottom-[-10px] left-0 right-0'>
+
+      <View className="absolute bottom-[-10px] left-0 right-0">
         <CarouselIndicators length={total} current={index} />
       </View>
     </View>

@@ -7,26 +7,15 @@ import {
 } from 'react-native'
 
 import { api } from '@/services/api'
+import { Movie } from '@/shared/types/movie'
+
 import { HeroCarousel } from './components/HeroCarousel'
 import { CategorySection } from './components/CategorySection'
 import { CategoryTabs } from './components/CategoryTabs'
 
 /* =======================
-   TYPES
+   TYPES (LOCAL)
 ======================= */
-
-export interface Movie {
-  id: string
-  title_uz: string
-  title_ru: string
-  title_en: string
-  year: number
-  duration_seconds: number
-  age_rating: number
-  poster_url: string
-  imdb_rating: string
-  views_count?: number
-}
 
 export interface Carousel {
   id: string
@@ -53,11 +42,11 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
 
   const scrollViewRef = useRef<ScrollView>(null)
-  const categoryRefs = useRef<{ [key: string]: number }>({})
+  const categoryRefs = useRef<Record<string, number>>({})
   const carouselInterval = useRef<NodeJS.Timeout | null>(null)
 
   /* =======================
-     FETCH
+     FETCH DATA
   ======================= */
 
   const fetchData = async () => {
@@ -69,11 +58,13 @@ export default function Home() {
         api.get('/api/v1/movies/genres'),
       ])
 
-      if (carouselRes.data.success) {
+      /* ---------- CAROUSELS ---------- */
+      if (carouselRes.data?.success) {
         setCarousels(carouselRes.data.data)
       }
 
-      if (genresRes.data.success) {
+      /* ---------- GENRES + MOVIES ---------- */
+      if (genresRes.data?.success) {
         const genres = genresRes.data.data.items
 
         const genreCategories: Category[] = await Promise.all(
@@ -82,23 +73,26 @@ export default function Home() {
               `/api/v1/movies/by-genre/${genre.id}?page=1&per_page=20`
             )
 
+            const data = moviesRes.data.data
+
             return {
               id: genre.id,
               title: genre.name,
-              movies: moviesRes.data.success
-                ? moviesRes.data.data
-                : [],
+              movies: Array.isArray(data)
+                ? data
+                : data.items ?? [],
             }
           })
         )
 
         setCategories(genreCategories)
+
         if (genreCategories.length > 0) {
           setActiveCategory(genreCategories[0].id)
         }
       }
     } catch (e) {
-      console.log('FETCH ERROR', e)
+      console.log('FETCH ERROR ❌', e)
     } finally {
       setLoading(false)
     }
@@ -110,7 +104,7 @@ export default function Home() {
 
   const scrollToCategory = (categoryId: string) => {
     setActiveCategory(categoryId)
-    
+
     const yOffset = categoryRefs.current[categoryId]
     if (yOffset !== undefined && scrollViewRef.current) {
       scrollViewRef.current.scrollTo({
@@ -133,13 +127,13 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    if (carousels.length > 0) {
-      carouselInterval.current = setInterval(() => {
-        setCurrentCarouselIndex((prev) =>
-          (prev + 1) % carousels.length
-        )
-      }, 4000)
-    }
+    if (carousels.length === 0) return
+
+    carouselInterval.current = setInterval(() => {
+      setCurrentCarouselIndex((prev) =>
+        (prev + 1) % carousels.length
+      )
+    }, 4000)
 
     return () => {
       if (carouselInterval.current) {
@@ -184,7 +178,7 @@ export default function Home() {
           />
         )}
 
-        {/* 1 — FIXED CATEGORY TABS */}
+        {/* 1 — CATEGORY TABS */}
         <CategoryTabs
           categories={categories.map((c) => ({
             id: c.id,
@@ -200,7 +194,9 @@ export default function Home() {
             <CategorySection
               key={category.id}
               category={category}
-              onLayout={(y) => handleCategoryLayout(category.id, y)}
+              onLayout={(y) =>
+                handleCategoryLayout(category.id, y)
+              }
             />
           ))}
         </View>

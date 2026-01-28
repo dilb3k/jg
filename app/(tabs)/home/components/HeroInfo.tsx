@@ -1,6 +1,6 @@
+import { Movie } from '@/shared/types/movie'
 import { Play, Star } from 'lucide-react-native'
 import { Text, TouchableOpacity, View } from 'react-native'
-import { Movie } from '../index'
 
 interface Props {
   movie: Movie
@@ -22,16 +22,11 @@ export function HeroInfo({ movie, onWatchPress }: Props) {
           </Text>
         </View>
 
-        <Text className="text-gray-300 text-sm">
-          {movie.year}
-        </Text>
-
-        <Text className="text-gray-300 text-sm">
-          {movie.age_rating}+
-        </Text>
+        <Text className="text-gray-300 text-sm">{movie.year}</Text>
+        <Text className="text-gray-300 text-sm">{movie.age_rating}+</Text>
       </View>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         className="bg-[#FF0000] rounded-lg py-4 flex-row justify-center items-center gap-2"
         onPress={onWatchPress}
         activeOpacity={0.8}

@@ -1,25 +1,27 @@
-import { useRouter } from 'expo-router'
-import { Image, TouchableOpacity, View } from 'react-native'
+import { NotificationIcon } from "@/shared/ui/icons/NotificationIcon";
+import { useRouter } from "expo-router";
+import { Image, TouchableOpacity, View } from "react-native";
 
 export function HeroHeader() {
-  const router = useRouter()
+  const router = useRouter();
 
   return (
-    <View className="absolute top-0 left-0 right-0 flex-row justify-between items-center px-4 pt-12 z-10">
-      
+    <View className="absolute top-0 left-0 right-0 flex-row justify-between items-center px-4 pt-10 z-10">
       {/* PROFILE */}
       <TouchableOpacity
         activeOpacity={0.7}
-        onPress={() => router.push('/home/profile')}
+        onPress={() => router.push("/home/profile")}
       >
         <Image
-          source={{ uri: 'https://via.placeholder.com/100/4a5568/ffffff?text=U' }}
+          source={{
+            uri: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRuNhTZJTtkR6b-ADMhmzPvVwaLuLdz273wvQ&s",
+          }}
           className="w-12 h-12 rounded-full border-2 border-white/20"
         />
       </TouchableOpacity>
 
       {/* RIGHT ICON */}
-      <View className="w-6 h-6 rounded-full bg-white/20" />
+      <NotificationIcon color="#e6e6e6" />
     </View>
-  )
+  );
 }

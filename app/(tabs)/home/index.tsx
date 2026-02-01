@@ -1,34 +1,29 @@
-import { useEffect, useRef, useState } from 'react'
-import {
-  View,
-  ScrollView,
-  ActivityIndicator,
-  StatusBar,
-} from 'react-native'
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, ScrollView, StatusBar, View } from "react-native";
 
-import { api } from '@/services/api'
-import { Movie } from '@/shared/types/movie'
-import { WatchHistoryItem } from '@/shared/types/watch-history'
+import { api } from "@/services/api";
+import { Movie } from "@/shared/types/movie";
+import { WatchHistoryItem } from "@/shared/types/watch-history";
 
-import { HeroCarousel } from './components/HeroCarousel'
-import { CategorySection } from './components/CategorySection'
-import { CategoryTabs } from './components/CategoryTabs'
-import { WatchHistorySection } from './components/WatchHistorySection'
+import { CategorySection } from "./components/CategorySection";
+import { CategoryTabs } from "./components/CategoryTabs";
+import { HeroCarousel } from "./components/HeroCarousel";
+import { WatchHistorySection } from "./components/WatchHistorySection";
 
 /* =======================
    TYPES (LOCAL)
 ======================= */
 
 export interface Carousel {
-  id: string
-  poster_url: string
-  movie: Movie
+  id: string;
+  poster_url: string;
+  movie: Movie;
 }
 
 export interface Category {
-  id: string
-  title: string
-  movies: Movie[]
+  id: string;
+  title: string;
+  movies: Movie[];
 }
 
 /* =======================
@@ -36,17 +31,17 @@ export interface Category {
 ======================= */
 
 export default function Home() {
-  const [carousels, setCarousels] = useState<Carousel[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [watchHistory, setWatchHistory] = useState<WatchHistoryItem[]>([])
-  const [activeCategory, setActiveCategory] = useState<string>('')
+  const [carousels, setCarousels] = useState<Carousel[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [watchHistory, setWatchHistory] = useState<WatchHistoryItem[]>([]);
+  const [activeCategory, setActiveCategory] = useState<string>("");
 
-  const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const scrollViewRef = useRef<ScrollView>(null)
-  const categoryRefs = useRef<Record<string, number>>({})
-  const carouselInterval = useRef<NodeJS.Timeout | null>(null)
+  const scrollViewRef = useRef<ScrollView>(null);
+  const categoryRefs = useRef<Record<string, number>>({});
+  const carouselInterval = useRef<NodeJS.Timeout | null>(null);
 
   /* =======================
      FETCH DATA
@@ -54,112 +49,101 @@ export default function Home() {
 
   const fetchData = async () => {
     try {
-      setLoading(true)
+      setLoading(true);
 
-      const [carouselRes, genresRes, historyRes] =
-        await Promise.allSettled([
-          api.get('/api/v1/carousels'),
-          api.get('/api/v1/movies/genres'),
-          api.get('/api/v1/history/continue-watching?limit=10'),
-        ])
+      const [carouselRes, genresRes, historyRes] = await Promise.allSettled([
+        api.get("/api/v1/carousels"),
+        api.get("/api/v1/movies/genres"),
+        api.get("/api/v1/history/continue-watching?limit=10"),
+      ]);
 
       /* ---------- CAROUSELS ---------- */
       if (
-        carouselRes.status === 'fulfilled' &&
+        carouselRes.status === "fulfilled" &&
         carouselRes.value.data?.success
       ) {
-        setCarousels(carouselRes.value.data.data)
+        setCarousels(carouselRes.value.data.data);
       }
 
       /* ---------- WATCH HISTORY ---------- */
-      if (
-        historyRes.status === 'fulfilled' &&
-        historyRes.value.data?.success
-      ) {
-        setWatchHistory(historyRes.value.data.data)
+      if (historyRes.status === "fulfilled" && historyRes.value.data?.success) {
+        setWatchHistory(historyRes.value.data.data);
       }
 
       /* ---------- GENRES + MOVIES ---------- */
-      if (
-        genresRes.status === 'fulfilled' &&
-        genresRes.value.data?.success
-      ) {
-        const genres = genresRes.value.data.data.items
+      if (genresRes.status === "fulfilled" && genresRes.value.data?.success) {
+        const genres = genresRes.value.data.data.items;
 
         const genreCategories: Category[] = await Promise.all(
           genres.map(async (genre: any) => {
             const moviesRes = await api.get(
-              `/api/v1/movies/by-genre/${genre.id}?page=1&per_page=20`
-            )
+              `/api/v1/movies/by-genre/${genre.id}?page=1&per_page=20`,
+            );
 
-            const data = moviesRes.data.data
+            const data = moviesRes.data.data;
 
             return {
               id: genre.id,
               title: genre.name,
-              movies: Array.isArray(data)
-                ? data
-                : data.items ?? [],
-            }
-          })
-        )
+              movies: Array.isArray(data) ? data : (data.items ?? []),
+            };
+          }),
+        );
 
-        setCategories(genreCategories)
+        setCategories(genreCategories);
 
         if (genreCategories.length > 0) {
-          setActiveCategory(genreCategories[0].id)
+          setActiveCategory(genreCategories[0].id);
         }
       }
     } catch (e) {
-      console.log('HOME FETCH ERROR ❌', e)
+      console.log("HOME FETCH ERROR ❌", e);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   /* =======================
      CATEGORY SCROLL
   ======================= */
 
   const scrollToCategory = (categoryId: string) => {
-    setActiveCategory(categoryId)
+    setActiveCategory(categoryId);
 
-    const yOffset = categoryRefs.current[categoryId]
+    const yOffset = categoryRefs.current[categoryId];
     if (yOffset !== undefined && scrollViewRef.current) {
       scrollViewRef.current.scrollTo({
         y: yOffset,
         animated: true,
-      })
+      });
     }
-  }
+  };
 
   const handleCategoryLayout = (categoryId: string, y: number) => {
-    categoryRefs.current[categoryId] = y
-  }
+    categoryRefs.current[categoryId] = y;
+  };
 
   /* =======================
      EFFECTS
   ======================= */
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    fetchData();
+  }, []);
 
   useEffect(() => {
-    if (carousels.length === 0) return
+    if (carousels.length === 0) return;
 
     carouselInterval.current = setInterval(() => {
-      setCurrentCarouselIndex((prev) =>
-        (prev + 1) % carousels.length
-      )
-    }, 4000)
+      setCurrentCarouselIndex((prev) => (prev + 1) % carousels.length);
+    }, 4000);
 
     return () => {
       if (carouselInterval.current) {
-        clearInterval(carouselInterval.current)
+        clearInterval(carouselInterval.current);
       }
-    }
-  }, [carousels.length])
+    };
+  }, [carousels.length]);
 
   /* =======================
      LOADING
@@ -170,10 +154,10 @@ export default function Home() {
       <View className="flex-1 bg-[#101010] justify-center items-center">
         <ActivityIndicator size="large" color="#FF0000" />
       </View>
-    )
+    );
   }
 
-  const currentCarousel = carousels[currentCarouselIndex]
+  const currentCarousel = carousels[currentCarouselIndex];
 
   /* =======================
      RENDER
@@ -213,9 +197,7 @@ export default function Home() {
             <View key={category.id}>
               <CategorySection
                 category={category}
-                onLayout={(y) =>
-                  handleCategoryLayout(category.id, y)
-                }
+                onLayout={(y) => handleCategoryLayout(category.id, y)}
               />
 
               {/* 🔥 HAR 2 TA CATEGORY’DAN KEYIN */}
@@ -227,5 +209,5 @@ export default function Home() {
         </View>
       </ScrollView>
     </View>
-  )
+  );
 }

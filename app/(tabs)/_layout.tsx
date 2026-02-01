@@ -1,4 +1,7 @@
 import { HomeIcon } from '@/shared/ui/icons/HomeIcon'
+import { ReelIcon } from '@/shared/ui/icons/ReelIcon'
+import { SearchIcon } from '@/shared/ui/icons/SearchIcon'
+import { TVIcon } from '@/shared/ui/icons/TVIcon'
 import { Tabs } from 'expo-router'
 
 export default function TabsLayout() {
@@ -30,7 +33,7 @@ export default function TabsLayout() {
         options={{
           title: 'TV',
           tabBarIcon: ({ color }) => (
-            <HomeIcon color={color} /> // keyin TvIcon qilasan
+            <TVIcon color={color} /> 
           ),
         }}
       />
@@ -40,7 +43,7 @@ export default function TabsLayout() {
         options={{
           title: 'Reels',
           tabBarIcon: ({ color }) => (
-            <HomeIcon color={color} />
+            <ReelIcon color={color} />
           ),
         }}
       />
@@ -50,7 +53,7 @@ export default function TabsLayout() {
         options={{
           title: 'Search',
           tabBarIcon: ({ color }) => (
-            <HomeIcon color={color} />
+            <SearchIcon color={color} />
           ),
         }}
       />

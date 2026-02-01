@@ -1,60 +1,73 @@
-import { useAuthStore } from '@/store/auth/auth.store'
-import { Ionicons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
-import { useState } from 'react'
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { useAuthStore } from "@/store/auth.store";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Register() {
-  const router = useRouter()
-  const { setProfileData } = useAuthStore()
+  const router = useRouter();
+  const { setProfileData } = useAuthStore();
 
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [username, setUsername] = useState('')
-  const [birthDate, setBirthDate] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [username, setUsername] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  const inputClass = 'bg-[#1f1f1f] text-white rounded-xl px-4 py-4 text-base'
+  const inputClass = "bg-[#1f1f1f] text-white rounded-xl px-4 py-4 text-base";
 
   const formatBirthDate = (text: string) => {
-    const digits = text.replace(/\D/g, '').slice(0, 8)
-    if (digits.length <= 2) return setBirthDate(digits)
-    if (digits.length <= 4) return setBirthDate(`${digits.slice(0, 2)}.${digits.slice(2)}`)
-    setBirthDate(`${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`)
-  }
+    const digits = text.replace(/\D/g, "").slice(0, 8);
+    if (digits.length <= 2) return setBirthDate(digits);
+    if (digits.length <= 4)
+      return setBirthDate(`${digits.slice(0, 2)}.${digits.slice(2)}`);
+    setBirthDate(
+      `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`,
+    );
+  };
 
   const submit = () => {
     const trimmed = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      username: username.trim()
-    }
+      username: username.trim(),
+    };
 
     if (!trimmed.firstName || !trimmed.lastName) {
-      Alert.alert('Xatolik', 'Ism va familiya majburiy')
-      return
+      Alert.alert("Xatolik", "Ism va familiya majburiy");
+      return;
     }
 
     if (!/^[a-zA-Z0-9_]{3,32}$/.test(trimmed.username)) {
-      Alert.alert('Xatolik', 'Username 3-32 belgi, faqat harf, raqam va _ bo\'lishi kerak')
-      return
+      Alert.alert(
+        "Xatolik",
+        "Username 3-32 belgi, faqat harf, raqam va _ bo'lishi kerak",
+      );
+      return;
     }
 
     if (!/^\d{2}\.\d{2}\.\d{4}$/.test(birthDate)) {
-      Alert.alert('Xatolik', 'Sana DD.MM.YYYY formatda bo\'lishi kerak')
-      return
+      Alert.alert("Xatolik", "Sana DD.MM.YYYY formatda bo'lishi kerak");
+      return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Xatolik', 'Parol kamida 6 ta belgi bo\'lishi kerak')
-      return
+      Alert.alert("Xatolik", "Parol kamida 6 ta belgi bo'lishi kerak");
+      return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Xatolik', 'Parollar mos emas')
-      return
+      Alert.alert("Xatolik", "Parollar mos emas");
+      return;
     }
 
     setProfileData({
@@ -62,10 +75,10 @@ export default function Register() {
       username: trimmed.username,
       birth_date: birthDate,
       password,
-    })
+    });
 
-    router.push('/(auth)/phone')
-  }
+    router.push("/(auth)/phone");
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-black">
@@ -112,7 +125,9 @@ export default function Register() {
           placeholder="Введите username"
           placeholderTextColor="#666"
           value={username}
-          onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase())}
+          onChangeText={(t) =>
+            setUsername(t.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())
+          }
           autoCapitalize="none"
           className={inputClass}
         />
@@ -126,13 +141,13 @@ export default function Register() {
             value={birthDate}
             onChangeText={formatBirthDate}
             keyboardType="number-pad"
-            className={inputClass + ' pr-12'}
+            className={inputClass + " pr-12"}
           />
           <Ionicons
             name="calendar-outline"
             size={20}
             color="#666"
-            style={{ position: 'absolute', right: 16, top: 18 }}
+            style={{ position: "absolute", right: 16, top: 18 }}
           />
         </View>
 
@@ -149,7 +164,9 @@ export default function Register() {
         />
 
         {/* Подтвердите пароль */}
-        <Text className="text-gray-400 text-sm mb-2 mt-4">Подтвердите пароль</Text>
+        <Text className="text-gray-400 text-sm mb-2 mt-4">
+          Подтвердите пароль
+        </Text>
         <TextInput
           placeholder="Введите пароль еще раз"
           placeholderTextColor="#666"
@@ -167,5 +184,5 @@ export default function Register() {
         </Pressable>
       </ScrollView>
     </SafeAreaView>
-  )
+  );
 }

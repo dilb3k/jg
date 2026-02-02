@@ -2,7 +2,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
   Image,
   ScrollView,
   StatusBar,
@@ -16,14 +15,20 @@ import { Movie } from "@/shared/types/movie";
 import { NotMovieIcon } from "@/shared/ui/icons/NotMovieIcon";
 import { ArrowLeft } from "lucide-react-native";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
 export default function MovieDetailPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
   const [movie, setMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const handeGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/home");
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -68,8 +73,8 @@ export default function MovieDetailPage() {
 
       {/* BACK BUTTON */}
       <TouchableOpacity
-        onPress={() => router.back()}
         className="absolute top-12 left-4 z-50 bg-black/60 p-2 rounded-full"
+        onPress={handeGoBack}
       >
         <ArrowLeft color="white" size={20} />
       </TouchableOpacity>

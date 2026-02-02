@@ -223,7 +223,7 @@ export default function ReelShare({ visible, onClose, reel }: Props) {
                     >
                       {gradientColors ? (
                         <LinearGradient
-                          colors={gradientColors}
+                          colors={gradientColors as unknown as readonly [string, string, ...string[]]}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 1 }}
                           style={{ flex: 1, width: "100%", height: "100%" }}

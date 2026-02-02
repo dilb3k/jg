@@ -20,7 +20,7 @@ type Props = {
 export default function ReelItem({ reel, index }: Props) {
   const videoRef = useRef<Video>(null);
   const router = useRouter();
-  const { currentIndex, setCurrentIndex, toggleLike } = useReelStore();
+  const { currentIndex, toggleLike } = useReelStore();
   const [shareVisible, setShareVisible] = useState(false);
 
   const isActive = index === currentIndex;
@@ -66,7 +66,6 @@ export default function ReelItem({ reel, index }: Props) {
         ref={videoRef}
         source={{ uri: reel.flussonic_vod_path ?? "" }}
         style={{ width: "100%", height: "100%" }}
-        resizeMode="cover"
         isLooping
         shouldPlay={isActive}
         useNativeControls={false}

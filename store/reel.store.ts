@@ -1,13 +1,14 @@
-import { create } from "zustand";
-import { Reel } from "@/shared/types/reel";
 import {
+  getByMovie,
   getReelFeed,
   getTrendingReels,
   likeReel,
   unlikeReel,
 } from "@/services/reel.service";
+import { Reel } from "@/shared/types/reel";
+import { create } from "zustand";
 
-type ReelState = {
+interface ReelState {
   reels: Reel[];
   currentIndex: number;
   loading: boolean;
@@ -17,23 +18,24 @@ type ReelState = {
 
   fetchInitial: () => Promise<void>;
   fetchMore: () => Promise<void>;
+  fetchByMovie: (movieId: string) => Promise<void>;
   setCurrentIndex: (index: number) => void;
   toggleLike: (reelId: string) => Promise<void>;
-};
+}
 
 export const useReelStore = create<ReelState>((set, get) => ({
   reels: [],
   currentIndex: 0,
-  loading: false,
+  loading: true,
   hasMore: true,
   page: 1,
   isTrending: false,
 
-  fetchInitial: async () => {
+  async fetchInitial() {
     set({ loading: true });
 
     const trending = await getTrendingReels();
-    if (trending.length) {
+    if (trending.length > 0) {
       set({
         reels: trending,
         isTrending: true,
@@ -48,11 +50,12 @@ export const useReelStore = create<ReelState>((set, get) => ({
       reels: feed,
       page: 2,
       hasMore: feed.length === 15,
+      isTrending: false,
       loading: false,
     });
   },
 
-  fetchMore: async () => {
+  async fetchMore() {
     const { loading, hasMore, isTrending, page } = get();
     if (loading || !hasMore || isTrending) return;
 
@@ -67,39 +70,57 @@ export const useReelStore = create<ReelState>((set, get) => ({
     }));
   },
 
+  async fetchByMovie(movieId: string) {
+    const { loading, hasMore, isTrending, page } = get();
+    if (loading || !hasMore || isTrending) return;
+
+    set({ loading: true });
+    const data = await getByMovie(page, 10, movieId);
+
+    set((state) => ({
+      reels: [...state.reels, ...data],
+      page: page + 1,
+      hasMore: data.length === 10,
+      loading: false,
+    }));
+  },
+
   setCurrentIndex: (index) => set({ currentIndex: index }),
 
-  toggleLike: async (reelId) => {
+  async toggleLike(reelId: string) {
     const reel = get().reels.find((r) => r.id === reelId);
     if (!reel) return;
 
-    const nextLike = !reel.is_liked;
+    const willBeLiked = !reel.is_liked;
 
     set((state) => ({
       reels: state.reels.map((r) =>
         r.id === reelId
           ? {
               ...r,
-              is_liked: nextLike,
-              likes_count: r.likes_count + (nextLike ? 1 : -1),
+              is_liked: willBeLiked,
+              likes_count: r.likes_count + (willBeLiked ? 1 : -1),
             }
           : r,
       ),
     }));
 
-    const ok = nextLike ? await likeReel(reelId) : await unlikeReel(reelId);
-    if (ok) return;
+    const success = willBeLiked
+      ? await likeReel(reelId)
+      : await unlikeReel(reelId);
 
-    set((state) => ({
-      reels: state.reels.map((r) =>
-        r.id === reelId
-          ? {
-              ...r,
-              is_liked: !nextLike,
-              likes_count: r.likes_count + (nextLike ? -1 : 1),
-            }
-          : r,
-      ),
-    }));
+    if (!success) {
+      set((state) => ({
+        reels: state.reels.map((r) =>
+          r.id === reelId
+            ? {
+                ...r,
+                is_liked: !willBeLiked,
+                likes_count: r.likes_count + (willBeLiked ? -1 : 1),
+              }
+            : r,
+        ),
+      }));
+    }
   },
 }));

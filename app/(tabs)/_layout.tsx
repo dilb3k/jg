@@ -1,8 +1,8 @@
-import { HomeIcon } from '@/shared/ui/icons/HomeIcon'
-import { ReelIcon } from '@/shared/ui/icons/ReelIcon'
-import { SearchIcon } from '@/shared/ui/icons/SearchIcon'
-import { TVIcon } from '@/shared/ui/icons/TVIcon'
-import { Tabs } from 'expo-router'
+import { HomeIcon } from "@/shared/ui/icons/HomeIcon";
+import { ReelIcon } from "@/shared/ui/icons/ReelIcon";
+import { SearchIcon } from "@/shared/ui/icons/SearchIcon";
+import { TVIcon } from "@/shared/ui/icons/TVIcon";
+import { Tabs } from "expo-router";
 
 export default function TabsLayout() {
   return (
@@ -10,20 +10,21 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#000',
-          borderTopColor: '#111',
-          height: 70,
+          backgroundColor: "#101010",
+          borderTopColor: "#2C2C2C",
+          height: 75,
+          padding: 10,
         },
-        tabBarActiveTintColor: '#fff',
-        tabBarInactiveTintColor: '#777',
+        tabBarActiveTintColor: "#fff",
+        tabBarInactiveTintColor: "#777",
       }}
     >
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => (
-            <HomeIcon color={color} />
+          title: "Home",
+          tabBarIcon: ({ color, focused }) => (
+            <HomeIcon color={color} filled={focused} />
           ),
         }}
       />
@@ -31,9 +32,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="tv"
         options={{
-          title: 'TV',
-          tabBarIcon: ({ color }) => (
-            <TVIcon color={color} /> 
+          title: "TV",
+          tabBarIcon: ({ color, focused }) => (
+            <TVIcon color={color} filled={focused} />
           ),
         }}
       />
@@ -41,9 +42,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="reels"
         options={{
-          title: 'Reels',
-          tabBarIcon: ({ color }) => (
-            <ReelIcon color={color} />
+          title: "Reels",
+          tabBarIcon: ({ color, focused }) => (
+            <ReelIcon color={color} filled={focused} />
           ),
         }}
       />
@@ -51,12 +52,12 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: 'Search',
-          tabBarIcon: ({ color }) => (
-            <SearchIcon color={color} />
+          title: "Search",
+          tabBarIcon: ({ color, focused }) => (
+            <SearchIcon color={color} filled={focused} />
           ),
         }}
       />
     </Tabs>
-  )
+  );
 }

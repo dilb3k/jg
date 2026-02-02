@@ -1,7 +1,7 @@
-import { Reel } from "@/shared/types/reel";
 import { api } from "./api";
+import { Reel } from "@/shared/types/reel";
 
-type ReelsResponse = {
+interface PaginatedReelsResponse {
   success: boolean;
   data: {
     items: Reel[];
@@ -10,33 +10,69 @@ type ReelsResponse = {
     total: number;
     total_pages: number;
   };
-};
+}
 
-type TrendingResponse = {
+interface TrendingReelsResponse {
   success: boolean;
   data: Reel[];
+}
+
+export const getReelFeed = async (page = 1, per_page = 15): Promise<Reel[]> => {
+  try {
+    const res = await api.get<PaginatedReelsResponse>("/api/v1/reels", {
+      params: { page, per_page },
+    });
+    return res.data.success ? res.data.data.items : [];
+  } catch {
+    return [];
+  }
 };
 
-export const getReelFeed = (page = 1, per_page = 15) =>
-  api
-    .get<ReelsResponse>("/api/v1/reels", { params: { page, per_page } })
-    .then((res) => (res.data.success ? res.data.data.items : []))
-    .catch(() => []);
+export const getByMovie = async (
+  page = 1,
+  per_page = 10,
+  movie_id?: string,
+): Promise<Reel[]> => {
+  if (!movie_id) return [];
 
-export const getTrendingReels = (limit = 12) =>
-  api
-    .get<TrendingResponse>("/api/v1/reels/trending", { params: { limit } })
-    .then((res) => (res.data.success ? res.data.data : []))
-    .catch(() => []);
+  try {
+    const res = await api.get<PaginatedReelsResponse>(
+      "/api/v1/reels/by-movie",
+      {
+        params: { page, per_page, movie_id },
+      },
+    );
+    return res.data.success ? res.data.data.items : [];
+  } catch {
+    return [];
+  }
+};
 
-export const likeReel = (reelId: string) =>
-  api
-    .post(`/api/v1/reels/${reelId}/like`)
-    .then((res) => !!res.data?.success)
-    .catch(() => false);
+export const getTrendingReels = async (limit = 10): Promise<Reel[]> => {
+  try {
+    const res = await api.get<TrendingReelsResponse>("/api/v1/reels/trending", {
+      params: { limit },
+    });
+    return res.data.success ? res.data.data : [];
+  } catch {
+    return [];
+  }
+};
 
-export const unlikeReel = (reelId: string) =>
-  api
-    .delete(`/api/v1/reels/${reelId}/like`)
-    .then((res) => !!res.data?.success)
-    .catch(() => false);
+export const likeReel = async (reelId: string): Promise<boolean> => {
+  try {
+    const res = await api.post(`/api/v1/reels/${reelId}/like`);
+    return !!res.data?.success;
+  } catch {
+    return false;
+  }
+};
+
+export const unlikeReel = async (reelId: string): Promise<boolean> => {
+  try {
+    const res = await api.delete(`/api/v1/reels/${reelId}/like`);
+    return !!res.data?.success;
+  } catch {
+    return false;
+  }
+};

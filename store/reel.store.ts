@@ -16,6 +16,8 @@ interface ReelState {
   page: number;
   isTrending: boolean;
 
+  
+
   fetchInitial: () => Promise<void>;
   fetchMore: () => Promise<void>;
   fetchByMovie: (movieId: string) => Promise<void>;

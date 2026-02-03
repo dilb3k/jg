@@ -29,7 +29,6 @@ type AuthState = {
   hydrate: () => Promise<void>
   logout: () => Promise<void>
 }
-
 export const useAuthStore = create<AuthState>((set) => ({
   accessToken: null,
   refreshToken: null,

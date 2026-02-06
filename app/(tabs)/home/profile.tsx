@@ -39,8 +39,11 @@ export default function ProfilePage() {
       if (res.data?.success) {
         setProfile(res.data.data);
       }
-    } catch (e) {
-      console.log("PROFILE ERROR ❌", e);
+    } catch (e: any) {
+      if (e?.response?.status === 401) {
+        await logout();
+        router.replace("/(auth)/login");
+      }
     } finally {
       setLoading(false);
     }

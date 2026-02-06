@@ -179,7 +179,7 @@ export default function ReelShare({ visible, onClose, reel }: Props) {
         <Animated.View
           style={{ opacity: fadeAnim }}
           pointerEvents="none"
-          className="absolute inset-0 bg-black/75"
+          className="absolute inset-0 bg-black"
         />
 
         <Animated.View

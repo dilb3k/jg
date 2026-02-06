@@ -67,7 +67,7 @@ export default function CategoryPage() {
       <HeroHeader />
 
       {categoryTitle && (
-        <Text className="text-white text-2xl font-bold px-4 pt-28 pb-2">
+        <Text className="text-white text-2xl font-bold px-4 pt-32 pb-2">
           {categoryTitle}
         </Text>
       )}
@@ -86,11 +86,9 @@ export default function CategoryPage() {
           />
         )}
         ListEmptyComponent={
-          <View className="px-4 py-6 mt-8">
-            <Text className="text-gray-400 flex flex-col items-center justify-center gap-4">
-              <NotMovieIcon color="#888" size={40} />
-              Filmlar topilmadi
-            </Text>
+          <View className="px-4 py-6 mt-10 flex flex-col items-center justify-center gap-4">
+            <NotMovieIcon color="#888" size={40} />
+            <Text className="text-gray-400">Filmlar topilmadi</Text>
           </View>
         }
       />

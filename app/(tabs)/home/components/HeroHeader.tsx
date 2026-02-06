@@ -6,7 +6,7 @@ export function HeroHeader() {
   const router = useRouter();
 
   return (
-    <View className="absolute top-0 left-0 right-0 flex-row justify-between items-center px-4 pt-10 z-10">
+    <View className="absolute top-0 left-0 right-0 flex-row justify-between items-center px-4 pt-14 z-10">
       {/* PROFILE */}
       <TouchableOpacity
         activeOpacity={0.7}

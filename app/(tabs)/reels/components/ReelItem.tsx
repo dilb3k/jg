@@ -73,7 +73,7 @@ export default function ReelItem({ reel, index }: Props) {
 
       <View className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
 
-      <View className="absolute bottom-24 left-5 right-5 flex-row items-center gap-3 w-2/3">
+      <View className="absolute bottom-20 left-5 right-5 flex-row items-center gap-3 w-2/3">
         <Image
           source={{ uri: reel.poster_url }}
           className="w-14 h-14 rounded-full"
@@ -95,7 +95,7 @@ export default function ReelItem({ reel, index }: Props) {
         </View>
       </View>
 
-      <View className="absolute right-4 bottom-24 items-center gap-6">
+      <View className="absolute right-4 bottom-20 items-center gap-6">
         <TouchableOpacity
           onPress={() => toggleLike(reel.id)}
           activeOpacity={0.7}

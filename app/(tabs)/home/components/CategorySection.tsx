@@ -37,11 +37,9 @@ export function CategorySection({ category, onLayout }: Props) {
       </TouchableOpacity>
 
       {category.movies.length === 0 ? (
-        <View className="px-4 py-6">
-          <Text className="text-gray-400 flex flex-col items-center justify-center gap-4">
-            <NotMovieIcon color="#888" size={40} />
-            Bu Janrda Film Yoq
-          </Text>
+        <View className="px-4 py-6 flex flex-col items-center justify-center gap-4">
+          <NotMovieIcon color="#888" size={40} />
+          <Text className="text-gray-400 ">Bu Janrda Film Yoq</Text>
         </View>
       ) : (
         <ScrollView

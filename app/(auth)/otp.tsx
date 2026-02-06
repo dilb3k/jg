@@ -163,7 +163,7 @@ export default function Otp() {
           {otp.map((digit, i) => (
             <TextInput
               key={i}
-              ref={(r) => (inputRefs.current[i] = r)}
+              ref={(r) => {(inputRefs.current[i] = r)}}
               value={digit}
               onChangeText={(text) => handleChange(text, i)}
               onKeyPress={(e) => handleKeyPress(e, i)}
@@ -171,7 +171,7 @@ export default function Otp() {
               maxLength={1}
               placeholder="•"
               placeholderTextColor="#666"
-              className={`w-12 h-12 bg-[#1f1f1f] text-white text-center text-xl rounded-xl border-2 ${borderColor}`}
+              className={`w-12 bg-[#1f1f1f] text-white text-center text-xl rounded-xl border-2 ${borderColor}`}
             />
           ))}
         </View>

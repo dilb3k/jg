@@ -1,4 +1,5 @@
 import { checkUsernameAvailability } from "@/services/auth.service";
+import { useI18n } from "@/shared/i18n/useI18n";
 import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +24,7 @@ const daysInMonth = (year: number, month: number) => new Date(year, month, 0).ge
 
 export default function Register() {
   const router = useRouter();
+  const { t } = useI18n();
   const { setProfileData } = useAuthStore();
 
   const [firstName, setFirstName] = useState("");
@@ -150,35 +152,35 @@ export default function Register() {
     };
 
     if (!trimmed.firstName || !trimmed.lastName) {
-      Alert.alert("Xatolik", "Ism va familiya majburiy");
+      Alert.alert(t("common.errorTitle"), t("register.errorRequiredName"));
       return;
     }
 
     if (!/^[a-zA-Z0-9_]{3,32}$/.test(trimmed.username)) {
-      Alert.alert("Xatolik", "Username 3-32 belgi, faqat harf, raqam va _ bo'lishi kerak");
+      Alert.alert(t("common.errorTitle"), t("register.errorUsernameInvalid"));
       return;
     }
 
     if (usernameStatus !== "available") {
       const isAvailable = await ensureUsernameAvailable();
       if (!isAvailable) {
-        Alert.alert("Xatolik", "Bu username band yoki tekshirishda xatolik bor");
+        Alert.alert(t("common.errorTitle"), t("register.errorUsernameTaken"));
         return;
       }
     }
 
     if (!isBirthDateValid) {
-      Alert.alert("Xatolik", "Tug'ilgan sanani tanlang");
+      Alert.alert(t("common.errorTitle"), t("register.errorBirthDate"));
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert("Xatolik", "Parol kamida 6 ta belgi bo'lishi kerak");
+      Alert.alert(t("common.errorTitle"), t("register.errorPasswordMin"));
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Xatolik", "Parollar mos emas");
+      Alert.alert(t("common.errorTitle"), t("register.errorPasswordMismatch"));
       return;
     }
 
@@ -201,18 +203,18 @@ export default function Register() {
       >
         <Pressable onPress={handleBack} className="mb-4 self-start p-1 flex-row items-center gap-2">
           <BackIcon color="#D1D5DB" size={22} />
-          <Text className="text-gray-300 text-base">Назад</Text>
+          <Text className="text-gray-300 text-base">{t("common.back")}</Text>
         </Pressable>
 
-        <Text className="text-gray-400 text-sm mb-2">Sign up</Text>
+        <Text className="text-gray-400 text-sm mb-2">{t("register.step")}</Text>
 
-        <Text className="text-white text-3xl font-semibold mb-1">Создание профиля</Text>
+        <Text className="text-white text-3xl font-semibold mb-1">{t("register.title")}</Text>
 
-        <Text className="text-gray-400 text-sm mb-8">Заполните данные для регистрации</Text>
+        <Text className="text-gray-400 text-sm mb-8">{t("register.subtitle")}</Text>
 
-        <Text className="text-gray-400 text-sm mb-2">Имя</Text>
+        <Text className="text-gray-400 text-sm mb-2">{t("register.firstName")}</Text>
         <TextInput
-          placeholder="Введите имя"
+          placeholder={t("register.firstNamePlaceholder")}
           placeholderTextColor="#666"
           value={firstName}
           onChangeText={setFirstName}
@@ -221,9 +223,9 @@ export default function Register() {
           style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
         />
 
-        <Text className="text-gray-400 text-sm mb-2 mt-4">Фамилия</Text>
+        <Text className="text-gray-400 text-sm mb-2 mt-4">{t("register.lastName")}</Text>
         <TextInput
-          placeholder="Введите фамилию"
+          placeholder={t("register.lastNamePlaceholder")}
           placeholderTextColor="#666"
           value={lastName}
           onChangeText={setLastName}
@@ -232,9 +234,9 @@ export default function Register() {
           style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
         />
 
-        <Text className="text-gray-400 text-sm mb-2 mt-4">Username</Text>
+        <Text className="text-gray-400 text-sm mb-2 mt-4">{t("register.username")}</Text>
         <TextInput
-          placeholder="Введите username"
+          placeholder={t("register.usernamePlaceholder")}
           placeholderTextColor="#666"
           value={username}
           onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())}
@@ -243,61 +245,59 @@ export default function Register() {
           style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
         />
         {usernameStatus === "checking" ? (
-          <Text className="text-xs text-gray-400 mt-2">Проверка username...</Text>
+          <Text className="text-xs text-gray-400 mt-2">{t("register.usernameChecking")}</Text>
         ) : null}
         {usernameStatus === "available" ? (
-          <Text className="text-xs text-green-400 mt-2">Username свободен</Text>
+          <Text className="text-xs text-green-400 mt-2">{t("register.usernameAvailable")}</Text>
         ) : null}
         {usernameStatus === "taken" ? (
-          <Text className="text-xs text-red-400 mt-2">Username уже занят</Text>
+          <Text className="text-xs text-red-400 mt-2">{t("register.usernameTaken")}</Text>
         ) : null}
         {usernameStatus === "invalid" ? (
-          <Text className="text-xs text-red-400 mt-2">Username 3-32 символа, только буквы/цифры/_</Text>
+          <Text className="text-xs text-red-400 mt-2">{t("register.usernameInvalid")}</Text>
         ) : null}
         {usernameStatus === "error" ? (
-          <Text className="text-xs text-red-400 mt-2">Не удалось проверить username</Text>
+          <Text className="text-xs text-red-400 mt-2">{t("register.usernameCheckFailed")}</Text>
         ) : null}
 
-        <Text className="text-gray-400 text-sm mb-2 mt-4">Дата рождения</Text>
+        <Text className="text-gray-400 text-sm mb-2 mt-4">{t("register.birthDate")}</Text>
         <Pressable
           onPress={openDatePicker}
           className="bg-[#1f1f1f] rounded-xl px-4 flex-row items-center"
           style={{ height: 56 }}
         >
           <Text className={`flex-1 text-base ${birthDate ? "text-white" : "text-[#666]"}`}>
-            {birthDate || "Выберите дату"}
+            {birthDate || t("register.birthDatePlaceholder")}
           </Text>
           <Ionicons name="calendar-outline" size={20} color="#666" />
         </Pressable>
 
-        <Text className="text-gray-400 text-sm mb-2 mt-4">Пароль</Text>
+        <Text className="text-gray-400 text-sm mb-2 mt-4">{t("register.password")}</Text>
         <TextInput
-          placeholder="Введите пароль (минимум 6 символов)"
+          placeholder={t("register.passwordPlaceholder")}
           placeholderTextColor="#666"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
           autoCapitalize="none"
           autoCorrect={false}
-          autoComplete="off"
-          textContentType="oneTimeCode"
-          importantForAutofill="no"
+          autoComplete="new-password"
+          textContentType="newPassword"
           className={inputClass}
           style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
         />
 
-        <Text className="text-gray-400 text-sm mb-2 mt-4">Подтвердите пароль</Text>
+        <Text className="text-gray-400 text-sm mb-2 mt-4">{t("register.confirmPassword")}</Text>
         <TextInput
-          placeholder="Введите пароль еще раз"
+          placeholder={t("register.confirmPasswordPlaceholder")}
           placeholderTextColor="#666"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry
           autoCapitalize="none"
           autoCorrect={false}
-          autoComplete="off"
-          textContentType="oneTimeCode"
-          importantForAutofill="no"
+          autoComplete="new-password"
+          textContentType="newPassword"
           className={inputClass}
           style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
         />
@@ -308,7 +308,7 @@ export default function Register() {
           className={`rounded-2xl py-4 mt-8 ${canSubmit ? "bg-white" : "bg-gray-700"}`}
         >
           <Text className={`text-center text-lg font-semibold ${canSubmit ? "text-black" : "text-gray-300"}`}>
-            Зарегистрироваться
+            {t("register.submit")}
           </Text>
         </Pressable>
       </ScrollView>
@@ -316,11 +316,11 @@ export default function Register() {
       <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
         <View className="flex-1 bg-black/70 items-center justify-center px-5">
           <View className="w-full bg-[#1c1c1e] rounded-2xl p-4">
-            <Text className="text-white text-lg font-semibold text-center mb-4">Выберите дату</Text>
+            <Text className="text-white text-lg font-semibold text-center mb-4">{t("register.datePickerTitle")}</Text>
 
             <View className="flex-row gap-3 mb-5">
               <View className="flex-1 bg-[#2b2b2e] rounded-xl p-3 items-center">
-                <Text className="text-white/70 text-xs mb-2">День</Text>
+                <Text className="text-white/70 text-xs mb-2">{t("register.day")}</Text>
                 <Pressable onPress={() => setPickerDay((v) => Math.max(1, v - 1))}>
                   <Ionicons name="chevron-up" size={22} color="#fff" />
                 </Pressable>
@@ -331,7 +331,7 @@ export default function Register() {
               </View>
 
               <View className="flex-1 bg-[#2b2b2e] rounded-xl p-3 items-center">
-                <Text className="text-white/70 text-xs mb-2">Месяц</Text>
+                <Text className="text-white/70 text-xs mb-2">{t("register.month")}</Text>
                 <Pressable onPress={() => setPickerMonth((v) => Math.max(1, v - 1))}>
                   <Ionicons name="chevron-up" size={22} color="#fff" />
                 </Pressable>
@@ -342,7 +342,7 @@ export default function Register() {
               </View>
 
               <View className="flex-1 bg-[#2b2b2e] rounded-xl p-3 items-center">
-                <Text className="text-white/70 text-xs mb-2">Год</Text>
+                <Text className="text-white/70 text-xs mb-2">{t("register.year")}</Text>
                 <Pressable onPress={() => setPickerYear((v) => Math.max(1900, v - 1))}>
                   <Ionicons name="chevron-up" size={22} color="#fff" />
                 </Pressable>
@@ -362,10 +362,10 @@ export default function Register() {
                 onPress={() => setShowDatePicker(false)}
                 className="flex-1 bg-[#3b3b40] py-3 rounded-xl"
               >
-                <Text className="text-white text-center font-semibold">Отмена</Text>
+                <Text className="text-white text-center font-semibold">{t("common.cancel")}</Text>
               </Pressable>
               <Pressable onPress={applyDate} className="flex-1 bg-white py-3 rounded-xl">
-                <Text className="text-black text-center font-semibold">Готово</Text>
+                <Text className="text-black text-center font-semibold">{t("register.done")}</Text>
               </Pressable>
             </View>
           </View>

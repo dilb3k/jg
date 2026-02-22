@@ -1,5 +1,6 @@
 import { registerUser } from "@/services/auth.service";
 import { sendOtp } from "@/services/otp.service";
+import { useI18n } from "@/shared/i18n/useI18n";
 import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
 import { getDeviceId } from "@/utils/device-id";
@@ -23,6 +24,7 @@ const formatBirthDate = (d: string) => {
 
 export default function Otp() {
   const router = useRouter();
+  const { t } = useI18n();
   const { phone, profileData, setAuth, clearRegistrationData } = useAuthStore();
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -41,10 +43,10 @@ export default function Otp() {
 
   useEffect(() => {
     if (!phone || !profileData) {
-      Alert.alert("Xatolik", "Ro'yxatdan o'tish ma'lumotlari topilmadi");
+      Alert.alert(t("common.errorTitle"), t("otp.errorMissingData"));
       router.replace("/(auth)/register");
     }
-  }, [phone, profileData, router]);
+  }, [phone, profileData, router, t]);
 
   const handleChange = (text: string, index: number) => {
     if (!text) {
@@ -75,7 +77,7 @@ export default function Otp() {
     const newOtp = [...otp];
     newOtp[index] = text;
     setOtp(newOtp);
-    setError(false); // сбрасываем ошибку при вводе
+    setError(false);
 
     if (text && index < 5) {
       inputRefs.current[index + 1]?.focus();
@@ -91,7 +93,7 @@ export default function Otp() {
   const submit = async () => {
     if (!isOtpComplete || !phone || !profileData) {
       if (!phone || !profileData) {
-        Alert.alert("Xatolik", "Ro'yxatdan o'tish ma'lumotlari topilmadi");
+        Alert.alert(t("common.errorTitle"), t("otp.errorMissingData"));
         router.replace("/(auth)/register");
       }
       return;
@@ -114,7 +116,7 @@ export default function Otp() {
         device_type: "mobile",
         device_name: Device.modelName ?? "unknown",
         device_id: deviceId,
-        notification_id: "", // TODO: заменить на реальный Expo Push Token
+        notification_id: "",
       };
 
       const res = await registerUser(payload);
@@ -129,18 +131,18 @@ export default function Otp() {
       router.replace("/(tabs)/home");
     } catch (e: any) {
       setError(true);
-      const errorMsg = e.response?.data?.error?.message || "OTP noto'g'ri";
+      const errorMsg = e.response?.data?.error?.message || t("otp.errorDefault");
       const details = e.response?.data?.error?.details;
 
       if (details && Array.isArray(details)) {
         Alert.alert(
-          "Xatolik",
+          t("common.errorTitle"),
           errorMsg +
             "\n\n" +
             details.map((d: any) => `• ${d.field}: ${d.message}`).join("\n"),
         );
       } else {
-        Alert.alert("Xatolik", errorMsg);
+        Alert.alert(t("common.errorTitle"), errorMsg);
       }
     } finally {
       setLoading(false);
@@ -156,9 +158,9 @@ export default function Otp() {
       setTimer(120);
       setOtp(["", "", "", "", "", ""]);
       setError(false);
-      Alert.alert("Muvaffaqiyatli", "Kodni qayta yuborildi");
+      Alert.alert(t("common.successTitle"), t("otp.resendSuccess"));
     } catch {
-      Alert.alert("Xatolik", "Kodni yuborib bo‘lmadi");
+      Alert.alert(t("common.errorTitle"), t("otp.resendError"));
     } finally {
       setLoading(false);
     }
@@ -183,13 +185,11 @@ export default function Otp() {
           <BackIcon color="#D1D5DB" size={22} />
         </Pressable>
 
-        <Text className="text-gray-400 text-sm mb-6">Sign up / OTP</Text>
+        <Text className="text-gray-400 text-sm mb-6">{t("otp.step")}</Text>
 
-        <Text className="text-white text-3xl font-semibold mb-2">
-          Подтвердите номер телефона
-        </Text>
+        <Text className="text-white text-3xl font-semibold mb-2">{t("otp.title")}</Text>
 
-        <Text className="text-gray-400 text-sm mb-6">Введите код из SMS</Text>
+        <Text className="text-gray-400 text-sm mb-6">{t("otp.subtitle")}</Text>
 
         <View className="flex-row justify-between mb-4">
           {otp.map((digit, i) => (
@@ -200,6 +200,8 @@ export default function Otp() {
               onChangeText={(text) => handleChange(text, i)}
               onKeyPress={(e) => handleKeyPress(e, i)}
               keyboardType="number-pad"
+              textContentType={i === 0 ? "oneTimeCode" : "none"}
+              autoComplete={i === 0 ? "one-time-code" : "off"}
               maxLength={1}
               placeholder="•"
               placeholderTextColor="#666"
@@ -214,8 +216,8 @@ export default function Otp() {
             className={`text-xs text-center ${timer > 0 || loading ? "text-gray-500" : "text-blue-400"}`}
           >
             {timer > 0
-              ? `Повторная отправка через ${formatTime(timer)}`
-              : "Отправить код повторно"}
+              ? t("otp.resendIn", { time: formatTime(timer) })
+              : t("otp.resend")}
           </Text>
         </Pressable>
       </View>
@@ -235,7 +237,7 @@ export default function Otp() {
               isOtpComplete ? "text-black" : "text-gray-400"
             }`}
           >
-            Подтвердить
+            {t("otp.submit")}
           </Text>
         )}
       </Pressable>

@@ -6,6 +6,7 @@ import { useI18n } from "@/shared/i18n/useI18n";
 import { CategorySection } from "./components/CategorySection";
 import { CategoryTabs } from "./components/CategoryTabs";
 import { HeroCarousel } from "./components/HeroCarousel";
+import { HeroHeader } from "./components/HeroHeader";
 import { WatchHistorySection } from "./components/WatchHistorySection";
 
 /* =======================
@@ -150,6 +151,8 @@ export default function Home() {
           ))}
         </View>
       </ScrollView>
+
+      <HeroHeader />
     </View>
   );
 }

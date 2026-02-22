@@ -8,7 +8,17 @@ import { Feather } from "@expo/vector-icons";
 import * as Device from "expo-device";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Login() {
   const router = useRouter();
@@ -70,123 +80,139 @@ export default function Login() {
   };
 
   return (
-    <View className="flex-1 bg-black px-6 pt-16">
-      <View className="flex-row items-center justify-between mb-4">
-        <Pressable onPress={() => router.replace("/(splash)")} className="p-1">
-          <BackIcon color="#D1D5DB" size={22} />
-        </Pressable>
-        <Pressable onPress={() => router.push("/(auth)/register")}>
-          <Text className="text-blue-400 text-sm">Регистрация</Text>
-        </Pressable>
-      </View>
-
-      <Text className="text-white text-2xl font-semibold mb-2">
-        {t("login.title")}
-      </Text>
-      <Text className="text-gray-400 text-sm mb-8">
-        {t("login.subtitle")}
-      </Text>
-
-      <View className="bg-[#2c2c2e] rounded-full p-1 flex-row mb-6">
-        <Pressable
-          onPress={() => setLoginType("phone")}
-          className={`flex-1 py-3 rounded-full ${loginType === "phone" ? "bg-black" : ""}`}
+    <SafeAreaView className="flex-1 bg-black" edges={["top", "bottom"]}>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ flexGrow: 1 }}
+          className="px-6 pt-6"
         >
-          <Text
-            className={`text-center text-sm font-medium ${loginType === "phone" ? "text-white" : "text-gray-400"}`}
-          >
-            {t("login.phoneTab")}
+          <View className="flex-row items-center justify-between mb-4">
+            <Pressable onPress={() => router.replace("/(splash)")} className="p-1">
+              <BackIcon color="#D1D5DB" size={22} />
+            </Pressable>
+            <Pressable onPress={() => router.push("/(auth)/register")}>
+              <Text className="text-blue-400 text-sm">{t("login.register")}</Text>
+            </Pressable>
+          </View>
+
+          <Text className="text-white text-2xl font-semibold mb-2">
+            {t("login.title")}
           </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => setLoginType("username")}
-          className={`flex-1 py-3 rounded-full ${loginType === "username" ? "bg-black" : ""}`}
-        >
-          <Text
-            className={`text-center text-sm font-medium ${loginType === "username" ? "text-white" : "text-gray-400"}`}
-          >
-            {t("login.usernameTab")}
+          <Text className="text-gray-400 text-sm mb-8">
+            {t("login.subtitle")}
           </Text>
-        </Pressable>
-      </View>
 
-      <View className="mb-4">
-        <Text className="text-white text-sm mb-2">
-          {loginType === "phone" ? t("login.phoneLabel") : t("login.usernameLabel")}
-        </Text>
-        {loginType === "phone" ? (
-          <TextInput
-            value={displayPhone}
-            onChangeText={handlePhoneChange}
-            keyboardType="phone-pad"
-            placeholder="+"
-            placeholderTextColor="#666"
-            className="bg-[#1c1c1e] text-white rounded-xl px-4"
-            style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
-          />
-        ) : (
-          <TextInput
-            value={username}
-            onChangeText={setUsername}
-            placeholder="behruz_05"
-            placeholderTextColor="#666"
-            autoCapitalize="none"
-            className="bg-[#1c1c1e] text-white rounded-xl px-4"
-            style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
-          />
-        )}
-      </View>
+          <View className="bg-[#2c2c2e] rounded-full p-1 flex-row mb-6">
+            <Pressable
+              onPress={() => setLoginType("phone")}
+              className={`flex-1 py-3 rounded-full ${loginType === "phone" ? "bg-black" : ""}`}
+            >
+              <Text
+                className={`text-center text-sm font-medium ${loginType === "phone" ? "text-white" : "text-gray-400"}`}
+              >
+                {t("login.phoneTab")}
+              </Text>
+            </Pressable>
 
-      <View className="mb-6">
-        <View className="flex-row justify-between items-center mb-2">
-          <Text className="text-white text-sm">{t("login.password")}</Text>
-          <Pressable onPress={() => router.push("/(auth)/forgot-password")}>
-            <Text className="text-blue-500 text-sm">{t("login.forgotPassword")}</Text>
-          </Pressable>
-        </View>
+            <Pressable
+              onPress={() => setLoginType("username")}
+              className={`flex-1 py-3 rounded-full ${loginType === "username" ? "bg-black" : ""}`}
+            >
+              <Text
+                className={`text-center text-sm font-medium ${loginType === "username" ? "text-white" : "text-gray-400"}`}
+              >
+                {t("login.usernameTab")}
+              </Text>
+            </Pressable>
+          </View>
 
-        <View className="relative">
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder={t("login.passwordPlaceholder")}
-            placeholderTextColor="#666"
-            secureTextEntry={!showPassword}
-            className="bg-[#1c1c1e] text-white rounded-xl px-4 pr-12"
-            style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
-          />
+          <View className="mb-4">
+            <Text className="text-white text-sm mb-2">
+              {loginType === "phone" ? t("login.phoneLabel") : t("login.usernameLabel")}
+            </Text>
+            {loginType === "phone" ? (
+              <TextInput
+                value={displayPhone}
+                onChangeText={handlePhoneChange}
+                keyboardType="phone-pad"
+                autoComplete="tel"
+                placeholder="+"
+                placeholderTextColor="#666"
+                className="bg-[#1c1c1e] text-white rounded-xl px-4"
+                style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+              />
+            ) : (
+              <TextInput
+                value={username}
+                onChangeText={setUsername}
+                placeholder={t("login.usernamePlaceholder")}
+                placeholderTextColor="#666"
+                autoCapitalize="none"
+                autoComplete="username"
+                className="bg-[#1c1c1e] text-white rounded-xl px-4"
+                style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+              />
+            )}
+          </View>
+
+          <View className="mb-6">
+            <View className="flex-row justify-between items-center mb-2">
+              <Text className="text-white text-sm">{t("login.password")}</Text>
+              <Pressable onPress={() => router.push("/(auth)/forgot-password")}>
+                <Text className="text-blue-500 text-sm">{t("login.forgotPassword")}</Text>
+              </Pressable>
+            </View>
+
+            <View className="relative">
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder={t("login.passwordPlaceholder")}
+                placeholderTextColor="#666"
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoComplete="password"
+                textContentType="password"
+                className="bg-[#1c1c1e] text-white rounded-xl px-4 pr-12"
+                style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+              />
+
+              <Pressable
+                onPress={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2"
+              >
+                <Feather
+                  name={showPassword ? "eye-off" : "eye"}
+                  size={20}
+                  color="#888"
+                />
+              </Pressable>
+            </View>
+          </View>
+
+          <View className="flex-1 min-h-8" />
 
           <Pressable
-            onPress={() => setShowPassword(!showPassword)}
-            className="absolute right-4 top-1/2 -translate-y-1/2"
+            onPress={submit}
+            disabled={loading || !canSubmit}
+            className={`py-4 rounded-2xl mb-4 ${
+              loading || !canSubmit ? "bg-gray-700" : "bg-white"
+            }`}
           >
-            <Feather
-              name={showPassword ? "eye-off" : "eye"}
-              size={20}
-              color="#888"
-            />
+            <Text
+              className={`text-center font-semibold text-base ${
+                loading || !canSubmit ? "text-gray-300" : "text-black"
+              }`}
+            >
+              {loading ? t("common.loading") : t("login.submit")}
+            </Text>
           </Pressable>
-        </View>
-      </View>
-
-      <View className="flex-1" />
-
-      <Pressable
-        onPress={submit}
-        disabled={loading || !canSubmit}
-        className={`py-4 rounded-2xl mb-8 ${
-          loading || !canSubmit ? "bg-gray-700" : "bg-white"
-        }`}
-      >
-        <Text
-          className={`text-center font-semibold text-base ${
-            loading || !canSubmit ? "text-gray-300" : "text-black"
-          }`}
-        >
-          {loading ? t("common.loading") : t("login.submit")}
-        </Text>
-      </Pressable>
-    </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

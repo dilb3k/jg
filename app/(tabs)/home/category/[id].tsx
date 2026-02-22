@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { useHomeStore } from "@/store/home.store";
+import { useI18n } from "@/shared/i18n/useI18n";
 import { Movie } from "@/shared/types/movie";
 import { NotMovieIcon } from "@/shared/ui/icons/NotMovieIcon";
 import { HeroHeader } from "../components/HeroHeader";
@@ -15,6 +16,7 @@ import { MovieCard } from "../components/MovieCard";
 
 export default function CategoryPage() {
   const router = useRouter();
+  const { t } = useI18n();
 
   const params = useLocalSearchParams<{
     id: string;
@@ -75,13 +77,18 @@ export default function CategoryPage() {
         renderItem={({ item }) => (
           <MovieCard
             movie={item}
-            onPress={() => router.push(`/movie/${item.id}`)}
+            onPress={() =>
+              router.push({
+                pathname: "/movie/[id]",
+                params: { id: item.id },
+              })
+            }
           />
         )}
         ListEmptyComponent={
           <View className="px-4 py-6 mt-10 flex flex-col items-center justify-center gap-4">
             <NotMovieIcon color="#888" size={40} />
-            <Text className="text-gray-400">Filmlar topilmadi</Text>
+            <Text className="text-gray-400">{t("movie.notFound")}</Text>
           </View>
         }
       />

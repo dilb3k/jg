@@ -1,7 +1,6 @@
 import { useRouter } from 'expo-router'
 import { Dimensions, Image, TouchableOpacity, View } from 'react-native'
 import { CarouselIndicators } from './CarouselIndicators'
-import { HeroHeader } from './HeroHeader'
 import { HeroInfo } from './HeroInfo'
 
 const { height } = Dimensions.get('window')
@@ -40,8 +39,6 @@ export function HeroCarousel({
       />
 
       <View className="absolute inset-0 bg-black/60" />
-
-      <HeroHeader />
 
       <HeroInfo
         movie={carousel.movie}

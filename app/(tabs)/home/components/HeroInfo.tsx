@@ -1,4 +1,5 @@
 import { Movie } from '@/shared/types/movie'
+import { useI18n } from '@/shared/i18n/useI18n'
 import { Play, Star } from 'lucide-react-native'
 import { Text, TouchableOpacity, View } from 'react-native'
 
@@ -8,6 +9,8 @@ interface Props {
 }
 
 export function HeroInfo({ movie, onWatchPress }: Props) {
+  const { t } = useI18n()
+
   return (
     <View className="absolute bottom-0 left-0 right-0 p-4 pb-6">
       <Text className="text-white text-4xl font-bold mb-2" numberOfLines={2}>
@@ -33,7 +36,7 @@ export function HeroInfo({ movie, onWatchPress }: Props) {
       >
         <Play color="white" fill="white" size={20} />
         <Text className="text-white text-lg font-semibold">
-          Смотреть
+          {t("reels.watch")}
         </Text>
       </TouchableOpacity>
     </View>

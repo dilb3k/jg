@@ -1,12 +1,24 @@
-import { verifyForgotPasswordCode } from "@/services/otp.service";
+import { sendForgotPasswordOtp, verifyForgotPasswordCode } from "@/services/otp.service";
+import { useI18n } from "@/shared/i18n/useI18n";
 import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function VerifyResetCode() {
   const router = useRouter();
+  const { t } = useI18n();
   const { resetPhone, setResetData } = useAuthStore();
 
   const [code, setCode] = useState(["", "", "", "", "", ""]);
@@ -68,6 +80,22 @@ export default function VerifyResetCode() {
     }
   };
 
+  const resend = async () => {
+    if (!resetPhone || isTimerActive || loading) return;
+    try {
+      setLoading(true);
+      await sendForgotPasswordOtp(resetPhone);
+      setTimer(48);
+      setCode(["", "", "", "", "", ""]);
+      setError(false);
+      Alert.alert(t("common.successTitle"), t("otp.resendSuccess"));
+    } catch {
+      Alert.alert(t("common.errorTitle"), t("forgotPassword.errorSendCode"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatTimer = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -77,78 +105,100 @@ export default function VerifyResetCode() {
   const borderClass = error ? "border-red-500" : "border-transparent";
 
   return (
-    <View className="flex-1 bg-black px-6 pt-20 justify-between">
-      <View>
-        <Pressable onPress={() => router.back()} className="mb-4 self-start p-1">
-          <BackIcon color="#D1D5DB" size={22} />
-        </Pressable>
-
-        <Text className="text-white text-3xl font-semibold mb-3">
-          Введите код подтверждения
-        </Text>
-
-        <Text className="text-[#86868b] text-base mb-10">
-          Введите код из SMS, отправленный на номер {resetPhone}
-        </Text>
-
-        <View className="flex-row justify-between mb-6">
-          {code.map((digit, index) => (
-            <TextInput
-              key={index}
-              ref={(ref) => {(inputRefs.current[index] = ref)}}
-              value={digit}
-              onChangeText={(text) => handleChange(text, index)}
-              onKeyPress={(e) => handleKeyPress(e, index)}
-              keyboardType="number-pad"
-              maxLength={1}
-              className={`bg-[#1c1c1e] text-white text-2xl text-center rounded-xl w-12 h-14 border-2 ${borderClass}`}
-              style={{ paddingVertical: 0, textAlignVertical: "center" }}
-            />
-          ))}
-        </View>
-
-        <Text className="text-[#86868b] text-sm text-center mb-8">
-          Отправить код повторно можно через {formatTimer(timer)}
-        </Text>
-
-        {error && (
-          <Text className="text-red-500 text-center mb-4">
-            Код неверный или истёк
-          </Text>
-        )}
-      </View>
-
-      <View className="mb-10">
-        <Pressable
-          onPress={submit}
-          disabled={!isComplete || loading || !isTimerActive}
-          className={`py-4 rounded-[14px] active:opacity-90 ${
-            isComplete && isTimerActive && !loading
-              ? "bg-white"
-              : "bg-[#2c2c2e]"
-          }`}
+    <SafeAreaView className="flex-1 bg-black" edges={["top", "bottom"]}>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ flexGrow: 1 }}
+          className="px-6 pt-6"
         >
-          {loading ? (
-            <Text className="text-center text-black font-semibold text-base">
-              Проверяем...
+          <View>
+            <Pressable onPress={() => router.back()} className="mb-4 self-start p-1">
+              <BackIcon color="#D1D5DB" size={22} />
+            </Pressable>
+
+            <Text className="text-white text-3xl font-semibold mb-3">
+              {t("verifyReset.title")}
             </Text>
-          ) : (
-            <Text
-              className={`text-center font-semibold text-base ${
-                isComplete && isTimerActive ? "text-black" : "text-white"
+
+            <Text className="text-[#86868b] text-base mb-10">
+              {t("verifyReset.subtitle", { phone: resetPhone ?? "" })}
+            </Text>
+
+            <View className="flex-row justify-between mb-6">
+              {code.map((digit, index) => (
+                <TextInput
+                  key={index}
+                  ref={(ref) => {(inputRefs.current[index] = ref)}}
+                  value={digit}
+                  onChangeText={(text) => handleChange(text, index)}
+                  onKeyPress={(e) => handleKeyPress(e, index)}
+                  keyboardType="number-pad"
+                  textContentType={index === 0 ? "oneTimeCode" : "none"}
+                  autoComplete={index === 0 ? "one-time-code" : "off"}
+                  maxLength={1}
+                  className={`bg-[#1c1c1e] text-white text-2xl text-center rounded-xl w-12 h-14 border-2 ${borderClass}`}
+                  style={{ paddingVertical: 0, textAlignVertical: "center" }}
+                />
+              ))}
+            </View>
+
+            <Text className="text-[#86868b] text-sm text-center mb-8">
+              {t("verifyReset.resendIn", { time: formatTimer(timer) })}
+            </Text>
+
+            {error && (
+              <Text className="text-red-500 text-center mb-4">
+                {t("verifyReset.errorCodeInvalid")}
+              </Text>
+            )}
+          </View>
+
+          <View className="flex-1 min-h-8" />
+
+          <View className="mb-4">
+            <Pressable
+              onPress={submit}
+              disabled={!isComplete || loading || !isTimerActive}
+              className={`py-4 rounded-[14px] active:opacity-90 ${
+                isComplete && isTimerActive && !loading
+                  ? "bg-white"
+                  : "bg-[#2c2c2e]"
               }`}
             >
-              Подтвердить
-            </Text>
-          )}
-        </Pressable>
+              {loading ? (
+                <Text className="text-center text-black font-semibold text-base">
+                  {t("verifyReset.loading")}
+                </Text>
+              ) : (
+                <Text
+                  className={`text-center font-semibold text-base ${
+                    isComplete && isTimerActive ? "text-black" : "text-white"
+                  }`}
+                >
+                  {t("verifyReset.submit")}
+                </Text>
+              )}
+            </Pressable>
 
-        {!isTimerActive && (
-          <Text className="text-red-500 text-center mt-4 text-base font-medium">
-            Время истекло. Пожалуйста, запросите новый код.
-          </Text>
-        )}
-      </View>
-    </View>
+            {!isTimerActive && (
+              <View className="mt-4">
+                <Text className="text-red-500 text-center text-base font-medium">
+                  {t("verifyReset.expired")}
+                </Text>
+                <Pressable onPress={resend} disabled={loading} className="mt-3">
+                  <Text className="text-blue-400 text-center text-base font-medium">
+                    {t("verifyReset.resend")}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 
+import { useI18n } from "@/shared/i18n/useI18n";
 import { Movie } from "@/shared/types/movie";
 import { NotMovieIcon } from "@/shared/ui/icons/NotMovieIcon";
 import { MovieCard } from "./MovieCard";
@@ -18,6 +19,7 @@ interface Props {
 
 export function CategorySection({ category, onLayout }: Props) {
   const router = useRouter();
+  const { t } = useI18n();
 
   return (
     <View className="mb-6" onLayout={(e) => onLayout(e.nativeEvent.layout.y)}>
@@ -39,7 +41,7 @@ export function CategorySection({ category, onLayout }: Props) {
       {category.movies.length === 0 ? (
         <View className="px-4 py-6 flex flex-col items-center justify-center gap-4">
           <NotMovieIcon color="#888" size={40} />
-          <Text className="text-gray-400 ">Bu Janrda Film Yoq</Text>
+          <Text className="text-gray-400 ">{t("home.emptyCategory")}</Text>
         </View>
       ) : (
         <ScrollView
@@ -52,7 +54,12 @@ export function CategorySection({ category, onLayout }: Props) {
             <MovieCard
               key={movie.id}
               movie={movie}
-              onPress={() => router.push(`/movie/${movie.id}`)}
+              onPress={() =>
+                router.push({
+                  pathname: "/movie/[id]",
+                  params: { id: movie.id },
+                })
+              }
             />
           ))}
         </ScrollView>

@@ -1,5 +1,6 @@
 import { checkPhoneAvailability } from "@/services/auth.service";
 import { sendOtp } from "@/services/otp.service";
+import { useI18n } from "@/shared/i18n/useI18n";
 import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
 import { formatPhone } from "@/utils/format-phone";
@@ -25,6 +26,7 @@ const getCleanPhone = (display: string) => {
 
 export default function Phone() {
   const router = useRouter();
+  const { t } = useI18n();
   const { setPhone, profileData } = useAuthStore();
 
   const [displayPhone, setDisplayPhone] = useState("+998");
@@ -88,14 +90,14 @@ export default function Phone() {
 
   const submit = async () => {
     if (!profileData) {
-      Alert.alert("Xatolik", "Profil to'ldirilmagan");
+      Alert.alert(t("common.errorTitle"), t("phone.errorMissingProfile"));
       return;
     }
 
     if (!isValid) {
       Alert.alert(
-        "Xatolik",
-        "Telefon +998 XX XXX XX XX formatda bo'lishi kerak",
+        t("common.errorTitle"),
+        t("phone.errorInvalidFormat"),
       );
       return;
     }
@@ -105,12 +107,12 @@ export default function Phone() {
         const exists = await checkPhoneAvailability(cleanPhone!);
         setPhoneStatus(exists ? "taken" : "available");
         if (exists) {
-          Alert.alert("Xatolik", "Bu telefon raqam oldin ro'yxatdan o'tgan");
+          Alert.alert(t("common.errorTitle"), t("phone.errorTaken"));
           return;
         }
       } catch {
         setPhoneStatus("error");
-        Alert.alert("Xatolik", "Telefonni tekshirib bo'lmadi");
+        Alert.alert(t("common.errorTitle"), t("phone.errorCheckFailed"));
         return;
       }
     }
@@ -121,7 +123,7 @@ export default function Phone() {
       setPhone(cleanPhone!);
       router.push("/(auth)/otp");
     } catch {
-      Alert.alert("Xatolik", "OTP yuborilmadi");
+      Alert.alert(t("common.errorTitle"), t("phone.errorSendOtp"));
     } finally {
       setLoading(false);
     }
@@ -136,22 +138,17 @@ export default function Phone() {
           <BackIcon color="#D1D5DB" size={22} />
         </Pressable>
 
-        <Text className="text-gray-400 text-sm mb-6">
-          Sign up / Phone number
-        </Text>
+        <Text className="text-gray-400 text-sm mb-6">{t("phone.step")}</Text>
 
-        <Text className="text-white text-3xl font-semibold mb-2">
-          Введите номер телефона
-        </Text>
+        <Text className="text-white text-3xl font-semibold mb-2">{t("phone.title")}</Text>
 
-        <Text className="text-gray-400 text-sm mb-6">
-          Введите свой номер, чтобы продолжить регистрацию
-        </Text>
+        <Text className="text-gray-400 text-sm mb-6">{t("phone.subtitle")}</Text>
 
         <TextInput
-          placeholder="+998 00 000 00 00"
+          placeholder={t("phone.placeholder")}
           placeholderTextColor="#666"
           keyboardType="phone-pad"
+          autoComplete="tel"
           value={displayPhone}
           onChangeText={handleChange}
           maxLength={17}
@@ -159,25 +156,25 @@ export default function Phone() {
           style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
         />
         {phoneStatus === "checking" ? (
-          <Text className="text-xs text-gray-400 mt-2">Проверка номера...</Text>
+          <Text className="text-xs text-gray-400 mt-2">{t("phone.checking")}</Text>
         ) : null}
         {phoneStatus === "available" ? (
-          <Text className="text-xs text-green-400 mt-2">Номер свободен</Text>
+          <Text className="text-xs text-green-400 mt-2">{t("phone.available")}</Text>
         ) : null}
         {phoneStatus === "taken" ? (
-          <Text className="text-xs text-red-400 mt-2">Номер уже зарегистрирован</Text>
+          <Text className="text-xs text-red-400 mt-2">{t("phone.taken")}</Text>
         ) : null}
         {phoneStatus === "invalid" ? (
-          <Text className="text-xs text-red-400 mt-2">Неверный формат номера</Text>
+          <Text className="text-xs text-red-400 mt-2">{t("phone.invalid")}</Text>
         ) : null}
         {phoneStatus === "error" ? (
-          <Text className="text-xs text-red-400 mt-2">Не удалось проверить номер</Text>
+          <Text className="text-xs text-red-400 mt-2">{t("phone.checkFailed")}</Text>
         ) : null}
 
         <Text className="text-xs text-gray-400 mt-4">
-          Я принимаю{" "}
-          <Text className="text-blue-400">Пользовательское соглашение</Text> и{" "}
-          <Text className="text-blue-400">Политику конфиденциальности</Text>
+          {t("phone.agreementPrefix")}{" "}
+          <Text className="text-blue-400">{t("phone.terms")}</Text> {t("phone.and")}{" "}
+          <Text className="text-blue-400">{t("phone.privacy")}</Text>
         </Text>
       </View>
 
@@ -198,7 +195,7 @@ export default function Phone() {
               isValid && phoneStatus === "available" ? "text-black" : "text-gray-400"
             }`}
           >
-            Отправить код
+            {t("phone.submit")}
           </Text>
         )}
       </Pressable>

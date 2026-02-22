@@ -35,7 +35,7 @@ export default function RootLayout() {
     const inProtectedArea = inTabs || inMovie;
 
     if (accessToken) {
-      if (!inTabs) {
+      if (!inProtectedArea) {
         router.replace("/(tabs)/home");
       }
       return;

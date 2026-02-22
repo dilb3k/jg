@@ -1,13 +1,24 @@
 import { resetPasswordRequest } from "@/services/otp.service";
+import { useI18n } from "@/shared/i18n/useI18n";
 import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ResetPassword() {
   const router = useRouter();
+  const { t } = useI18n();
   const { resetToken, clearResetData } = useAuthStore();
 
   const [password, setPassword] = useState("");
@@ -18,11 +29,11 @@ export default function ResetPassword() {
 
   const validate = () => {
     if (password.length < 6) {
-      setError("Пароль минимум 6 белгидан иборат бўлиши керак");
+      setError(t("resetPassword.errorMin"));
       return false;
     }
     if (password !== confirmPassword) {
-      setError("Пароллар мос келмаяпти");
+      setError(t("resetPassword.errorMismatch"));
       return false;
     }
     setError("");
@@ -40,94 +51,107 @@ export default function ResetPassword() {
       clearResetData();
       router.replace("/(auth)/login");
     } catch {
-      setError("Хатолик юз берди. Қайта уриниб кўринг");
+      setError(t("resetPassword.errorDefault"));
     }
   };
 
   return (
-    <View className="flex-1 bg-black px-6 pt-20">
-      <Pressable onPress={() => router.back()} className="mb-4 self-start p-1">
-        <BackIcon color="#D1D5DB" size={22} />
-      </Pressable>
-
-      <Text className="text-white text-3xl font-semibold mb-3">
-        Создание нового пароля
-      </Text>
-
-      <Text className="text-[#86868b] text-base mb-10">
-        Введите и подтвердите новый пароль для входа в аккаунт
-      </Text>
-
-      <Text className="text-white text-sm mb-2 ml-1">Новый пароль</Text>
-
-      <View className="relative mb-6">
-        <TextInput
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Введите пароль"
-          placeholderTextColor="#86868b"
-          secureTextEntry={!showPassword}
-          autoCorrect={false}
-          autoComplete="off"
-          textContentType="oneTimeCode"
-          importantForAutofill="no"
-          className="bg-[#1c1c1e] text-white rounded-xl px-4 pr-12 text-base"
-          style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
-        />
-        <Pressable
-          onPress={() => setShowPassword(!showPassword)}
-          className="absolute right-4 top-4"
-        >
-          <Ionicons
-            name={showPassword ? "eye-off" : "eye"}
-            size={20}
-            color="#86868b"
-          />
-        </Pressable>
-      </View>
-
-      <Text className="text-white text-sm mb-2 ml-1">
-        Подтвердите новый пароль
-      </Text>
-
-      <View className="relative mb-6">
-        <TextInput
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          placeholder="Введите пароль еще раз"
-          placeholderTextColor="#86868b"
-          secureTextEntry={!showConfirmPassword}
-          autoCorrect={false}
-          autoComplete="off"
-          textContentType="oneTimeCode"
-          importantForAutofill="no"
-          className="bg-[#1c1c1e] text-white rounded-xl px-4 pr-12 text-base"
-          style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
-        />
-        <Pressable
-          onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-          className="absolute right-4 top-4"
-        >
-          <Ionicons
-            name={showConfirmPassword ? "eye-off" : "eye"}
-            size={20}
-            color="#86868b"
-          />
-        </Pressable>
-      </View>
-
-      {error ? (
-        <Text className="text-red-500 text-sm mb-4 text-center">{error}</Text>
-      ) : null}
-
-      <Pressable
-        onPress={handleSubmit}
-        className="bg-white py-4 rounded-[14px] active:opacity-80"
+    <SafeAreaView className="flex-1 bg-black" edges={["top", "bottom"]}>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Text className="text-center text-black font-semibold text-base">
-          Сохранить новый пароль
-        </Text>
-      </Pressable>
-    </View>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ flexGrow: 1 }}
+          className="px-6 pt-6"
+        >
+          <Pressable onPress={() => router.back()} className="mb-4 self-start p-1">
+            <BackIcon color="#D1D5DB" size={22} />
+          </Pressable>
+
+          <Text className="text-white text-3xl font-semibold mb-3">
+            {t("resetPassword.title")}
+          </Text>
+
+          <Text className="text-[#86868b] text-base mb-10">
+            {t("resetPassword.subtitle")}
+          </Text>
+
+          <Text className="text-white text-sm mb-2 ml-1">{t("resetPassword.newPassword")}</Text>
+
+          <View className="relative mb-6">
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder={t("resetPassword.newPasswordPlaceholder")}
+              placeholderTextColor="#86868b"
+              secureTextEntry={!showPassword}
+              autoCorrect={false}
+              autoCapitalize="none"
+              autoComplete="new-password"
+              textContentType="newPassword"
+              className="bg-[#1c1c1e] text-white rounded-xl px-4 pr-12 text-base"
+              style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+            />
+            <Pressable
+              onPress={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-4"
+            >
+              <Ionicons
+                name={showPassword ? "eye-off" : "eye"}
+                size={20}
+                color="#86868b"
+              />
+            </Pressable>
+          </View>
+
+          <Text className="text-white text-sm mb-2 ml-1">
+            {t("resetPassword.confirmPassword")}
+          </Text>
+
+          <View className="relative mb-6">
+            <TextInput
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder={t("resetPassword.confirmPasswordPlaceholder")}
+              placeholderTextColor="#86868b"
+              secureTextEntry={!showConfirmPassword}
+              autoCorrect={false}
+              autoCapitalize="none"
+              autoComplete="new-password"
+              textContentType="newPassword"
+              className="bg-[#1c1c1e] text-white rounded-xl px-4 pr-12 text-base"
+              style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+            />
+            <Pressable
+              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-4 top-4"
+            >
+              <Ionicons
+                name={showConfirmPassword ? "eye-off" : "eye"}
+                size={20}
+                color="#86868b"
+              />
+            </Pressable>
+          </View>
+
+          {error ? (
+            <Text className="text-red-500 text-sm mb-4 text-center">{error}</Text>
+          ) : null}
+
+          <View className="flex-1 min-h-8" />
+
+          <Pressable
+            onPress={handleSubmit}
+            className="bg-white py-4 rounded-[14px] active:opacity-80 mb-4"
+          >
+            <Text className="text-center text-black font-semibold text-base">
+              {t("resetPassword.submit")}
+            </Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

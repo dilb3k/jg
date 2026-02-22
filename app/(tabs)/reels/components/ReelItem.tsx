@@ -85,7 +85,7 @@ function ReelItem({ reel, index, itemHeight, itemWidth, bottomInset }: Props) {
     reel.linked_movies?.[0]?.title_uz ||
     reel.linked_movies?.[0]?.title_ru ||
     reel.linked_movies?.[0]?.title_en ||
-    "Film";
+    t("reels.movieFallback");
 
   return (
     <View

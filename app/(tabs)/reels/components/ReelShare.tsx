@@ -1,5 +1,5 @@
-import { Reel } from "@/shared/types/reel";
 import { useI18n } from "@/shared/i18n/useI18n";
+import { Reel } from "@/shared/types/reel";
 import { BlurView } from "expo-blur";
 import * as Clipboard from "expo-clipboard";
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -41,8 +41,8 @@ export default function ReelShare({ visible, onClose, reel }: Props) {
 
   const shareUrl = `https://yourapp.com/reel/${reel.id}`;
   const shareText =
-    (reel.title_uz || reel.title_ru || reel.title_en || "Reel") +
-    " - StarCinema";
+    (reel.title_uz || reel.title_ru || reel.title_en || t("reels.defaultTitle")) +
+    " - AlloPlay";
 
   useEffect(() => {
     const animations = visible

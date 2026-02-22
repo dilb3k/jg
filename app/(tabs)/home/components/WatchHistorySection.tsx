@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router'
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { ScrollView, Text, View } from 'react-native'
+import { useI18n } from '@/shared/i18n/useI18n'
 import { WatchHistoryItem } from '@/shared/types/watch-history'
 import { MovieCard } from './MovieCard'
 
@@ -9,13 +10,14 @@ export function WatchHistorySection({
   items: WatchHistoryItem[]
 }) {
   const router = useRouter()
+  const { t } = useI18n()
 
   if (!items.length) return null
 
   return (
     <View className="mb-8">
       <Text className="text-white text-xl font-semibold px-4 mb-3">
-        Davom ettirish
+        {t("home.continueWatching")}
       </Text>
 
       <ScrollView horizontal className="px-4">

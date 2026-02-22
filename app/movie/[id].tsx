@@ -1,10 +1,12 @@
 import { useI18n } from "@/shared/i18n/useI18n";
 import { NotMovieIcon } from "@/shared/ui/icons/NotMovieIcon";
 import { useMovieStore } from "@/store/movie.store";
+import { ResizeMode, Video } from "expo-av";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
+  Alert,
   ActivityIndicator,
   Image,
   ScrollView,
@@ -18,6 +20,7 @@ export default function MovieDetailPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t, language } = useI18n();
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const movie = useMovieStore((state) => state.movie);
   const loading = useMovieStore((state) => state.loading);
@@ -28,7 +31,7 @@ export default function MovieDetailPage() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace("/home");
+      router.replace("/(tabs)/home");
     }
   };
 
@@ -71,6 +74,28 @@ export default function MovieDetailPage() {
       : language === "en"
         ? movie.description_en || movie.description_ru || movie.description_uz
         : movie.description_ru || movie.description_uz || movie.description_en;
+
+  const typedMovie = movie as typeof movie & {
+    flussonic_vod_path?: string;
+    video_url?: string;
+    stream_url?: string;
+    movie_url?: string;
+  };
+
+  const streamUrl =
+    typedMovie.flussonic_vod_path ||
+    typedMovie.video_url ||
+    typedMovie.stream_url ||
+    typedMovie.movie_url ||
+    null;
+
+  const handlePlayPress = () => {
+    if (!streamUrl) {
+      Alert.alert(t("common.errorTitle"), t("movie.noStream"));
+      return;
+    }
+    setIsPlaying(true);
+  };
 
   return (
     <View className="flex-1 bg-[#101010]">
@@ -115,11 +140,32 @@ export default function MovieDetailPage() {
       <TouchableOpacity
         activeOpacity={0.8}
         className="absolute bottom-6 left-4 right-4 bg-red-600 rounded-xl py-4 z-50"
+        onPress={handlePlayPress}
       >
         <Text className="text-white text-center font-semibold text-base">
           ▶ {t("reels.watch")}
         </Text>
       </TouchableOpacity>
+
+      {isPlaying && streamUrl ? (
+        <View className="absolute inset-0 bg-black z-[80]">
+          <Video
+            source={{ uri: streamUrl }}
+            style={{ width: "100%", height: "100%" }}
+            shouldPlay
+            useNativeControls
+            resizeMode={ResizeMode.CONTAIN}
+          />
+
+          <TouchableOpacity
+            onPress={() => setIsPlaying(false)}
+            className="absolute top-12 right-4 bg-black/70 px-4 py-2 rounded-full"
+            activeOpacity={0.8}
+          >
+            <Text className="text-white text-sm font-semibold">{t("movie.closePlayer")}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 }

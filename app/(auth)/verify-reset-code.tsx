@@ -1,4 +1,5 @@
 import { verifyForgotPasswordCode } from "@/services/otp.service";
+import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -60,7 +61,7 @@ export default function VerifyResetCode() {
 
       setResetData(resetPhone, res.data.data.reset_token);
       router.push("/(auth)/reset-password");
-    } catch (err) {
+    } catch {
       setError(true);
     } finally {
       setLoading(false);
@@ -78,6 +79,10 @@ export default function VerifyResetCode() {
   return (
     <View className="flex-1 bg-black px-6 pt-20 justify-between">
       <View>
+        <Pressable onPress={() => router.back()} className="mb-4 self-start p-1">
+          <BackIcon color="#D1D5DB" size={22} />
+        </Pressable>
+
         <Text className="text-white text-3xl font-semibold mb-3">
           Введите код подтверждения
         </Text>
@@ -97,6 +102,7 @@ export default function VerifyResetCode() {
               keyboardType="number-pad"
               maxLength={1}
               className={`bg-[#1c1c1e] text-white text-2xl text-center rounded-xl w-12 h-14 border-2 ${borderClass}`}
+              style={{ paddingVertical: 0, textAlignVertical: "center" }}
             />
           ))}
         </View>

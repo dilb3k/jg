@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as SecureStore from 'expo-secure-store'
 import { create } from 'zustand'
 
 interface ProfileData {
@@ -22,6 +22,7 @@ type AuthState = {
   setProfileData: (data: ProfileData) => void
   setPhone: (phone: string) => void
   setOtpCode: (code: string) => void
+  clearPassword: () => void
   clearRegistrationData: () => void
   setResetData: (phone: string, token: string) => void
   clearResetData: () => void
@@ -43,8 +44,15 @@ export const useAuthStore = create<AuthState>((set) => ({
   setProfileData: (data) => set({ profileData: data }),
   setPhone: (phone) => set({ phone }),
   setOtpCode: (code) => set({ otpCode: code }),
-  
-  clearRegistrationData: () => set({ 
+
+  clearPassword: () =>
+    set((state) => ({
+      profileData: state.profileData
+        ? { ...state.profileData, password: '' }
+        : null,
+    })),
+
+  clearRegistrationData: () => set({
     profileData: null, 
     phone: null, 
     otpCode: null 
@@ -54,17 +62,18 @@ export const useAuthStore = create<AuthState>((set) => ({
   clearResetData: () => set({ resetPhone: null, resetToken: null }),
 
   setAuth: async ({ accessToken, refreshToken, user }) => {
-    await AsyncStorage.multiSet([
-      ['accessToken', accessToken],
-      ['refreshToken', refreshToken],
-      ['user', JSON.stringify(user)],
-    ])
+    await SecureStore.setItemAsync('accessToken', accessToken)
+    await SecureStore.setItemAsync('refreshToken', refreshToken)
+    await SecureStore.setItemAsync('user', JSON.stringify(user))
     set({ accessToken, refreshToken, user })
   },
 
   hydrate: async () => {
-    const [[, accessToken], [, refreshToken], [, user]] =
-      await AsyncStorage.multiGet(['accessToken', 'refreshToken', 'user'])
+    const [accessToken, refreshToken, user] = await Promise.all([
+      SecureStore.getItemAsync('accessToken'),
+      SecureStore.getItemAsync('refreshToken'),
+      SecureStore.getItemAsync('user'),
+    ])
     set({
       accessToken,
       refreshToken,
@@ -74,7 +83,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'user'])
+    await Promise.all([
+      SecureStore.deleteItemAsync('accessToken'),
+      SecureStore.deleteItemAsync('refreshToken'),
+      SecureStore.deleteItemAsync('user'),
+    ])
     set({
       accessToken: null,
       refreshToken: null,

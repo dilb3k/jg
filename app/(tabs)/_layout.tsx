@@ -1,3 +1,4 @@
+import { useI18n } from "@/shared/i18n/useI18n";
 import { HomeIcon } from "@/shared/ui/icons/HomeIcon";
 import { ReelIcon } from "@/shared/ui/icons/ReelIcon";
 import { SearchIcon } from "@/shared/ui/icons/SearchIcon";
@@ -5,6 +6,8 @@ import { TVIcon } from "@/shared/ui/icons/TVIcon";
 import { Tabs } from "expo-router";
 
 export default function TabsLayout() {
+  const { t } = useI18n();
+
   return (
     <Tabs
       screenOptions={{
@@ -12,8 +15,8 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: "#101010",
           borderTopColor: "#2C2C2C",
-          height: 75,
-          padding: 10,
+          height: 78,
+          paddingTop: 10,
         },
         tabBarActiveTintColor: "#fff",
         tabBarInactiveTintColor: "#777",
@@ -22,7 +25,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: "Home",
+          title: t("tabs.home"),
           tabBarIcon: ({ color, focused }) => (
             <HomeIcon color={color} filled={focused} />
           ),
@@ -32,7 +35,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="tv"
         options={{
-          title: "TV",
+          title: t("tabs.tv"),
           tabBarIcon: ({ color, focused }) => (
             <TVIcon color={color} filled={focused} />
           ),
@@ -42,7 +45,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="reels"
         options={{
-          title: "Reels",
+          title: t("tabs.reels"),
           tabBarIcon: ({ color, focused }) => (
             <ReelIcon color={color} filled={focused} />
           ),
@@ -52,10 +55,17 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: "Search",
+          title: t("tabs.search"),
           tabBarIcon: ({ color, focused }) => (
             <SearchIcon color={color} filled={focused} />
           ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="profile"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

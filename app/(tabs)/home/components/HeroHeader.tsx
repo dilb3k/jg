@@ -10,7 +10,7 @@ export function HeroHeader() {
       {/* PROFILE */}
       <TouchableOpacity
         activeOpacity={0.7}
-        onPress={() => router.push("/home/profile")}
+        onPress={() => router.push("/profile")}
       >
         <Image
           source={{

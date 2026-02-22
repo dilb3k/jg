@@ -25,6 +25,15 @@ interface ReelState {
   toggleLike: (reelId: string) => Promise<void>;
 }
 
+const mergeUniqueReels = (current: Reel[], incoming: Reel[]) => {
+  if (incoming.length === 0) return current;
+
+  const seen = new Set(current.map((item) => item.id));
+  const uniqueIncoming = incoming.filter((item) => !seen.has(item.id));
+
+  return uniqueIncoming.length > 0 ? [...current, ...uniqueIncoming] : current;
+};
+
 export const useReelStore = create<ReelState>((set, get) => ({
   reels: [],
   currentIndex: 0,
@@ -40,6 +49,7 @@ export const useReelStore = create<ReelState>((set, get) => ({
     if (trending.length > 0) {
       set({
         reels: trending,
+        currentIndex: 0,
         isTrending: true,
         hasMore: false,
         loading: false,
@@ -50,6 +60,7 @@ export const useReelStore = create<ReelState>((set, get) => ({
     const feed = await getReelFeed(1);
     set({
       reels: feed,
+      currentIndex: 0,
       page: 2,
       hasMore: feed.length === 15,
       isTrending: false,
@@ -65,7 +76,7 @@ export const useReelStore = create<ReelState>((set, get) => ({
     const data = await getReelFeed(page);
 
     set((state) => ({
-      reels: [...state.reels, ...data],
+      reels: mergeUniqueReels(state.reels, data),
       page: page + 1,
       hasMore: data.length === 15,
       loading: false,
@@ -80,7 +91,7 @@ export const useReelStore = create<ReelState>((set, get) => ({
     const data = await getByMovie(page, 10, movieId);
 
     set((state) => ({
-      reels: [...state.reels, ...data],
+      reels: mergeUniqueReels(state.reels, data),
       page: page + 1,
       hasMore: data.length === 10,
       loading: false,

@@ -1,4 +1,5 @@
 import { sendForgotPasswordOtp } from "@/services/otp.service";
+import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
 import { formatPhone } from "@/utils/format-phone";
 import { useRouter } from "expo-router";
@@ -26,6 +27,10 @@ export default function ForgotPassword() {
 
   return (
     <View className="flex-1 bg-black px-6 pt-20">
+      <Pressable onPress={() => router.back()} className="mb-4 self-start p-1">
+        <BackIcon color="#D1D5DB" size={22} />
+      </Pressable>
+
       <Text className="text-white text-3xl font-semibold mb-3">
         Восстановление пароля
       </Text>
@@ -43,7 +48,8 @@ export default function ForgotPassword() {
         placeholderTextColor="#86868b"
         keyboardType="phone-pad"
         maxLength={17}
-        className="bg-[#1c1c1e] text-white rounded-xl px-4 py-4 text-base mb-8"
+        className="bg-[#1c1c1e] text-white rounded-xl px-4 text-base mb-8"
+        style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
       />
 
       <Pressable

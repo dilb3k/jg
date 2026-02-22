@@ -26,7 +26,7 @@ export function WatchHistorySection({
               id: item.content_id,
               poster_url: item.poster_url,
               imdb_rating: `${item.progress_percent}%`,
-            } as any}
+            }}
             onPress={() =>
               router.push({
                 pathname: '/movie/[id]',

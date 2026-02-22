@@ -1,16 +1,18 @@
 import { Reel } from "@/shared/types/reel";
+import { useI18n } from "@/shared/i18n/useI18n";
 import { BlurView } from "expo-blur";
 import * as Clipboard from "expo-clipboard";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
+  Alert,
   Animated,
-  Dimensions,
   Linking,
   Modal,
   Share as RNShare,
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
 
 import {
@@ -25,8 +27,6 @@ import {
 } from "@/shared/ui/icons/SocialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-
 type Props = {
   visible: boolean;
   onClose: () => void;
@@ -34,13 +34,15 @@ type Props = {
 };
 
 export default function ReelShare({ visible, onClose, reel }: Props) {
-  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const { t } = useI18n();
+  const { height: screenHeight } = useWindowDimensions();
+  const slideAnim = useRef(new Animated.Value(screenHeight)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const shareUrl = `https://yourapp.com/reel/${reel.id}`;
   const shareText =
-    (reel.title_uz || reel.title_ru || reel.title_en || "Реклама") +
-    " - Смотрите на нашем приложении!";
+    (reel.title_uz || reel.title_ru || reel.title_en || "Reel") +
+    " - StarCinema";
 
   useEffect(() => {
     const animations = visible
@@ -59,7 +61,7 @@ export default function ReelShare({ visible, onClose, reel }: Props) {
         ]
       : [
           Animated.spring(slideAnim, {
-            toValue: SCREEN_HEIGHT,
+            toValue: screenHeight,
             tension: 80,
             friction: 10,
             useNativeDriver: true,
@@ -72,14 +74,14 @@ export default function ReelShare({ visible, onClose, reel }: Props) {
         ];
 
     Animated.parallel(animations).start();
-  }, [visible]);
+  }, [fadeAnim, screenHeight, slideAnim, visible]);
 
-  const copyLink = async () => {
+  const copyLink = useCallback(async () => {
     await Clipboard.setStringAsync(shareUrl);
     onClose();
-  };
+  }, [onClose, shareUrl]);
 
-  const nativeShare = async () => {
+  const nativeShare = useCallback(async () => {
     try {
       await RNShare.share({
         message: `${shareText}\n${shareUrl}`,
@@ -89,28 +91,29 @@ export default function ReelShare({ visible, onClose, reel }: Props) {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [onClose, shareText, shareUrl]);
 
-  const open = (url: string) => {
+  const open = useCallback((url: string) => {
     Linking.openURL(url).catch(() => {});
     onClose();
-  };
+  }, [onClose]);
 
-  const openApp = (scheme: string, msg: string) => {
-    Linking.openURL(scheme).catch(() => alert(msg));
+  const openApp = useCallback((scheme: string, msg: string) => {
+    Linking.openURL(scheme).catch(() => Alert.alert(t("common.error"), msg));
     onClose();
-  };
+  }, [onClose, t]);
 
-  const socials = [
+  const socials = useMemo(
+    () => [
     {
       Icon: LinkIcon,
-      label: "Копировать ссылку",
+      label: t("reels.copyLink"),
       action: copyLink,
       bg: "#404040",
     },
     {
       Icon: ShareIcon,
-      label: "Поделиться",
+      label: t("reels.shareAction"),
       action: nativeShare,
       bg: "#404040",
     },
@@ -126,7 +129,7 @@ export default function ReelShare({ visible, onClose, reel }: Props) {
     {
       Icon: InstagramIcon,
       label: "Instagram",
-      action: () => openApp("instagram://", "Instagram не установлено"),
+      action: () => openApp("instagram://", `${t("reels.appNotInstalled")}: Instagram`),
       gradientColors: ["#feda75", "#d62976", "#8134af", "#515bd4"],
     },
     {
@@ -141,14 +144,14 @@ export default function ReelShare({ visible, onClose, reel }: Props) {
     {
       Icon: TikTokIcon,
       label: "TikTok",
-      action: () => openApp("tiktok://", "TikTok не установлено"),
+      action: () => openApp("tiktok://", `${t("reels.appNotInstalled")}: TikTok`),
       bg: "black",
       border: true,
     },
     {
       Icon: SnapchatIcon,
       label: "Snapchat",
-      action: () => openApp("snapchat://", "Snapchat не установлено"),
+      action: () => openApp("snapchat://", `${t("reels.appNotInstalled")}: Snapchat`),
       bg: "#FFFC00",
       color: "#000",
     },
@@ -162,7 +165,9 @@ export default function ReelShare({ visible, onClose, reel }: Props) {
       bg: "black",
       border: true,
     },
-  ];
+    ],
+    [copyLink, nativeShare, open, openApp, shareText, shareUrl, t],
+  );
 
   return (
     <Modal
@@ -201,7 +206,7 @@ export default function ReelShare({ visible, onClose, reel }: Props) {
             </View>
 
             <Text className="text-white text-2xl font-bold text-center mb-7">
-              Поделиться
+              {t("reels.share")}
             </Text>
 
             <View className="flex-row flex-wrap justify-between px-4 mb-8">

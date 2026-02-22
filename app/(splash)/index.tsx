@@ -3,13 +3,14 @@ import { useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Image, Pressable, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-
+import { useI18n } from '@/shared/i18n/useI18n'
+import IntroLoader from './components/IntroLoader'
 
 export default function Splash() {
   const router = useRouter()
+  const { t } = useI18n()
   const [showIntro, setShowIntro] = useState(true)
 
-  // ⏱ 3 SEKUND INTRO
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowIntro(false)
@@ -18,26 +19,10 @@ export default function Splash() {
     return () => clearTimeout(timer)
   }, [])
 
-  /* =====================
-     1️⃣ INTRO LOGO ONLY
-     ===================== */
   if (showIntro) {
-    return (
-      <View className="flex-1 bg-black items-center justify-center">
-
-        <View className='flex justify-center items-center'>
-          <Image
-            source={require('../../assets/images/bigLogo.png')}
-          />
-        </View>
-
-      </View>
-    )
+    return <IntroLoader />
   }
 
-  /* =====================
-     2️⃣ SPLASH UI (SENIKI)
-     ===================== */
   return (
     <View className="flex-1 bg-black">
       {/* IMAGE 60% */}
@@ -69,13 +54,12 @@ export default function Splash() {
           </View>
 
           <Text className="text-white text-2xl font-bold text-center">
-            Добро пожаловать{'\n'}в StarCinema
+            {t("splash.welcome")}
           </Text>
         </View>
 
         <Text className="text-gray-400 text-center mb-6">
-          Смотрите фильмы и рилсы в одном приложении.{'\n'}
-          Войдите, чтобы продолжить
+          {t("splash.subtitle")}
         </Text>
 
         <Pressable
@@ -83,7 +67,7 @@ export default function Splash() {
           className="bg-white rounded-2xl py-4 mb-4"
         >
           <Text className="text-black text-center text-lg font-semibold">
-            Войти
+            {t("splash.login")}
           </Text>
         </Pressable>
 
@@ -92,7 +76,7 @@ export default function Splash() {
           className="bg-[#2a2a2a] rounded-2xl py-4"
         >
           <Text className="text-white text-center text-lg font-semibold">
-            Зарегистрироваться
+            {t("splash.register")}
           </Text>
         </Pressable>
       </SafeAreaView>

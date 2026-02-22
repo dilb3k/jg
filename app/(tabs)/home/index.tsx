@@ -1,107 +1,32 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, StatusBar, View } from "react-native";
+import { ActivityIndicator, ScrollView, StatusBar, Text, TouchableOpacity, View } from "react-native";
 
-import { api } from "@/services/api";
-import { Movie } from "@/shared/types/movie";
-import { WatchHistoryItem } from "@/shared/types/watch-history";
-
+import { useHomeStore } from "@/store/home.store";
+import { useI18n } from "@/shared/i18n/useI18n";
 import { CategorySection } from "./components/CategorySection";
 import { CategoryTabs } from "./components/CategoryTabs";
 import { HeroCarousel } from "./components/HeroCarousel";
 import { WatchHistorySection } from "./components/WatchHistorySection";
 
 /* =======================
-   TYPES (LOCAL)
-======================= */
-
-export interface Carousel {
-  id: string;
-  poster_url: string;
-  movie: Movie;
-}
-
-export interface Category {
-  id: string;
-  title: string;
-  movies: Movie[];
-}
-
-/* =======================
    SCREEN
 ======================= */
 
 export default function Home() {
-  const [carousels, setCarousels] = useState<Carousel[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [watchHistory, setWatchHistory] = useState<WatchHistoryItem[]>([]);
+  const { t } = useI18n();
+  const carousels = useHomeStore((state) => state.carousels);
+  const categories = useHomeStore((state) => state.categories);
+  const watchHistory = useHomeStore((state) => state.watchHistory);
+  const loading = useHomeStore((state) => state.loading);
+  const error = useHomeStore((state) => state.error);
+  const fetchData = useHomeStore((state) => state.fetchHomeData);
   const [activeCategory, setActiveCategory] = useState<string>("");
 
   const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const categoryRefs = useRef<Record<string, number>>({});
-  const carouselInterval = useRef<NodeJS.Timeout | null>(null);
-
-  /* =======================
-     FETCH DATA
-  ======================= */
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-
-      const [carouselRes, genresRes, historyRes] = await Promise.allSettled([
-        api.get("/api/v1/carousels"),
-        api.get("/api/v1/movies/genres"),
-        api.get("/api/v1/history/continue-watching?limit=10"),
-      ]);
-
-      /* ---------- CAROUSELS ---------- */
-      if (
-        carouselRes.status === "fulfilled" &&
-        carouselRes.value.data?.success
-      ) {
-        setCarousels(carouselRes.value.data.data);
-      }
-
-      /* ---------- WATCH HISTORY ---------- */
-      if (historyRes.status === "fulfilled" && historyRes.value.data?.success) {
-        setWatchHistory(historyRes.value.data.data);
-      }
-
-      /* ---------- GENRES + MOVIES ---------- */
-      if (genresRes.status === "fulfilled" && genresRes.value.data?.success) {
-        const genres = genresRes.value.data.data.items;
-
-        const genreCategories: Category[] = await Promise.all(
-          genres.map(async (genre: any) => {
-            const moviesRes = await api.get(
-              `/api/v1/movies/by-genre/${genre.id}?page=1&per_page=20`,
-            );
-
-            const data = moviesRes.data.data;
-
-            return {
-              id: genre.id,
-              title: genre.name,
-              movies: Array.isArray(data) ? data : (data.items ?? []),
-            };
-          }),
-        );
-
-        setCategories(genreCategories);
-
-        if (genreCategories.length > 0) {
-          setActiveCategory(genreCategories[0].id);
-        }
-      }
-    } catch (e) {
-      console.log("HOME FETCH ERROR ❌", e);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const carouselInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /* =======================
      CATEGORY SCROLL
@@ -129,7 +54,13 @@ export default function Home() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (categories.length > 0) {
+      setActiveCategory((prev) => prev || categories[0].id);
+    }
+  }, [categories]);
 
   useEffect(() => {
     if (carousels.length === 0) return;
@@ -153,6 +84,17 @@ export default function Home() {
     return (
       <View className="flex-1 bg-[#101010] justify-center items-center">
         <ActivityIndicator size="large" color="#FF0000" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View className="flex-1 bg-[#101010] justify-center items-center gap-4">
+        <Text className="text-gray-400 text-base">{t("home.error")}</Text>
+        <TouchableOpacity onPress={fetchData} className="bg-white px-6 py-3 rounded-xl">
+          <Text className="text-black font-semibold">{t("common.retry")}</Text>
+        </TouchableOpacity>
       </View>
     );
   }

@@ -4,9 +4,10 @@ import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 interface Props {
   active: string;
   categories: { id: string; title: string }[];
+  onChange?: (categoryId: string) => void;
 }
 
-export function CategoryTabs({ active, categories }: Props) {
+export function CategoryTabs({ active, categories, onChange }: Props) {
   const router = useRouter();
 
   return (
@@ -24,12 +25,17 @@ export function CategoryTabs({ active, categories }: Props) {
             <TouchableOpacity
               key={cat.id}
               activeOpacity={0.7}
-              onPress={() =>
+              onPress={() => {
+                if (onChange) {
+                  onChange(cat.id);
+                  return;
+                }
+
                 router.push({
                   pathname: "/(tabs)/home/category/[id]",
                   params: { id: cat.id, title: cat.title },
-                })
-              }
+                });
+              }}
               className={`px-4 py-2 rounded-full ${
                 isActive ? "bg-white/10" : "bg-transparent"
               }`}

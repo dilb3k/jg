@@ -7,8 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
-
-import { api } from "@/services/api";
+import { useHomeStore } from "@/store/home.store";
 import { Movie } from "@/shared/types/movie";
 import { NotMovieIcon } from "@/shared/ui/icons/NotMovieIcon";
 import { HeroHeader } from "../components/HeroHeader";
@@ -24,6 +23,7 @@ export default function CategoryPage() {
 
   const genreId = params.id;
   const categoryTitle = params.title ?? "";
+  const fetchCategoryMovies = useHomeStore((state) => state.fetchCategoryMovies);
 
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,15 +34,8 @@ export default function CategoryPage() {
     const fetchMovies = async () => {
       try {
         setLoading(true);
-
-        const res = await api.get(
-          `/api/v1/movies/by-genre/${genreId}?page=1&per_page=20`,
-        );
-
-        if (res.data?.success) {
-          const data = res.data.data;
-          setMovies(Array.isArray(data) ? data : (data.items ?? []));
-        }
+        const data = await fetchCategoryMovies(genreId);
+        setMovies(data);
       } catch (e) {
         console.log("CATEGORY ERROR ❌", e);
       } finally {
@@ -51,7 +44,7 @@ export default function CategoryPage() {
     };
 
     fetchMovies();
-  }, [genreId]);
+  }, [fetchCategoryMovies, genreId]);
 
   if (loading) {
     return (

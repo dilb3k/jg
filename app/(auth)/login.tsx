@@ -1,13 +1,18 @@
 import { loginUser } from "@/services/auth.service";
+import { useI18n } from "@/shared/i18n/useI18n";
+import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
+import { getDeviceId } from "@/utils/device-id";
 import { formatPhone } from "@/utils/format-phone";
 import { Feather } from "@expo/vector-icons";
+import * as Device from "expo-device";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, Text, TextInput, View } from "react-native";
 
 export default function Login() {
   const router = useRouter();
+  const { t } = useI18n();
   const setAuth = useAuthStore((s) => s.setAuth);
 
   const [loginType, setLoginType] = useState<"phone" | "username">("phone");
@@ -17,6 +22,9 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const isPhoneLoginValid = phone.length === 13 && password.length > 0;
+  const isUsernameLoginValid = username.trim().length >= 3 && password.length > 0;
+  const canSubmit = loginType === "phone" ? isPhoneLoginValid : isUsernameLoginValid;
 
   const handlePhoneChange = (text: string) => {
     const formatted = formatPhone(text);
@@ -31,14 +39,16 @@ export default function Login() {
     try {
       setLoading(true);
 
+      const deviceId = await getDeviceId();
+
       const payload = {
         login_type: loginType,
         ...(loginType === "phone" ? { phone } : { username }),
         password,
-        device_id: "A1B2C3D4-E5F6-G7H8-I9J0-K1L2M3N4O5P6",
+        device_id: deviceId,
         device_type: "mobile",
-        device_name: "iPhone 14 Pro",
-        notification_id: "string",
+        device_name: Device.modelName ?? "unknown",
+        notification_id: "",
       };
 
       const res = await loginUser(payload);
@@ -52,7 +62,8 @@ export default function Login() {
 
       router.replace("/(tabs)/home");
     } catch (e: any) {
-      console.log("LOGIN ERROR:", e.response?.data || e.message);
+      const msg = e.response?.data?.error?.message || t("login.errorDefault");
+      Alert.alert(t("login.errorTitle"), msg);
     } finally {
       setLoading(false);
     }
@@ -60,11 +71,20 @@ export default function Login() {
 
   return (
     <View className="flex-1 bg-black px-6 pt-16">
+      <View className="flex-row items-center justify-between mb-4">
+        <Pressable onPress={() => router.replace("/(splash)")} className="p-1">
+          <BackIcon color="#D1D5DB" size={22} />
+        </Pressable>
+        <Pressable onPress={() => router.push("/(auth)/register")}>
+          <Text className="text-blue-400 text-sm">Регистрация</Text>
+        </Pressable>
+      </View>
+
       <Text className="text-white text-2xl font-semibold mb-2">
-        Вход по логину и паролю
+        {t("login.title")}
       </Text>
       <Text className="text-gray-400 text-sm mb-8">
-        Введите данные для авторизации
+        {t("login.subtitle")}
       </Text>
 
       <View className="bg-[#2c2c2e] rounded-full p-1 flex-row mb-6">
@@ -75,7 +95,7 @@ export default function Login() {
           <Text
             className={`text-center text-sm font-medium ${loginType === "phone" ? "text-white" : "text-gray-400"}`}
           >
-            Телефон
+            {t("login.phoneTab")}
           </Text>
         </Pressable>
 
@@ -86,14 +106,14 @@ export default function Login() {
           <Text
             className={`text-center text-sm font-medium ${loginType === "username" ? "text-white" : "text-gray-400"}`}
           >
-            Логин
+            {t("login.usernameTab")}
           </Text>
         </Pressable>
       </View>
 
       <View className="mb-4">
         <Text className="text-white text-sm mb-2">
-          {loginType === "phone" ? "Номер телефона" : "Username"}
+          {loginType === "phone" ? t("login.phoneLabel") : t("login.usernameLabel")}
         </Text>
         {loginType === "phone" ? (
           <TextInput
@@ -102,7 +122,8 @@ export default function Login() {
             keyboardType="phone-pad"
             placeholder="+"
             placeholderTextColor="#666"
-            className="bg-[#1c1c1e] text-white rounded-xl px-4 py-4"
+            className="bg-[#1c1c1e] text-white rounded-xl px-4"
+            style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
           />
         ) : (
           <TextInput
@@ -111,16 +132,17 @@ export default function Login() {
             placeholder="behruz_05"
             placeholderTextColor="#666"
             autoCapitalize="none"
-            className="bg-[#1c1c1e] text-white rounded-xl px-4 py-4"
+            className="bg-[#1c1c1e] text-white rounded-xl px-4"
+            style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
           />
         )}
       </View>
 
       <View className="mb-6">
         <View className="flex-row justify-between items-center mb-2">
-          <Text className="text-white text-sm">Пароль</Text>
+          <Text className="text-white text-sm">{t("login.password")}</Text>
           <Pressable onPress={() => router.push("/(auth)/forgot-password")}>
-            <Text className="text-blue-500 text-sm">Забыли пароль?</Text>
+            <Text className="text-blue-500 text-sm">{t("login.forgotPassword")}</Text>
           </Pressable>
         </View>
 
@@ -128,10 +150,11 @@ export default function Login() {
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="Введите пароль"
+            placeholder={t("login.passwordPlaceholder")}
             placeholderTextColor="#666"
             secureTextEntry={!showPassword}
-            className="bg-[#1c1c1e] text-white rounded-xl px-4 py-4 pr-12"
+            className="bg-[#1c1c1e] text-white rounded-xl px-4 pr-12"
+            style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
           />
 
           <Pressable
@@ -151,11 +174,17 @@ export default function Login() {
 
       <Pressable
         onPress={submit}
-        disabled={loading}
-        className={`bg-white py-4 rounded-2xl mb-8 ${loading ? "opacity-70" : ""}`}
+        disabled={loading || !canSubmit}
+        className={`py-4 rounded-2xl mb-8 ${
+          loading || !canSubmit ? "bg-gray-700" : "bg-white"
+        }`}
       >
-        <Text className="text-center font-semibold text-black text-base">
-          {loading ? "Загрузка.." : "Войти"}
+        <Text
+          className={`text-center font-semibold text-base ${
+            loading || !canSubmit ? "text-gray-300" : "text-black"
+          }`}
+        >
+          {loading ? t("common.loading") : t("login.submit")}
         </Text>
       </Pressable>
     </View>

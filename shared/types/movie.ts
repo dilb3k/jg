@@ -1,6 +1,6 @@
 export interface Movie {
   id: string
-  title_uz: string
+  title_uz?: string
   title_ru?: string
   title_en?: string
   year?: number

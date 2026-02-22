@@ -1,8 +1,17 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import * as SecureStore from "expo-secure-store";
 
 export const api = axios.create({
-  baseURL: "https://temirovv.uz",
+  baseURL: "https://api.alloplay.uz",
+  timeout: 15000,
+  headers: {
+    "Content-Type": "application/json",
+    "Accept-Language": "uz",
+  },
+});
+
+export const publicApi = axios.create({
+  baseURL: "https://api.alloplay.uz",
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
@@ -11,49 +20,114 @@ export const api = axios.create({
 });
 
 /* =====================
-   AUTH INTERCEPTOR 🔥
+   AUTH INTERCEPTOR
 ===================== */
 api.interceptors.request.use(
   async (config) => {
-    const token = await AsyncStorage.getItem("accessToken");
+    const token = await SecureStore.getItemAsync("accessToken");
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    console.log("➡️ REQUEST:", {
-      url: config.url,
-      method: config.method,
-      headers: config.headers,
-      data: config.data,
-    });
+    if (__DEV__) {
+      console.log("➡️ REQUEST:", {
+        url: config.url,
+        method: config.method,
+        data: config.data,
+      });
+    }
 
     return config;
   },
   (error) => {
-    console.log("❌ REQUEST ERROR:", error);
+    if (__DEV__) console.log("❌ REQUEST ERROR:", error.message);
     return Promise.reject(error);
   },
 );
 
 /* =====================
-   RESPONSE LOGGER
+   RESPONSE INTERCEPTOR (с refresh логикой)
 ===================== */
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
+  failedQueue.forEach((p) => {
+    if (error) {
+      p.reject(error);
+    } else {
+      p.resolve(token!);
+    }
+  });
+  failedQueue = [];
+};
+
 api.interceptors.response.use(
   (response) => {
-    console.log("✅ RESPONSE:", {
-      url: response.config.url,
-      status: response.status,
-      data: response.data,
-    });
+    if (__DEV__) {
+      console.log("✅ RESPONSE:", {
+        url: response.config.url,
+        status: response.status,
+      });
+    }
     return response;
   },
-  (error) => {
-    console.log("❌ RESPONSE ERROR:", {
-      url: error.config?.url,
-      status: error.response?.status,
-      data: error.response?.data,
-    });
-    return Promise.reject(error);
+  async (error) => {
+    if (__DEV__) {
+      console.log("❌ RESPONSE ERROR:", {
+        url: error.config?.url,
+        status: error.response?.status,
+      });
+    }
+
+    const originalRequest = error.config;
+
+    if (error.response?.status !== 401 || originalRequest._retry) {
+      return Promise.reject(error);
+    }
+
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      }).then((token) => {
+        originalRequest.headers.Authorization = `Bearer ${token}`;
+        return api(originalRequest);
+      });
+    }
+
+    originalRequest._retry = true;
+    isRefreshing = true;
+
+    try {
+      const refreshToken = await SecureStore.getItemAsync("refreshToken");
+      if (!refreshToken) throw new Error("No refresh token");
+
+      const res = await axios.post(`${api.defaults.baseURL}/api/v1/auth/refresh`, {
+        refresh_token: refreshToken,
+      });
+
+      const { access_token, refresh_token } = res.data.data.tokens;
+
+      await SecureStore.setItemAsync("accessToken", access_token);
+      await SecureStore.setItemAsync("refreshToken", refresh_token);
+
+      api.defaults.headers.common.Authorization = `Bearer ${access_token}`;
+      originalRequest.headers.Authorization = `Bearer ${access_token}`;
+
+      processQueue(null, access_token);
+      return api(originalRequest);
+    } catch (refreshError) {
+      processQueue(refreshError, null);
+
+      // Чистим токены — роутер сам перекинет на логин через hydrate
+      await SecureStore.deleteItemAsync("accessToken");
+      await SecureStore.deleteItemAsync("refreshToken");
+      await SecureStore.deleteItemAsync("user");
+
+      return Promise.reject(refreshError);
+    } finally {
+      isRefreshing = false;
+    }
   },
 );

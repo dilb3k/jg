@@ -1,9 +1,12 @@
+import { checkUsernameAvailability } from "@/services/auth.service";
+import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -11,6 +14,12 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const pad = (value: number) => value.toString().padStart(2, "0");
+const formatBirthDate = (date: Date) =>
+  `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
+
+const daysInMonth = (year: number, month: number) => new Date(year, month, 0).getDate();
 
 export default function Register() {
   const router = useRouter();
@@ -23,23 +32,121 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const inputClass = "bg-[#1f1f1f] text-white rounded-xl px-4 py-4 text-base";
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [pickerYear, setPickerYear] = useState(2000);
+  const [pickerMonth, setPickerMonth] = useState(1);
+  const [pickerDay, setPickerDay] = useState(1);
 
-  const formatBirthDate = (text: string) => {
-    const digits = text.replace(/\D/g, "").slice(0, 8);
-    if (digits.length <= 2) return setBirthDate(digits);
-    if (digits.length <= 4)
-      return setBirthDate(`${digits.slice(0, 2)}.${digits.slice(2)}`);
-    setBirthDate(
-      `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`,
-    );
+  const [usernameStatus, setUsernameStatus] = useState<
+    "idle" | "invalid" | "checking" | "available" | "taken" | "error"
+  >("idle");
+  const usernameCheckIdRef = useRef(0);
+
+  const inputClass = "bg-[#1f1f1f] text-white rounded-xl px-4 text-base";
+  const usernameNormalized = useMemo(() => username.trim().toLowerCase(), [username]);
+  const isUsernameFormatValid = useMemo(
+    () => /^[a-zA-Z0-9_]{3,32}$/.test(usernameNormalized),
+    [usernameNormalized],
+  );
+  const isBirthDateValid = useMemo(() => /^\d{2}\.\d{2}\.\d{4}$/.test(birthDate), [birthDate]);
+  const isPasswordValid = useMemo(
+    () => password.length >= 6 && password === confirmPassword,
+    [confirmPassword, password],
+  );
+  const isNameValid = useMemo(
+    () => firstName.trim().length > 0 && lastName.trim().length > 0,
+    [firstName, lastName],
+  );
+
+  const canSubmit =
+    isNameValid &&
+    isUsernameFormatValid &&
+    isBirthDateValid &&
+    isPasswordValid &&
+    usernameStatus !== "taken";
+
+  const maxDay = useMemo(() => daysInMonth(pickerYear, pickerMonth), [pickerMonth, pickerYear]);
+
+  useEffect(() => {
+    if (pickerDay > maxDay) {
+      setPickerDay(maxDay);
+    }
+  }, [maxDay, pickerDay]);
+
+  useEffect(() => {
+    if (!usernameNormalized) {
+      setUsernameStatus("idle");
+      return;
+    }
+
+    if (!isUsernameFormatValid) {
+      setUsernameStatus("invalid");
+      return;
+    }
+
+    const checkId = usernameCheckIdRef.current + 1;
+    usernameCheckIdRef.current = checkId;
+    setUsernameStatus("checking");
+
+    const timer = setTimeout(async () => {
+      try {
+        const exists = await checkUsernameAvailability(usernameNormalized);
+        if (usernameCheckIdRef.current !== checkId) return;
+        setUsernameStatus(exists ? "taken" : "available");
+      } catch {
+        if (usernameCheckIdRef.current !== checkId) return;
+        setUsernameStatus("error");
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [isUsernameFormatValid, usernameNormalized]);
+
+  const ensureUsernameAvailable = async () => {
+    try {
+      const exists = await checkUsernameAvailability(usernameNormalized);
+      setUsernameStatus(exists ? "taken" : "available");
+      return !exists;
+    } catch {
+      setUsernameStatus("error");
+      return false;
+    }
   };
 
-  const submit = () => {
+  const openDatePicker = () => {
+    const now = new Date();
+    let initial = new Date(now.getFullYear() - 18, 0, 1);
+
+    if (isBirthDateValid) {
+      const [dd, mm, yyyy] = birthDate.split(".").map((v) => Number(v));
+      initial = new Date(yyyy, mm - 1, dd);
+    }
+
+    setPickerYear(initial.getFullYear());
+    setPickerMonth(initial.getMonth() + 1);
+    setPickerDay(initial.getDate());
+    setShowDatePicker(true);
+  };
+
+  const applyDate = () => {
+    const selected = new Date(pickerYear, pickerMonth - 1, pickerDay);
+    setBirthDate(formatBirthDate(selected));
+    setShowDatePicker(false);
+  };
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(splash)");
+  };
+
+  const submit = async () => {
     const trimmed = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      username: username.trim(),
+      username: username.trim().toLowerCase(),
     };
 
     if (!trimmed.firstName || !trimmed.lastName) {
@@ -48,15 +155,20 @@ export default function Register() {
     }
 
     if (!/^[a-zA-Z0-9_]{3,32}$/.test(trimmed.username)) {
-      Alert.alert(
-        "Xatolik",
-        "Username 3-32 belgi, faqat harf, raqam va _ bo'lishi kerak",
-      );
+      Alert.alert("Xatolik", "Username 3-32 belgi, faqat harf, raqam va _ bo'lishi kerak");
       return;
     }
 
-    if (!/^\d{2}\.\d{2}\.\d{4}$/.test(birthDate)) {
-      Alert.alert("Xatolik", "Sana DD.MM.YYYY formatda bo'lishi kerak");
+    if (usernameStatus !== "available") {
+      const isAvailable = await ensureUsernameAvailable();
+      if (!isAvailable) {
+        Alert.alert("Xatolik", "Bu username band yoki tekshirishda xatolik bor");
+        return;
+      }
+    }
+
+    if (!isBirthDateValid) {
+      Alert.alert("Xatolik", "Tug'ilgan sanani tanlang");
       return;
     }
 
@@ -87,17 +199,17 @@ export default function Register() {
         contentContainerStyle={{ paddingVertical: 32 }}
         keyboardShouldPersistTaps="handled"
       >
+        <Pressable onPress={handleBack} className="mb-4 self-start p-1 flex-row items-center gap-2">
+          <BackIcon color="#D1D5DB" size={22} />
+          <Text className="text-gray-300 text-base">Назад</Text>
+        </Pressable>
+
         <Text className="text-gray-400 text-sm mb-2">Sign up</Text>
 
-        <Text className="text-white text-3xl font-semibold mb-1">
-          Создание профиля
-        </Text>
+        <Text className="text-white text-3xl font-semibold mb-1">Создание профиля</Text>
 
-        <Text className="text-gray-400 text-sm mb-8">
-          Заполните данные для регистрации
-        </Text>
+        <Text className="text-gray-400 text-sm mb-8">Заполните данные для регистрации</Text>
 
-        {/* Имя */}
         <Text className="text-gray-400 text-sm mb-2">Имя</Text>
         <TextInput
           placeholder="Введите имя"
@@ -106,9 +218,9 @@ export default function Register() {
           onChangeText={setFirstName}
           autoCapitalize="words"
           className={inputClass}
+          style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
         />
 
-        {/* Фамилия */}
         <Text className="text-gray-400 text-sm mb-2 mt-4">Фамилия</Text>
         <TextInput
           placeholder="Введите фамилию"
@@ -117,41 +229,47 @@ export default function Register() {
           onChangeText={setLastName}
           autoCapitalize="words"
           className={inputClass}
+          style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
         />
 
-        {/* Username */}
         <Text className="text-gray-400 text-sm mb-2 mt-4">Username</Text>
         <TextInput
           placeholder="Введите username"
           placeholderTextColor="#666"
           value={username}
-          onChangeText={(t) =>
-            setUsername(t.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())
-          }
+          onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())}
           autoCapitalize="none"
           className={inputClass}
+          style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
         />
+        {usernameStatus === "checking" ? (
+          <Text className="text-xs text-gray-400 mt-2">Проверка username...</Text>
+        ) : null}
+        {usernameStatus === "available" ? (
+          <Text className="text-xs text-green-400 mt-2">Username свободен</Text>
+        ) : null}
+        {usernameStatus === "taken" ? (
+          <Text className="text-xs text-red-400 mt-2">Username уже занят</Text>
+        ) : null}
+        {usernameStatus === "invalid" ? (
+          <Text className="text-xs text-red-400 mt-2">Username 3-32 символа, только буквы/цифры/_</Text>
+        ) : null}
+        {usernameStatus === "error" ? (
+          <Text className="text-xs text-red-400 mt-2">Не удалось проверить username</Text>
+        ) : null}
 
-        {/* Дата рождения */}
         <Text className="text-gray-400 text-sm mb-2 mt-4">Дата рождения</Text>
-        <View className="relative">
-          <TextInput
-            placeholder="ДД.ММ.ГГГГ"
-            placeholderTextColor="#666"
-            value={birthDate}
-            onChangeText={formatBirthDate}
-            keyboardType="number-pad"
-            className={inputClass + " pr-12"}
-          />
-          <Ionicons
-            name="calendar-outline"
-            size={20}
-            color="#666"
-            style={{ position: "absolute", right: 16, top: 18 }}
-          />
-        </View>
+        <Pressable
+          onPress={openDatePicker}
+          className="bg-[#1f1f1f] rounded-xl px-4 flex-row items-center"
+          style={{ height: 56 }}
+        >
+          <Text className={`flex-1 text-base ${birthDate ? "text-white" : "text-[#666]"}`}>
+            {birthDate || "Выберите дату"}
+          </Text>
+          <Ionicons name="calendar-outline" size={20} color="#666" />
+        </Pressable>
 
-        {/* Пароль */}
         <Text className="text-gray-400 text-sm mb-2 mt-4">Пароль</Text>
         <TextInput
           placeholder="Введите пароль (минимум 6 символов)"
@@ -160,13 +278,15 @@ export default function Register() {
           onChangeText={setPassword}
           secureTextEntry
           autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="off"
+          textContentType="oneTimeCode"
+          importantForAutofill="no"
           className={inputClass}
+          style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
         />
 
-        {/* Подтвердите пароль */}
-        <Text className="text-gray-400 text-sm mb-2 mt-4">
-          Подтвердите пароль
-        </Text>
+        <Text className="text-gray-400 text-sm mb-2 mt-4">Подтвердите пароль</Text>
         <TextInput
           placeholder="Введите пароль еще раз"
           placeholderTextColor="#666"
@@ -174,15 +294,83 @@ export default function Register() {
           onChangeText={setConfirmPassword}
           secureTextEntry
           autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="off"
+          textContentType="oneTimeCode"
+          importantForAutofill="no"
           className={inputClass}
+          style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
         />
 
-        <Pressable onPress={submit} className="bg-white rounded-2xl py-4 mt-8">
-          <Text className="text-black text-center text-lg font-semibold">
+        <Pressable
+          onPress={submit}
+          disabled={!canSubmit}
+          className={`rounded-2xl py-4 mt-8 ${canSubmit ? "bg-white" : "bg-gray-700"}`}
+        >
+          <Text className={`text-center text-lg font-semibold ${canSubmit ? "text-black" : "text-gray-300"}`}>
             Зарегистрироваться
           </Text>
         </Pressable>
       </ScrollView>
+
+      <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
+        <View className="flex-1 bg-black/70 items-center justify-center px-5">
+          <View className="w-full bg-[#1c1c1e] rounded-2xl p-4">
+            <Text className="text-white text-lg font-semibold text-center mb-4">Выберите дату</Text>
+
+            <View className="flex-row gap-3 mb-5">
+              <View className="flex-1 bg-[#2b2b2e] rounded-xl p-3 items-center">
+                <Text className="text-white/70 text-xs mb-2">День</Text>
+                <Pressable onPress={() => setPickerDay((v) => Math.max(1, v - 1))}>
+                  <Ionicons name="chevron-up" size={22} color="#fff" />
+                </Pressable>
+                <Text className="text-white text-2xl font-semibold my-1">{pad(pickerDay)}</Text>
+                <Pressable onPress={() => setPickerDay((v) => Math.min(maxDay, v + 1))}>
+                  <Ionicons name="chevron-down" size={22} color="#fff" />
+                </Pressable>
+              </View>
+
+              <View className="flex-1 bg-[#2b2b2e] rounded-xl p-3 items-center">
+                <Text className="text-white/70 text-xs mb-2">Месяц</Text>
+                <Pressable onPress={() => setPickerMonth((v) => Math.max(1, v - 1))}>
+                  <Ionicons name="chevron-up" size={22} color="#fff" />
+                </Pressable>
+                <Text className="text-white text-2xl font-semibold my-1">{pad(pickerMonth)}</Text>
+                <Pressable onPress={() => setPickerMonth((v) => Math.min(12, v + 1))}>
+                  <Ionicons name="chevron-down" size={22} color="#fff" />
+                </Pressable>
+              </View>
+
+              <View className="flex-1 bg-[#2b2b2e] rounded-xl p-3 items-center">
+                <Text className="text-white/70 text-xs mb-2">Год</Text>
+                <Pressable onPress={() => setPickerYear((v) => Math.max(1900, v - 1))}>
+                  <Ionicons name="chevron-up" size={22} color="#fff" />
+                </Pressable>
+                <Text className="text-white text-2xl font-semibold my-1">{pickerYear}</Text>
+                <Pressable
+                  onPress={() =>
+                    setPickerYear((v) => Math.min(new Date().getFullYear() - 13, v + 1))
+                  }
+                >
+                  <Ionicons name="chevron-down" size={22} color="#fff" />
+                </Pressable>
+              </View>
+            </View>
+
+            <View className="flex-row gap-3">
+              <Pressable
+                onPress={() => setShowDatePicker(false)}
+                className="flex-1 bg-[#3b3b40] py-3 rounded-xl"
+              >
+                <Text className="text-white text-center font-semibold">Отмена</Text>
+              </Pressable>
+              <Pressable onPress={applyDate} className="flex-1 bg-white py-3 rounded-xl">
+                <Text className="text-black text-center font-semibold">Готово</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

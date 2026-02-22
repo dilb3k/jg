@@ -1,13 +1,14 @@
 import { registerUser } from "@/services/auth.service";
 import { sendOtp } from "@/services/otp.service";
+import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
+import { getDeviceId } from "@/utils/device-id";
 import * as Device from "expo-device";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   Pressable,
   Text,
   TextInput,
@@ -18,15 +19,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const formatBirthDate = (d: string) => {
   const [day, month, year] = d.split(".");
   return `${year}-${month}-${day}`;
-};
-
-const getDeviceId = async () => {
-  try {
-    if (Platform.OS === "android") return await Device.osBuildIdAsync();
-    return `ios-${Date.now()}`;
-  } catch {
-    return `device-${Date.now()}`;
-  }
 };
 
 export default function Otp() {
@@ -47,8 +39,38 @@ export default function Otp() {
     return () => clearInterval(interval);
   }, [timer]);
 
+  useEffect(() => {
+    if (!phone || !profileData) {
+      Alert.alert("Xatolik", "Ro'yxatdan o'tish ma'lumotlari topilmadi");
+      router.replace("/(auth)/register");
+    }
+  }, [phone, profileData, router]);
+
   const handleChange = (text: string, index: number) => {
-    if (text && !/^\d$/.test(text)) return;
+    if (!text) {
+      const newOtp = [...otp];
+      newOtp[index] = "";
+      setOtp(newOtp);
+      setError(false);
+      return;
+    }
+
+    // Support iOS OTP autofill / paste (e.g. "123456")
+    if (/^\d{2,6}$/.test(text)) {
+      const digits = text.slice(0, 6).split("");
+      const newOtp = [...otp];
+
+      for (let i = 0; i < 6; i += 1) {
+        newOtp[i] = digits[i] ?? "";
+      }
+
+      setOtp(newOtp);
+      setError(false);
+      inputRefs.current[Math.min(digits.length, 5)]?.focus();
+      return;
+    }
+
+    if (!/^\d$/.test(text)) return;
 
     const newOtp = [...otp];
     newOtp[index] = text;
@@ -67,7 +89,13 @@ export default function Otp() {
   };
 
   const submit = async () => {
-    if (!isOtpComplete || !phone || !profileData) return;
+    if (!isOtpComplete || !phone || !profileData) {
+      if (!phone || !profileData) {
+        Alert.alert("Xatolik", "Ro'yxatdan o'tish ma'lumotlari topilmadi");
+        router.replace("/(auth)/register");
+      }
+      return;
+    }
 
     setLoading(true);
     setError(false);
@@ -86,7 +114,7 @@ export default function Otp() {
         device_type: "mobile",
         device_name: Device.modelName ?? "unknown",
         device_id: deviceId,
-        notification_id: "string",
+        notification_id: "", // TODO: заменить на реальный Expo Push Token
       };
 
       const res = await registerUser(payload);
@@ -151,6 +179,10 @@ export default function Otp() {
   return (
     <SafeAreaView className="flex-1 bg-black px-6 py-8 justify-between">
       <View>
+        <Pressable onPress={() => router.back()} className="mb-4 self-start p-1">
+          <BackIcon color="#D1D5DB" size={22} />
+        </Pressable>
+
         <Text className="text-gray-400 text-sm mb-6">Sign up / OTP</Text>
 
         <Text className="text-white text-3xl font-semibold mb-2">
@@ -171,7 +203,8 @@ export default function Otp() {
               maxLength={1}
               placeholder="•"
               placeholderTextColor="#666"
-              className={`w-12 bg-[#1f1f1f] text-white text-center text-xl rounded-xl border-2 ${borderColor}`}
+              className={`w-12 h-14 bg-[#1f1f1f] text-white text-center text-xl rounded-xl border-2 ${borderColor}`}
+              style={{ paddingVertical: 0, textAlignVertical: "center" }}
             />
           ))}
         </View>

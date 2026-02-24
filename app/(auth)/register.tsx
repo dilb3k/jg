@@ -195,7 +195,7 @@ export default function Register() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-black">
+    <SafeAreaView className="flex-1 bg-[#101010]" edges={["top"]}>
       <ScrollView
         className="px-6"
         contentContainerStyle={{ paddingVertical: 32 }}

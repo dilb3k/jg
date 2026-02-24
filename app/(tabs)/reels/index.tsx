@@ -10,11 +10,13 @@ import {
   ViewToken,
   useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import EmptyMessage from "./components/EmptyMessage";
 import ReelItem from "./components/ReelItem";
 
 export default function ReelsScreen() {
+  const insets = useSafeAreaInsets();
   const reels = useReelStore((state) => state.reels);
   const loading = useReelStore((state) => state.loading);
   const hasMore = useReelStore((state) => state.hasMore);
@@ -53,10 +55,10 @@ export default function ReelsScreen() {
         index={index}
         itemHeight={itemHeight}
         itemWidth={screenWidth}
-        bottomInset={0}
+        bottomInset={Math.max(insets.bottom + 58, 72)}
       />
     ),
-    [itemHeight, screenWidth],
+    [insets.bottom, itemHeight, screenWidth],
   );
 
   if (loading && reels.length === 0) {
@@ -73,7 +75,7 @@ export default function ReelsScreen() {
 
   return (
     <View
-      className="flex-1 bg-black"
+      className="flex-1 bg-[#101010]"
       onLayout={(event) => setContainerHeight(event.nativeEvent.layout.height)}
     >
       <StatusBar barStyle="light-content" hidden />

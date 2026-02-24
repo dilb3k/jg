@@ -1,66 +1,84 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, StatusBar, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useHomeStore } from "@/store/home.store";
 import { useI18n } from "@/shared/i18n/useI18n";
+import { useHomeStore } from "@/store/home.store";
 import { CategorySection } from "./components/CategorySection";
 import { CategoryTabs } from "./components/CategoryTabs";
 import { HeroCarousel } from "./components/HeroCarousel";
 import { HeroHeader } from "./components/HeroHeader";
 import { WatchHistorySection } from "./components/WatchHistorySection";
 
-/* =======================
-   SCREEN
-======================= */
-
 export default function Home() {
   const { t } = useI18n();
+  const insets = useSafeAreaInsets();
+  const HEADER_HEIGHT = 64;
+  const TABS_HEIGHT = 56;
+
   const carousels = useHomeStore((state) => state.carousels);
   const categories = useHomeStore((state) => state.categories);
   const watchHistory = useHomeStore((state) => state.watchHistory);
   const loading = useHomeStore((state) => state.loading);
   const error = useHomeStore((state) => state.error);
   const fetchData = useHomeStore((state) => state.fetchHomeData);
-  const [activeCategory, setActiveCategory] = useState<string>("");
 
+  const [activeCategory, setActiveCategory] = useState<string>("all");
   const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
+  const [tabsPinned, setTabsPinned] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const categoryRefs = useRef<Record<string, number>>({});
   const carouselInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  /* =======================
-     CATEGORY SCROLL
-  ======================= */
+  const tabsAnchorY = useRef(0);
+  const tabsPinnedRef = useRef(false);
 
   const scrollToCategory = (categoryId: string) => {
     setActiveCategory(categoryId);
 
-    const yOffset = categoryRefs.current[categoryId];
-    if (yOffset !== undefined && scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({
-        y: yOffset,
-        animated: true,
-      });
+    if (categoryId === "all") {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      return;
     }
+
+    const yOffset = categoryRefs.current[categoryId];
+    if (yOffset === undefined || !scrollViewRef.current) return;
+
+    const targetY = Math.max(yOffset - (insets.top + HEADER_HEIGHT + TABS_HEIGHT + 12), 0);
+    scrollViewRef.current.scrollTo({ y: targetY, animated: true });
   };
 
   const handleCategoryLayout = (categoryId: string, y: number) => {
     categoryRefs.current[categoryId] = y;
   };
 
-  /* =======================
-     EFFECTS
-  ======================= */
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = event.nativeEvent.contentOffset.y;
+    const pinThreshold = Math.max(tabsAnchorY.current - (insets.top + HEADER_HEIGHT), 0);
+    const shouldPin = y >= pinThreshold;
+
+    if (shouldPin !== tabsPinnedRef.current) {
+      tabsPinnedRef.current = shouldPin;
+      setTabsPinned(shouldPin);
+    }
+  };
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   useEffect(() => {
-    if (categories.length > 0) {
-      setActiveCategory((prev) => prev || categories[0].id);
-    }
+    if (categories.length > 0) return;
+    setActiveCategory("all");
   }, [categories]);
 
   useEffect(() => {
@@ -77,65 +95,78 @@ export default function Home() {
     };
   }, [carousels.length]);
 
-  /* =======================
-     LOADING
-  ======================= */
-
   if (loading) {
     return (
-      <View className="flex-1 bg-[#101010] justify-center items-center">
+      <SafeAreaView className="flex-1 bg-[#101010] justify-center items-center" edges={["top"]}>
         <ActivityIndicator size="large" color="#FF0000" />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View className="flex-1 bg-[#101010] justify-center items-center gap-4">
+      <SafeAreaView className="flex-1 bg-[#101010] justify-center items-center gap-4" edges={["top"]}>
         <Text className="text-gray-400 text-base">{t("home.error")}</Text>
         <TouchableOpacity onPress={fetchData} className="bg-white px-6 py-3 rounded-xl">
           <Text className="text-black font-semibold">{t("common.retry")}</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   const currentCarousel = carousels[currentCarouselIndex];
-
-  /* =======================
-     RENDER
-  ======================= */
+  const categoryTabProps = {
+    categories: [
+      { id: "all", title: t("search.all") },
+      ...categories.map((c) => ({ id: c.id, title: c.title })),
+    ],
+    active: activeCategory,
+    onChange: scrollToCategory,
+  };
 
   return (
-    <View className="flex-1 bg-[#101010]">
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView className="flex-1 bg-[#101010]" edges={[]}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+      {tabsPinned ? (
+        <View
+          className="absolute left-0 right-0 top-0 z-40 bg-[#101010]"
+          style={{ height: insets.top }}
+        />
+      ) : null}
+
+      <View
+        className={`absolute left-0 right-0 z-30 ${tabsPinned ? "bg-[#101010]" : "bg-transparent"}`}
+        style={{ top: insets.top }}
+      >
+        <HeroHeader />
+        {tabsPinned ? <CategoryTabs {...categoryTabProps} /> : null}
+      </View>
 
       <ScrollView
         ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={[1]}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
-        {/* 0 — HERO CAROUSEL */}
-        {currentCarousel && (
+        {currentCarousel ? (
           <HeroCarousel
             carousel={currentCarousel}
             index={currentCarouselIndex}
             total={carousels.length}
           />
-        )}
+        ) : null}
 
-        {/* 1 — CATEGORY TABS */}
-        <CategoryTabs
-          categories={categories.map((c) => ({
-            id: c.id,
-            title: c.title,
-          }))}
-          active={activeCategory}
-          onChange={scrollToCategory}
-        />
+        <View
+          style={{ opacity: tabsPinned ? 0 : 1 }}
+          onLayout={(e) => {
+            tabsAnchorY.current = e.nativeEvent.layout.y;
+          }}
+        >
+          <CategoryTabs {...categoryTabProps} />
+        </View>
 
-        {/* 2 — CATEGORY SECTIONS + WATCH HISTORY */}
-        <View className="pb-20">
+        <View style={{ paddingBottom: Math.max(80, insets.bottom + 58) }}>
           {categories.map((category, index) => (
             <View key={category.id}>
               <CategorySection
@@ -143,16 +174,11 @@ export default function Home() {
                 onLayout={(y) => handleCategoryLayout(category.id, y)}
               />
 
-              {/* 🔥 HAR 2 TA CATEGORY’DAN KEYIN */}
-              {(index + 1) % 2 === 0 && (
-                <WatchHistorySection items={watchHistory} />
-              )}
+              {(index + 1) % 2 === 0 ? <WatchHistorySection items={watchHistory} /> : null}
             </View>
           ))}
         </View>
       </ScrollView>
-
-      <HeroHeader />
-    </View>
+    </SafeAreaView>
   );
 }

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   StatusBar,
   Text,
   View,
@@ -11,12 +12,14 @@ import { useHomeStore } from "@/store/home.store";
 import { useI18n } from "@/shared/i18n/useI18n";
 import { Movie } from "@/shared/types/movie";
 import { NotMovieIcon } from "@/shared/ui/icons/NotMovieIcon";
-import { HeroHeader } from "../components/HeroHeader";
 import { MovieCard } from "../components/MovieCard";
+import { ChevronLeft } from "lucide-react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function CategoryPage() {
   const router = useRouter();
   const { t } = useI18n();
+  const insets = useSafeAreaInsets();
 
   const params = useLocalSearchParams<{
     id: string;
@@ -50,22 +53,27 @@ export default function CategoryPage() {
 
   if (loading) {
     return (
-      <View className="flex-1 bg-[#101010] justify-center items-center">
+      <SafeAreaView className="flex-1 bg-[#101010] justify-center items-center" edges={["top"]}>
         <ActivityIndicator size="large" color="red" />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View className="flex-1 bg-[#101010]">
+    <SafeAreaView className="flex-1 bg-[#101010]" edges={["top"]}>
       <StatusBar barStyle="light-content" />
-      <HeroHeader />
 
-      {categoryTitle && (
-        <Text className="text-white text-2xl font-bold px-4 pt-32 pb-2">
+      <View className="px-4 pt-2 pb-3 flex-row items-center">
+        <Pressable
+          onPress={() => router.back()}
+          className="w-10 h-10 rounded-full bg-[#2C2C2C] items-center justify-center mr-3"
+        >
+          <ChevronLeft size={20} color="#fff" />
+        </Pressable>
+        <Text className="text-white text-2xl font-bold flex-1" numberOfLines={1}>
           {categoryTitle}
         </Text>
-      )}
+      </View>
 
       <FlatList
         data={movies}
@@ -73,7 +81,7 @@ export default function CategoryPage() {
         numColumns={2}
         showsVerticalScrollIndicator={false}
         columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: Math.max(90, insets.bottom + 58) }}
         renderItem={({ item }) => (
           <MovieCard
             movie={item}
@@ -92,6 +100,6 @@ export default function CategoryPage() {
           </View>
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }

@@ -105,7 +105,7 @@ export default function VerifyResetCode() {
   const borderClass = error ? "border-red-500" : "border-transparent";
 
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1 bg-[#101010]" edges={["top", "bottom"]}>
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}

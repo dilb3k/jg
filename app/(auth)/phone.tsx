@@ -132,7 +132,7 @@ export default function Phone() {
   const inputClass = "bg-[#2C2C2C] text-white rounded-xl px-4 text-base h-14";
 
   return (
-    <SafeAreaView className="flex-1 bg-black px-6 py-8 justify-between">
+    <SafeAreaView className="flex-1 bg-[#101010] px-6 py-8 justify-between">
       <View>
         <Pressable onPress={() => router.back()} className="mb-4 self-start w-10 h-10 rounded-full bg-[#2C2C2C] items-center justify-center">
           <ChevronLeft size={20} color="#fff" />

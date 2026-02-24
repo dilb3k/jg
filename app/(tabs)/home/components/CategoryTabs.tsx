@@ -11,12 +11,12 @@ export function CategoryTabs({ active, categories, onChange }: Props) {
   const router = useRouter();
 
   return (
-    <View className="bg-[#101010] border-b border-white/5">
+    <View className="bg-[#101010] border-b border-white/10">
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        className="p-4"
-        contentContainerStyle={{ gap: 16 }}
+        className="px-4 py-2"
+        contentContainerStyle={{ gap: 8, alignItems: "center" }}
       >
         {categories.map((cat) => {
           const isActive = active === cat.id;
@@ -24,7 +24,7 @@ export function CategoryTabs({ active, categories, onChange }: Props) {
           return (
             <TouchableOpacity
               key={cat.id}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
               onPress={() => {
                 if (onChange) {
                   onChange(cat.id);
@@ -36,17 +36,11 @@ export function CategoryTabs({ active, categories, onChange }: Props) {
                   params: { id: cat.id, title: cat.title },
                 });
               }}
-              className={`px-4 py-2 rounded-full ${
-                isActive ? "bg-white/10" : "bg-transparent"
+              className={`px-4 h-9 rounded-lg items-center justify-center ${
+                isActive ? "bg-[#2C2C2C]" : "bg-transparent"
               }`}
             >
-              <Text
-                className={`text-sm ${
-                  isActive ? "text-white font-semibold" : "text-white/50"
-                }`}
-              >
-                {cat.title}
-              </Text>
+              <Text className={`text-sm ${isActive ? "text-white" : "text-white/55"}`}>{cat.title}</Text>
             </TouchableOpacity>
           );
         })}

@@ -1,4 +1,6 @@
+import { OfflineNotice } from "@/shared/ui/OfflineNotice";
 import { useAuthStore } from "@/store/auth.store";
+import { useNetworkStore } from "@/store/network.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect, useState } from "react";
@@ -8,6 +10,8 @@ import "../global.css";
 export default function RootLayout() {
   const { hydrate, hydrated, accessToken, sessionExpired, clearSessionExpired } = useAuthStore();
   const hydrateSettings = useSettingsStore((state) => state.hydrate);
+  const startMonitoring = useNetworkStore((state) => state.startMonitoring);
+  const stopMonitoring = useNetworkStore((state) => state.stopMonitoring);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const segments = useSegments();
@@ -25,6 +29,11 @@ export default function RootLayout() {
 
     initAuth();
   }, [hydrate, hydrateSettings]);
+
+  useEffect(() => {
+    startMonitoring();
+    return () => stopMonitoring();
+  }, [startMonitoring, stopMonitoring]);
 
   useEffect(() => {
     if (isLoading || !hydrated) return;
@@ -57,11 +66,16 @@ export default function RootLayout() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-black items-center justify-center">
+      <View className="flex-1 bg-[#101010] items-center justify-center">
         <ActivityIndicator size="large" color="#fff" />
       </View>
     );
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <View className="flex-1">
+      <Stack screenOptions={{ headerShown: false }} />
+      <OfflineNotice />
+    </View>
+  );
 }

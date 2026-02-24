@@ -29,12 +29,12 @@ export function HeroCarousel({
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={handleOpenMovie}
-      style={{ height: height * 0.85 }}
+      style={{ height: height * 0.65 }}
       className="relative"
     >
       <Image
         source={{ uri: carousel.poster_url }}
-        style={{ width: '100%', height: height * 0.85 }}
+        style={{ width: '100%', height: height * 0.65 }}
         resizeMode="cover"
       />
 

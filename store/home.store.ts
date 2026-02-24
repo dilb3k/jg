@@ -47,10 +47,11 @@ export const useHomeStore = create<HomeState>((set) => ({
 
       let resolvedCategories: Category[] = [];
       if (genres.status === "fulfilled") {
+        const prioritizedGenres = genres.value.slice(0, 8);
         resolvedCategories = await Promise.all(
-          genres.value.map(async (genre) => {
+          prioritizedGenres.map(async (genre) => {
             try {
-              const movies = await getMoviesByGenre(genre.id);
+              const movies = await getMoviesByGenre(genre.id, 1, 12);
               return {
                 id: genre.id,
                 title: genre.name,

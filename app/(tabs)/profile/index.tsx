@@ -184,7 +184,7 @@ export default function ProfilePage() {
       : t("profile.deleteConfirmText");
 
   return (
-    <SafeAreaView className="flex-1 bg-[#07090D]" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-[#101010]" edges={["top"]}>
       <View className="px-4 flex-row items-center justify-between pt-2 pb-4">
         <TouchableOpacity
           onPress={() => router.back()}

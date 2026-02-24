@@ -226,7 +226,10 @@ export const translations: Record<AppLanguage, Record<string, string>> = {
     "tv.today": "Сегодня",
     "tv.tomorrow": "Завтра",
     "tv.liveNow": "Прямой эфир",
-    "tv.emptySchedule": "Расписание пока отсутствует"
+    "tv.emptySchedule": "Расписание пока отсутствует",
+
+    "network.offlineTitle": "Нет подключения к интернету",
+    "network.offlineSubtitle": "Проверьте соединение и попробуйте снова"
   },
 
   uz: {
@@ -452,7 +455,10 @@ export const translations: Record<AppLanguage, Record<string, string>> = {
     "tv.today": "Bugun",
     "tv.tomorrow": "Ertaga",
     "tv.liveNow": "Jonli efir",
-    "tv.emptySchedule": "Jadval hozircha yo'q"
+    "tv.emptySchedule": "Jadval hozircha yo'q",
+
+    "network.offlineTitle": "Internetga ulanish yo'q",
+    "network.offlineSubtitle": "Internetni tekshirib, qayta urinib ko'ring"
   },
 
   en: {
@@ -678,6 +684,9 @@ export const translations: Record<AppLanguage, Record<string, string>> = {
     "tv.today": "Today",
     "tv.tomorrow": "Tomorrow",
     "tv.liveNow": "Live now",
-    "tv.emptySchedule": "Schedule is empty"
+    "tv.emptySchedule": "Schedule is empty",
+
+    "network.offlineTitle": "No internet connection",
+    "network.offlineSubtitle": "Check your connection and try again"
   }
 };

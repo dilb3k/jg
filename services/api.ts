@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 import { useAuthStore } from "@/store/auth.store";
+import { useNetworkStore } from "@/store/network.store";
 import { useSettingsStore } from "@/store/settings.store";
 
 export const api = axios.create({
@@ -78,6 +79,7 @@ const processQueue = (error: unknown, token: string | null = null) => {
 
 api.interceptors.response.use(
   (response) => {
+    useNetworkStore.getState().setConnected(true);
     if (__DEV__) {
       console.log("✅ RESPONSE:", {
         url: response.config.url,
@@ -87,6 +89,10 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
+    if (!error.response) {
+      useNetworkStore.getState().setConnected(false);
+    }
+
     if (__DEV__) {
       console.log("❌ RESPONSE ERROR:", {
         url: error.config?.url,
@@ -138,5 +144,18 @@ api.interceptors.response.use(
     } finally {
       isRefreshing = false;
     }
+  },
+);
+
+publicApi.interceptors.response.use(
+  (response) => {
+    useNetworkStore.getState().setConnected(true);
+    return response;
+  },
+  (error) => {
+    if (!error.response) {
+      useNetworkStore.getState().setConnected(false);
+    }
+    return Promise.reject(error);
   },
 );

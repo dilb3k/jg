@@ -15,8 +15,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const qualityOptions: Array<NonNullable<SearchFilters["quality"]>> = ["hd", "full_hd", "2k", "4k"];
-const sortOptions: Array<NonNullable<SearchFilters["sortBy"]>> = ["rating", "popularity", "date"];
+const qualityOptions: NonNullable<SearchFilters["quality"]>[] = ["hd", "full_hd", "2k", "4k"];
+const sortOptions: NonNullable<SearchFilters["sortBy"]>[] = ["rating", "popularity", "date"];
 
 export default function SearchFilterScreen() {
   const router = useRouter();
@@ -84,7 +84,8 @@ export default function SearchFilterScreen() {
       return;
     }
 
-    const clampedYear = Math.max(1900, Math.min(new Date().getFullYear(), value));
+    const currentYear = new Date().getFullYear();
+    const clampedYear = Math.min(currentYear, value);
     updateDraftFilters({ [key]: clampedYear });
   };
 

@@ -24,7 +24,7 @@ export default function Splash() {
   }
 
   return (
-    <View className="flex-1 bg-black">
+    <View className="flex-1 bg-[#101010]">
       {/* IMAGE 60% */}
       <View className="h-[60%] w-full">
         <Image

@@ -22,26 +22,26 @@ export function CategorySection({ category, onLayout }: Props) {
   const { t } = useI18n();
 
   return (
-    <View className="mb-6" onLayout={(e) => onLayout(e.nativeEvent.layout.y)}>
-      <TouchableOpacity
-        className="px-4 mb-3"
-        activeOpacity={0.7}
-        onPress={() =>
-          router.push({
-            pathname: "/(tabs)/home/category/[id]",
-            params: { id: category.id, title: category.title },
-          })
-        }
-      >
-        <Text className="text-white text-xl font-semibold">
-          {category.title}
-        </Text>
-      </TouchableOpacity>
+    <View className="mb-7" onLayout={(e) => onLayout(e.nativeEvent.layout.y)}>
+      <View className="px-4 mb-3 flex-row items-center justify-between">
+        <Text className="text-white text-[22px] font-semibold">{category.title}</Text>
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={() =>
+            router.push({
+              pathname: "/(tabs)/home/category/[id]",
+              params: { id: category.id, title: category.title },
+            })
+          }
+        >
+          <Text className="text-white/45 text-sm">{t("search.all")} ›</Text>
+        </TouchableOpacity>
+      </View>
 
       {category.movies.length === 0 ? (
-        <View className="px-4 py-6 flex flex-col items-center justify-center gap-4">
-          <NotMovieIcon color="#888" size={40} />
-          <Text className="text-gray-400 ">{t("home.emptyCategory")}</Text>
+        <View className="px-4 py-6 items-center justify-center gap-3">
+          <NotMovieIcon color="#888" size={36} />
+          <Text className="text-gray-400">{t("home.emptyCategory")}</Text>
         </View>
       ) : (
         <ScrollView

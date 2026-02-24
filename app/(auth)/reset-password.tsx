@@ -56,7 +56,7 @@ export default function ResetPassword() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1 bg-[#101010]" edges={["top", "bottom"]}>
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}

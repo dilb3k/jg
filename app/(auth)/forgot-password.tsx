@@ -1,9 +1,9 @@
 import { sendForgotPasswordOtp } from "@/services/otp.service";
 import { useI18n } from "@/shared/i18n/useI18n";
-import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
 import { formatPhone } from "@/utils/format-phone";
 import { useRouter } from "expo-router";
+import { ChevronLeft } from "lucide-react-native";
 import { useState } from "react";
 import {
   Alert,
@@ -60,8 +60,8 @@ export default function ForgotPassword() {
           contentContainerStyle={{ flexGrow: 1 }}
           className="px-6 pt-6"
         >
-          <Pressable onPress={() => router.back()} className="mb-4 self-start p-1">
-            <BackIcon color="#D1D5DB" size={22} />
+          <Pressable onPress={() => router.back()} className="mb-4 self-start w-10 h-10 rounded-full bg-[#2C2C2C] items-center justify-center">
+            <ChevronLeft size={20} color="#fff" />
           </Pressable>
 
           <Text className="text-white text-3xl font-semibold mb-3">
@@ -82,8 +82,8 @@ export default function ForgotPassword() {
             keyboardType="phone-pad"
             autoComplete="tel"
             maxLength={17}
-            className="bg-[#1c1c1e] text-white rounded-xl px-4 text-base mb-8"
-            style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+            className="bg-[#2C2C2C] text-white rounded-xl px-4 text-base h-14 mb-8"
+            style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
           />
 
           <View className="flex-1 min-h-8" />

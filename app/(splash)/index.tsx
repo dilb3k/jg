@@ -73,7 +73,7 @@ export default function Splash() {
 
         <Pressable
           onPress={() => router.replace('/(auth)/register')}
-          className="bg-[#2a2a2a] rounded-2xl py-4"
+          className="bg-[#2C2C2C] rounded-2xl py-4"
         >
           <Text className="text-white text-center text-lg font-semibold">
             {t("splash.register")}

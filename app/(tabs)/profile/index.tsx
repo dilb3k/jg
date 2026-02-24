@@ -1,6 +1,7 @@
 import { useI18n } from "@/shared/i18n/useI18n";
 import { useProfileStore } from "@/store/profile.store";
 import { useSettingsStore } from "@/store/settings.store";
+import { useRouter } from "expo-router";
 import {
   Bell,
   Bookmark,
@@ -16,7 +17,6 @@ import {
   Tv,
   UserRound,
 } from "lucide-react-native";
-import { useRouter } from "expo-router";
 import { ComponentType, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -225,7 +225,7 @@ export default function ProfilePage() {
               <Pressable
                 key={item.key}
                 onPress={item.onPress}
-                className="bg-white/[0.06] rounded-2xl px-3 py-3 flex-row items-center"
+                className="bg-[#2C2C2C] rounded-2xl px-3 py-3 flex-row items-center"
               >
                 <View className="w-10 h-10 rounded-xl bg-white/10 items-center justify-center mr-3">
                   <Icon size={18} color={item.isDanger ? "#FF4D4F" : "#D2D6DB"} />

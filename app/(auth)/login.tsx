@@ -1,6 +1,5 @@
 import { loginUser } from "@/services/auth.service";
 import { useI18n } from "@/shared/i18n/useI18n";
-import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
 import { getDeviceId } from "@/utils/device-id";
 import { formatPhone } from "@/utils/format-phone";
@@ -90,16 +89,7 @@ export default function Login() {
           contentContainerStyle={{ flexGrow: 1 }}
           className="px-6 pt-6"
         >
-          <View className="flex-row items-center justify-between mb-4">
-            <Pressable onPress={() => router.replace("/(splash)")} className="p-1">
-              <BackIcon color="#D1D5DB" size={22} />
-            </Pressable>
-            <Pressable onPress={() => router.push("/(auth)/register")}>
-              <Text className="text-blue-400 text-sm">{t("login.register")}</Text>
-            </Pressable>
-          </View>
-
-          <Text className="text-white text-2xl font-semibold mb-2">
+          <Text className="text-white text-2xl font-semibold mb-2 mt-4">
             {t("login.title")}
           </Text>
           <Text className="text-gray-400 text-sm mb-8">
@@ -142,8 +132,8 @@ export default function Login() {
                 autoComplete="tel"
                 placeholder="+"
                 placeholderTextColor="#666"
-                className="bg-[#1c1c1e] text-white rounded-xl px-4"
-                style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+                className="bg-[#2C2C2C] text-white rounded-xl px-4 h-14"
+                style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
               />
             ) : (
               <TextInput
@@ -153,8 +143,8 @@ export default function Login() {
                 placeholderTextColor="#666"
                 autoCapitalize="none"
                 autoComplete="username"
-                className="bg-[#1c1c1e] text-white rounded-xl px-4"
-                style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+                className="bg-[#2C2C2C] text-white rounded-xl px-4 h-14"
+                style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
               />
             )}
           </View>
@@ -177,8 +167,8 @@ export default function Login() {
                 autoCapitalize="none"
                 autoComplete="password"
                 textContentType="password"
-                className="bg-[#1c1c1e] text-white rounded-xl px-4 pr-12"
-                style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+                className="bg-[#2C2C2C] text-white rounded-xl px-4 pr-12 h-14"
+                style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
               />
 
               <Pressable
@@ -200,7 +190,7 @@ export default function Login() {
             onPress={submit}
             disabled={loading || !canSubmit}
             className={`py-4 rounded-2xl mb-4 ${
-              loading || !canSubmit ? "bg-gray-700" : "bg-white"
+              loading || !canSubmit ? "bg-[#2C2C2C]" : "bg-white"
             }`}
           >
             <Text
@@ -209,6 +199,13 @@ export default function Login() {
               }`}
             >
               {loading ? t("common.loading") : t("login.submit")}
+            </Text>
+          </Pressable>
+
+          <Pressable onPress={() => router.push("/(auth)/register")} className="py-3 items-center">
+            <Text className="text-gray-400 text-sm">
+              {t("login.noAccount")}{" "}
+              <Text className="text-blue-400 font-medium">{t("login.register")}</Text>
             </Text>
           </Pressable>
         </ScrollView>

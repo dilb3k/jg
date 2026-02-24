@@ -1,11 +1,11 @@
 import { registerUser } from "@/services/auth.service";
 import { sendOtp } from "@/services/otp.service";
 import { useI18n } from "@/shared/i18n/useI18n";
-import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
 import { getDeviceId } from "@/utils/device-id";
 import * as Device from "expo-device";
 import { useRouter } from "expo-router";
+import { ChevronLeft } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -181,8 +181,8 @@ export default function Otp() {
   return (
     <SafeAreaView className="flex-1 bg-black px-6 py-8 justify-between">
       <View>
-        <Pressable onPress={() => router.back()} className="mb-4 self-start p-1">
-          <BackIcon color="#D1D5DB" size={22} />
+        <Pressable onPress={() => router.back()} className="mb-4 self-start w-10 h-10 rounded-full bg-[#2C2C2C] items-center justify-center">
+          <ChevronLeft size={20} color="#fff" />
         </Pressable>
 
         <Text className="text-gray-400 text-sm mb-6">{t("otp.step")}</Text>
@@ -205,8 +205,8 @@ export default function Otp() {
               maxLength={1}
               placeholder="•"
               placeholderTextColor="#666"
-              className={`w-12 h-14 bg-[#1f1f1f] text-white text-center text-xl rounded-xl border-2 ${borderColor}`}
-              style={{ paddingVertical: 0, textAlignVertical: "center" }}
+              className={`w-12 h-14 bg-[#2C2C2C] text-white text-center text-xl rounded-xl border-2 ${borderColor}`}
+              style={{ paddingVertical: 0, textAlignVertical: "center", includeFontPadding: false }}
             />
           ))}
         </View>
@@ -226,7 +226,7 @@ export default function Otp() {
         onPress={submit}
         disabled={!isOtpComplete || loading}
         className={`rounded-2xl py-4 ${
-          isOtpComplete && !loading ? "bg-white" : "bg-gray-700"
+          isOtpComplete && !loading ? "bg-white" : "bg-[#2C2C2C]"
         }`}
       >
         {loading ? (

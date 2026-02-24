@@ -1,10 +1,10 @@
 import { checkPhoneAvailability } from "@/services/auth.service";
 import { sendOtp } from "@/services/otp.service";
 import { useI18n } from "@/shared/i18n/useI18n";
-import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
 import { formatPhone } from "@/utils/format-phone";
 import { useRouter } from "expo-router";
+import { ChevronLeft } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -129,13 +129,13 @@ export default function Phone() {
     }
   };
 
-  const inputClass = "bg-[#1f1f1f] text-white rounded-xl px-4 text-base";
+  const inputClass = "bg-[#2C2C2C] text-white rounded-xl px-4 text-base h-14";
 
   return (
     <SafeAreaView className="flex-1 bg-black px-6 py-8 justify-between">
       <View>
-        <Pressable onPress={() => router.back()} className="mb-4 self-start p-1">
-          <BackIcon color="#D1D5DB" size={22} />
+        <Pressable onPress={() => router.back()} className="mb-4 self-start w-10 h-10 rounded-full bg-[#2C2C2C] items-center justify-center">
+          <ChevronLeft size={20} color="#fff" />
         </Pressable>
 
         <Text className="text-gray-400 text-sm mb-6">{t("phone.step")}</Text>
@@ -153,7 +153,7 @@ export default function Phone() {
           onChangeText={handleChange}
           maxLength={17}
           className={inputClass}
-          style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+          style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
         />
         {phoneStatus === "checking" ? (
           <Text className="text-xs text-gray-400 mt-2">{t("phone.checking")}</Text>
@@ -184,7 +184,7 @@ export default function Phone() {
         className={`rounded-2xl py-4 ${
           isValid && !loading && phoneStatus === "available"
             ? "bg-white"
-            : "bg-gray-700"
+            : "bg-[#2C2C2C]"
         }`}
       >
         {loading ? (

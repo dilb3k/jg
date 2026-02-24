@@ -28,7 +28,7 @@ export default function LanguageScreen() {
       <View className="px-4 flex-row items-center pt-2 pb-4">
         <Pressable
           onPress={() => router.back()}
-          className="w-11 h-11 rounded-full bg-white/10 items-center justify-center"
+          className="w-11 h-11 rounded-full bg-[#2C2C2C] items-center justify-center"
         >
           <ChevronLeft size={20} color="#fff" />
         </Pressable>
@@ -44,7 +44,7 @@ export default function LanguageScreen() {
           return (
             <Pressable
               key={item.code}
-              className="bg-white/[0.07] rounded-2xl py-4 px-4 flex-row items-center"
+              className="bg-[#2C2C2C] rounded-2xl py-4 px-4 flex-row items-center"
               onPress={() => setLanguage(item.code)}
             >
               <Text className="text-2xl mr-3">{item.flag}</Text>

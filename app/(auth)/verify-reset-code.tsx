@@ -1,8 +1,8 @@
 import { sendForgotPasswordOtp, verifyForgotPasswordCode } from "@/services/otp.service";
 import { useI18n } from "@/shared/i18n/useI18n";
-import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
 import { useRouter } from "expo-router";
+import { ChevronLeft } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -116,8 +116,8 @@ export default function VerifyResetCode() {
           className="px-6 pt-6"
         >
           <View>
-            <Pressable onPress={() => router.back()} className="mb-4 self-start p-1">
-              <BackIcon color="#D1D5DB" size={22} />
+            <Pressable onPress={() => router.back()} className="mb-4 self-start w-10 h-10 rounded-full bg-[#2C2C2C] items-center justify-center">
+              <ChevronLeft size={20} color="#fff" />
             </Pressable>
 
             <Text className="text-white text-3xl font-semibold mb-3">
@@ -140,8 +140,8 @@ export default function VerifyResetCode() {
                   textContentType={index === 0 ? "oneTimeCode" : "none"}
                   autoComplete={index === 0 ? "one-time-code" : "off"}
                   maxLength={1}
-                  className={`bg-[#1c1c1e] text-white text-2xl text-center rounded-xl w-12 h-14 border-2 ${borderClass}`}
-                  style={{ paddingVertical: 0, textAlignVertical: "center" }}
+                  className={`bg-[#2C2C2C] text-white text-2xl text-center rounded-xl w-12 h-14 border-2 ${borderClass}`}
+                  style={{ paddingVertical: 0, textAlignVertical: "center", includeFontPadding: false }}
                 />
               ))}
             </View>
@@ -166,7 +166,7 @@ export default function VerifyResetCode() {
               className={`py-4 rounded-[14px] active:opacity-90 ${
                 isComplete && isTimerActive && !loading
                   ? "bg-white"
-                  : "bg-[#2c2c2e]"
+                  : "bg-[#2C2C2C]"
               }`}
             >
               {loading ? (

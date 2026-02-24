@@ -1,9 +1,9 @@
 import { checkUsernameAvailability } from "@/services/auth.service";
 import { useI18n } from "@/shared/i18n/useI18n";
-import { BackIcon } from "@/shared/ui/icons/BackIcon";
 import { useAuthStore } from "@/store/auth.store";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { ChevronLeft } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -44,7 +44,7 @@ export default function Register() {
   >("idle");
   const usernameCheckIdRef = useRef(0);
 
-  const inputClass = "bg-[#1f1f1f] text-white rounded-xl px-4 text-base";
+  const inputClass = "bg-[#2C2C2C] text-white rounded-xl px-4 text-base h-14";
   const usernameNormalized = useMemo(() => username.trim().toLowerCase(), [username]);
   const isUsernameFormatValid = useMemo(
     () => /^[a-zA-Z0-9_]{3,32}$/.test(usernameNormalized),
@@ -201,9 +201,8 @@ export default function Register() {
         contentContainerStyle={{ paddingVertical: 32 }}
         keyboardShouldPersistTaps="handled"
       >
-        <Pressable onPress={handleBack} className="mb-4 self-start p-1 flex-row items-center gap-2">
-          <BackIcon color="#D1D5DB" size={22} />
-          <Text className="text-gray-300 text-base">{t("common.back")}</Text>
+        <Pressable onPress={handleBack} className="mb-4 self-start w-10 h-10 rounded-full bg-[#2C2C2C] items-center justify-center">
+          <ChevronLeft size={20} color="#fff" />
         </Pressable>
 
         <Text className="text-gray-400 text-sm mb-2">{t("register.step")}</Text>
@@ -220,7 +219,7 @@ export default function Register() {
           onChangeText={setFirstName}
           autoCapitalize="words"
           className={inputClass}
-          style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+          style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
         />
 
         <Text className="text-gray-400 text-sm mb-2 mt-4">{t("register.lastName")}</Text>
@@ -231,7 +230,7 @@ export default function Register() {
           onChangeText={setLastName}
           autoCapitalize="words"
           className={inputClass}
-          style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+          style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
         />
 
         <Text className="text-gray-400 text-sm mb-2 mt-4">{t("register.username")}</Text>
@@ -242,7 +241,7 @@ export default function Register() {
           onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())}
           autoCapitalize="none"
           className={inputClass}
-          style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+          style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
         />
         {usernameStatus === "checking" ? (
           <Text className="text-xs text-gray-400 mt-2">{t("register.usernameChecking")}</Text>
@@ -263,7 +262,7 @@ export default function Register() {
         <Text className="text-gray-400 text-sm mb-2 mt-4">{t("register.birthDate")}</Text>
         <Pressable
           onPress={openDatePicker}
-          className="bg-[#1f1f1f] rounded-xl px-4 flex-row items-center"
+          className="bg-[#2C2C2C] rounded-xl px-4 flex-row items-center"
           style={{ height: 56 }}
         >
           <Text className={`flex-1 text-base ${birthDate ? "text-white" : "text-[#666]"}`}>
@@ -284,7 +283,7 @@ export default function Register() {
           autoComplete="new-password"
           textContentType="newPassword"
           className={inputClass}
-          style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+          style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
         />
 
         <Text className="text-gray-400 text-sm mb-2 mt-4">{t("register.confirmPassword")}</Text>
@@ -299,16 +298,23 @@ export default function Register() {
           autoComplete="new-password"
           textContentType="newPassword"
           className={inputClass}
-          style={{ height: 56, paddingVertical: 0, textAlignVertical: "center" }}
+          style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
         />
 
         <Pressable
           onPress={submit}
           disabled={!canSubmit}
-          className={`rounded-2xl py-4 mt-8 ${canSubmit ? "bg-white" : "bg-gray-700"}`}
+          className={`rounded-2xl py-4 mt-8 ${canSubmit ? "bg-white" : "bg-[#2C2C2C]"}`}
         >
           <Text className={`text-center text-lg font-semibold ${canSubmit ? "text-black" : "text-gray-300"}`}>
             {t("register.submit")}
+          </Text>
+        </Pressable>
+
+        <Pressable onPress={() => router.replace("/(auth)/login")} className="py-3 items-center mt-1">
+          <Text className="text-gray-400 text-sm">
+            {t("register.haveAccount")}{" "}
+            <Text className="text-blue-400 font-medium">{t("login.submit")}</Text>
           </Text>
         </Pressable>
       </ScrollView>
@@ -360,7 +366,7 @@ export default function Register() {
             <View className="flex-row gap-3">
               <Pressable
                 onPress={() => setShowDatePicker(false)}
-                className="flex-1 bg-[#3b3b40] py-3 rounded-xl"
+                className="flex-1 bg-[#2C2C2C] py-3 rounded-xl"
               >
                 <Text className="text-white text-center font-semibold">{t("common.cancel")}</Text>
               </Pressable>

@@ -6,8 +6,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
-  Alert,
   ActivityIndicator,
+  Alert,
   Image,
   ScrollView,
   StatusBar,

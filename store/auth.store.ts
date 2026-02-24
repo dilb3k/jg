@@ -12,6 +12,7 @@ type AuthState = {
   accessToken: string | null
   refreshToken: string | null
   user: any | null
+  sessionExpired: boolean
   profileData: ProfileData | null
   phone: string | null
   otpCode: string | null
@@ -27,6 +28,8 @@ type AuthState = {
   setResetData: (phone: string, token: string) => void
   clearResetData: () => void
   setAuth: (data: { accessToken: string; refreshToken: string; user: any }) => Promise<void>
+  expireSession: () => Promise<void>
+  clearSessionExpired: () => void
   hydrate: () => Promise<void>
   logout: () => Promise<void>
 }
@@ -34,6 +37,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   accessToken: null,
   refreshToken: null,
   user: null,
+  sessionExpired: false,
   profileData: null,
   phone: null,
   otpCode: null,
@@ -65,8 +69,29 @@ export const useAuthStore = create<AuthState>((set) => ({
     await SecureStore.setItemAsync('accessToken', accessToken)
     await SecureStore.setItemAsync('refreshToken', refreshToken)
     await SecureStore.setItemAsync('user', JSON.stringify(user))
-    set({ accessToken, refreshToken, user })
+    set({ accessToken, refreshToken, user, sessionExpired: false })
   },
+
+  expireSession: async () => {
+    await Promise.all([
+      SecureStore.deleteItemAsync('accessToken'),
+      SecureStore.deleteItemAsync('refreshToken'),
+      SecureStore.deleteItemAsync('user'),
+    ])
+    set({
+      accessToken: null,
+      refreshToken: null,
+      user: null,
+      profileData: null,
+      phone: null,
+      otpCode: null,
+      resetPhone: null,
+      resetToken: null,
+      sessionExpired: true,
+    })
+  },
+
+  clearSessionExpired: () => set({ sessionExpired: false }),
 
   hydrate: async () => {
     const [accessToken, refreshToken, user] = await Promise.all([
@@ -97,6 +122,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       otpCode: null,
       resetPhone: null,
       resetToken: null,
+      sessionExpired: false,
     })
   },
 }))

@@ -6,7 +6,7 @@ import { ActivityIndicator, View } from "react-native";
 import "../global.css";
 
 export default function RootLayout() {
-  const { hydrate, hydrated, accessToken } = useAuthStore();
+  const { hydrate, hydrated, accessToken, sessionExpired, clearSessionExpired } = useAuthStore();
   const hydrateSettings = useSettingsStore((state) => state.hydrate);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
@@ -30,9 +30,18 @@ export default function RootLayout() {
     if (isLoading || !hydrated) return;
 
     const firstSegment = segments[0];
+    const inAuth = firstSegment === "(auth)";
     const inTabs = firstSegment === "(tabs)";
     const inMovie = firstSegment === "movie";
     const inProtectedArea = inTabs || inMovie;
+
+    if (sessionExpired) {
+      if (!inAuth) {
+        router.replace("/(auth)/login");
+      }
+      clearSessionExpired();
+      return;
+    }
 
     if (accessToken) {
       if (!inProtectedArea) {
@@ -44,7 +53,7 @@ export default function RootLayout() {
     if (inProtectedArea) {
       router.replace("/(splash)");
     }
-  }, [isLoading, hydrated, accessToken, segments, router]);
+  }, [isLoading, hydrated, accessToken, sessionExpired, clearSessionExpired, segments, router]);
 
   if (isLoading) {
     return (

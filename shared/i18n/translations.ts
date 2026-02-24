@@ -212,7 +212,21 @@ export const translations: Record<AppLanguage, Record<string, string>> = {
     "search.apply": "Применить",
     "search.searchGenre": "Найти жанр",
     "search.searchCountry": "Найти страну",
-    "search.nothingFound": "Ничего не найдено"
+    "search.nothingFound": "Ничего не найдено",
+
+    "tv.title": "TV каналы",
+    "tv.allCategories": "Все",
+    "tv.searchPlaceholder": "Поиск каналов",
+    "tv.available": "Доступно",
+    "tv.unavailable": "Недоступно",
+    "tv.errorLoadChannels": "Не удалось загрузить каналы",
+    "tv.errorLoadChannel": "Не удалось загрузить канал",
+    "tv.empty": "Каналы не найдены",
+    "tv.schedule": "Расписание программы",
+    "tv.today": "Сегодня",
+    "tv.tomorrow": "Завтра",
+    "tv.liveNow": "Прямой эфир",
+    "tv.emptySchedule": "Расписание пока отсутствует"
   },
 
   uz: {
@@ -424,7 +438,21 @@ export const translations: Record<AppLanguage, Record<string, string>> = {
     "search.apply": "Qo'llash",
     "search.searchGenre": "Janr qidirish",
     "search.searchCountry": "Mamlakat qidirish",
-    "search.nothingFound": "Hech narsa topilmadi"
+    "search.nothingFound": "Hech narsa topilmadi",
+
+    "tv.title": "TV kanallari",
+    "tv.allCategories": "Barchasi",
+    "tv.searchPlaceholder": "Kanal qidirish",
+    "tv.available": "Mavjud",
+    "tv.unavailable": "Mavjud emas",
+    "tv.errorLoadChannels": "Kanallarni yuklab bo'lmadi",
+    "tv.errorLoadChannel": "Kanalni yuklab bo'lmadi",
+    "tv.empty": "Kanallar topilmadi",
+    "tv.schedule": "Dasturlar jadvali",
+    "tv.today": "Bugun",
+    "tv.tomorrow": "Ertaga",
+    "tv.liveNow": "Jonli efir",
+    "tv.emptySchedule": "Jadval hozircha yo'q"
   },
 
   en: {
@@ -636,6 +664,20 @@ export const translations: Record<AppLanguage, Record<string, string>> = {
     "search.apply": "Apply",
     "search.searchGenre": "Search genre",
     "search.searchCountry": "Search country",
-    "search.nothingFound": "Nothing found"
+    "search.nothingFound": "Nothing found",
+
+    "tv.title": "TV Channels",
+    "tv.allCategories": "All",
+    "tv.searchPlaceholder": "Search channels",
+    "tv.available": "Available",
+    "tv.unavailable": "Unavailable",
+    "tv.errorLoadChannels": "Failed to load channels",
+    "tv.errorLoadChannel": "Failed to load channel",
+    "tv.empty": "No channels found",
+    "tv.schedule": "Program schedule",
+    "tv.today": "Today",
+    "tv.tomorrow": "Tomorrow",
+    "tv.liveNow": "Live now",
+    "tv.emptySchedule": "Schedule is empty"
   }
 };

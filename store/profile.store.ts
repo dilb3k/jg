@@ -59,7 +59,7 @@ export const useProfileStore = create<ProfileState>((set) => ({
       return "error";
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 401) {
-        await useAuthStore.getState().logout();
+        await useAuthStore.getState().expireSession();
         set({ profile: null, status: "unauthorized", error: null });
         return "unauthorized";
       }

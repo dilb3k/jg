@@ -1,5 +1,7 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
+import { useAuthStore } from "@/store/auth.store";
+import { useSettingsStore } from "@/store/settings.store";
 
 export const api = axios.create({
   baseURL: "https://api.alloplay.uz",
@@ -25,10 +27,12 @@ export const publicApi = axios.create({
 api.interceptors.request.use(
   async (config) => {
     const token = await SecureStore.getItemAsync("accessToken");
+    const language = useSettingsStore.getState().language;
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    config.headers["Accept-Language"] = language;
 
     if (__DEV__) {
       console.log("➡️ REQUEST:", {
@@ -44,6 +48,15 @@ api.interceptors.request.use(
     if (__DEV__) console.log("❌ REQUEST ERROR:", error.message);
     return Promise.reject(error);
   },
+);
+
+publicApi.interceptors.request.use(
+  (config) => {
+    const language = useSettingsStore.getState().language;
+    config.headers["Accept-Language"] = language;
+    return config;
+  },
+  (error) => Promise.reject(error),
 );
 
 /* =====================
@@ -119,11 +132,7 @@ api.interceptors.response.use(
       return api(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError, null);
-
-      // Чистим токены — роутер сам перекинет на логин через hydrate
-      await SecureStore.deleteItemAsync("accessToken");
-      await SecureStore.deleteItemAsync("refreshToken");
-      await SecureStore.deleteItemAsync("user");
+      await useAuthStore.getState().expireSession();
 
       return Promise.reject(refreshError);
     } finally {

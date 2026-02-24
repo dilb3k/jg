@@ -12,6 +12,7 @@ import {
   Platform,
   Pressable,
   Text,
+  TextStyle,
   TextInput,
   View,
 } from "react-native";
@@ -39,31 +40,18 @@ const countActiveFilters = (filters: ReturnType<typeof useSearchStore.getState>[
   return count;
 };
 
-const searchInputStyle = Platform.select({
-  ios: {
-    height: "100%",
-    fontSize: 16,
-    lineHeight: 20,
-    paddingTop: 0,
-    paddingBottom: 0,
-  },
-  android: {
-    height: "100%",
-    fontSize: 16,
-    lineHeight: 20,
-    paddingTop: 0,
-    paddingBottom: 0,
-    textAlignVertical: "center",
-    includeFontPadding: false,
-  },
-  default: {
-    height: "100%",
-    fontSize: 16,
-    lineHeight: 20,
-    paddingTop: 0,
-    paddingBottom: 0,
-  },
-});
+const searchInputStyle: TextStyle = {
+  fontSize: 16,
+  lineHeight: 20,
+  paddingTop: 0,
+  paddingBottom: 0,
+  ...(Platform.OS === "android"
+    ? {
+        textAlignVertical: "center",
+        includeFontPadding: false,
+      }
+    : null),
+};
 
 export default function SearchScreen() {
   const router = useRouter();

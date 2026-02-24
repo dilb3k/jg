@@ -5,19 +5,20 @@ import { Image, Text, TouchableOpacity, View } from 'react-native'
 interface Props {
   movie: Movie
   onPress?: () => void // 🔥 optional
+  grid?: boolean
 }
 
-export function MovieCard({ movie, onPress }: Props) {
+export function MovieCard({ movie, onPress, grid = false }: Props) {
   return (
     <TouchableOpacity
-      className="mr-3"
+      className={grid ? "mb-4 min-w-[150px]" : "mr-3"}
       activeOpacity={0.7}
       onPress={onPress}
       disabled={!onPress}
     >
       <Image
         source={{ uri: movie.poster_url }}
-        className="w-32 h-48 rounded-lg"
+        className={grid ? "w-full h-56 rounded-lg" : "w-32 h-48 rounded-lg"}
         resizeMode="cover"
       />
 

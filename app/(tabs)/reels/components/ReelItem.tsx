@@ -1,13 +1,15 @@
-import { Reel } from "@/shared/types/reel";
 import { useI18n } from "@/shared/i18n/useI18n";
+import { Reel } from "@/shared/types/reel";
 import { HeartIcon } from "@/shared/ui/icons/HeartIcon";
+import { PauseIcon } from "@/shared/ui/icons/PauseIcon";
 import { PlayIcon } from "@/shared/ui/icons/PlayIcon";
 import { ShareIcon } from "@/shared/ui/icons/ShareIcon";
+import { resolveReelPlaybackCandidates } from "@/shared/utils/reel";
 import { useReelStore } from "@/store/reel.store";
 import { ResizeMode, Video } from "expo-av";
 import { useRouter } from "expo-router";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Image, Text, TouchableOpacity, View } from "react-native";
 import ReelShare from "./ReelShare";
 
 type Props = {
@@ -16,18 +18,47 @@ type Props = {
   itemHeight: number;
   itemWidth: number;
   bottomInset: number;
+  screenActive: boolean;
 };
 
-function ReelItem({ reel, index, itemHeight, itemWidth, bottomInset }: Props) {
-  const { t } = useI18n();
+function ReelItem({ reel, index, itemHeight, itemWidth, bottomInset, screenActive }: Props) {
+  const { t, language } = useI18n();
   const videoRef = useRef<Video>(null);
   const router = useRouter();
   const currentIndex = useReelStore((state) => state.currentIndex);
   const toggleLike = useReelStore((state) => state.toggleLike);
+  const streamUrlMap = useReelStore((state) => state.streamUrlMap);
+  const fetchStreamUrl = useReelStore((state) => state.fetchStreamUrl);
   const [shareVisible, setShareVisible] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playbackCandidates = useMemo(() => resolveReelPlaybackCandidates(reel), [reel]);
+  const [sourceIndex, setSourceIndex] = useState(0);
 
   const isActive = index === currentIndex;
-  const bottomOffset = useMemo(() => 20 + bottomInset, [bottomInset]);
+  const bottomOffset = useMemo(() => 12 + bottomInset, [bottomInset]);
+
+  useEffect(() => {
+    setSourceIndex(0);
+    setVideoReady(false);
+    setIsBuffering(false);
+  }, [reel.id]);
+
+  useEffect(() => {
+    if (!isActive || !screenActive) {
+      setIsPaused(false);
+      setShowOverlay(false);
+      if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+    }
+  }, [isActive, screenActive]);
+
+  useEffect(() => {
+    if (!isActive || !screenActive) return;
+    void fetchStreamUrl(reel.id);
+  }, [fetchStreamUrl, isActive, reel.id, screenActive]);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,13 +68,13 @@ function ReelItem({ reel, index, itemHeight, itemWidth, bottomInset }: Props) {
       if (!player) return;
 
       try {
-        if (isActive) {
+        if (isActive && screenActive && !isPaused) {
           await player.playAsync();
           return;
         }
 
         await player.pauseAsync();
-        if (!cancelled) {
+        if (!cancelled && !isActive) {
           await player.setPositionAsync(0);
         }
       } catch {
@@ -56,7 +87,27 @@ function ReelItem({ reel, index, itemHeight, itemWidth, bottomInset }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [isActive]);
+  }, [isActive, isPaused, screenActive]);
+
+  useEffect(() => {
+    return () => {
+      if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+    };
+  }, []);
+
+  const handleTap = useCallback(() => {
+    const next = !isPaused;
+    setIsPaused(next);
+    setShowOverlay(true);
+
+    if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+
+    if (!next) {
+      // Resumed → briefly show play icon then hide
+      overlayTimerRef.current = setTimeout(() => setShowOverlay(false), 700);
+    }
+    // Paused → overlay stays visible
+  }, [isPaused]);
 
   const handleGoToMovie = useCallback(() => {
     const movie = reel.linked_movies?.[0];
@@ -80,35 +131,92 @@ function ReelItem({ reel, index, itemHeight, itemWidth, bottomInset }: Props) {
     [reel.likes_count],
   );
 
-  const title = reel.title_uz || reel.title_ru || reel.title_en || "-";
+  const pickLocalized = (value: { title_uz?: string; title_ru?: string; title_en?: string }) => {
+    if (language === "uz") return value.title_uz || value.title_ru || value.title_en;
+    if (language === "en") return value.title_en || value.title_ru || value.title_uz;
+    return value.title_ru || value.title_uz || value.title_en;
+  };
+
+  const title = pickLocalized(reel) || "-";
   const movieTitle =
-    reel.linked_movies?.[0]?.title_uz ||
-    reel.linked_movies?.[0]?.title_ru ||
-    reel.linked_movies?.[0]?.title_en ||
+    (reel.linked_movies?.[0] ? pickLocalized(reel.linked_movies[0]) : undefined) ||
+    (reel.linked_episodes?.[0] ? pickLocalized(reel.linked_episodes[0]) : undefined) ||
     t("reels.movieFallback");
+  const secureStreamUrl = streamUrlMap[reel.id];
+  const streamUrl = secureStreamUrl || playbackCandidates[sourceIndex] || null;
+
+  const handleVideoError = () => {
+    if (secureStreamUrl) {
+      return;
+    }
+    setSourceIndex((prev) => (prev + 1 < playbackCandidates.length ? prev + 1 : prev));
+  };
 
   return (
     <View
       style={{ width: itemWidth, height: itemHeight }}
       className="relative bg-black"
     >
-      {reel.flussonic_vod_path ? (
-        <Video
-          ref={videoRef}
-          source={{ uri: reel.flussonic_vod_path }}
-          style={{ width: "100%", height: "100%" }}
-          isLooping
-          shouldPlay={isActive}
-          useNativeControls={false}
-          resizeMode={ResizeMode.COVER}
-        />
-      ) : (
-        <Image
-          source={{ uri: reel.poster_url }}
-          style={{ width: "100%", height: "100%" }}
-          resizeMode="cover"
-        />
-      )}
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={handleTap}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+      >
+        {streamUrl ? (
+          <Video
+            ref={videoRef}
+            source={{ uri: streamUrl }}
+            style={{ width: "100%", height: "100%" }}
+            isLooping
+            shouldPlay={isActive && screenActive && !isPaused}
+            useNativeControls={false}
+            resizeMode={ResizeMode.COVER}
+            onLoadStart={() => {
+              setIsBuffering(true);
+              setVideoReady(false);
+            }}
+            onReadyForDisplay={() => {
+              setIsBuffering(false);
+              setVideoReady(true);
+            }}
+            onPlaybackStatusUpdate={(status) => {
+              if (!status.isLoaded) {
+                setIsBuffering(true);
+                return;
+              }
+              if (!videoReady) setVideoReady(true);
+              setIsBuffering(Boolean(status.isBuffering));
+            }}
+            onError={handleVideoError}
+          />
+        ) : (
+          <Image
+            source={{ uri: reel.poster_url }}
+            style={{ width: "100%", height: "100%" }}
+            resizeMode="cover"
+          />
+        )}
+
+        {showOverlay ? (
+          <View
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            className="items-center justify-center"
+          >
+            <View className="w-16 h-16 rounded-full bg-black/50 items-center justify-center">
+              {isPaused ? <PlayIcon size={28} color="#fff" /> : <PauseIcon size={24} color="#fff" />}
+            </View>
+          </View>
+        ) : null}
+
+        {isActive && screenActive && streamUrl && (!videoReady || isBuffering) ? (
+          <View
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            className="items-center justify-center"
+          >
+            <ActivityIndicator size="large" color="#fff" />
+          </View>
+        ) : null}
+      </TouchableOpacity>
 
       <View className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
 
@@ -137,7 +245,7 @@ function ReelItem({ reel, index, itemHeight, itemWidth, bottomInset }: Props) {
         </View>
       </View>
 
-      <View style={{ bottom: bottomOffset }} className="absolute right-4 items-center gap-6">
+      <View style={{ bottom: bottomOffset }} className="absolute right-4 items-center gap-4">
         <TouchableOpacity onPress={handleToggleLike} activeOpacity={0.7}>
           <HeartIcon filled={reel.is_liked} />
           <Text className="text-white text-center text-base font-semibold mt-1">
@@ -151,7 +259,7 @@ function ReelItem({ reel, index, itemHeight, itemWidth, bottomInset }: Props) {
           className="items-center"
         >
           <ShareIcon color="#fff" />
-          <Text className="text-white text-xs font-semibold mt-1 mb-2">
+          <Text className="text-white text-xs font-semibold mb-4">
             {t("reels.share")}
           </Text>
         </TouchableOpacity>

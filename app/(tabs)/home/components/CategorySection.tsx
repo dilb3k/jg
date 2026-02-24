@@ -3,6 +3,7 @@ import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 import { useI18n } from "@/shared/i18n/useI18n";
 import { Movie } from "@/shared/types/movie";
+import { ForwardIcon } from "@/shared/ui/icons/ForwardIcon";
 import { NotMovieIcon } from "@/shared/ui/icons/NotMovieIcon";
 import { MovieCard } from "./MovieCard";
 
@@ -20,21 +21,26 @@ interface Props {
 export function CategorySection({ category, onLayout }: Props) {
   const router = useRouter();
   const { t } = useI18n();
+  const openCategory = () =>
+    router.push({
+      pathname: "/(tabs)/home/category/[id]",
+      params: { id: category.id, title: category.title },
+    });
 
   return (
-    <View className="mb-7" onLayout={(e) => onLayout(e.nativeEvent.layout.y)}>
+    <View className="my-4" onLayout={(e) => onLayout(e.nativeEvent.layout.y)}>
       <View className="px-4 mb-3 flex-row items-center justify-between">
-        <Text className="text-white text-[22px] font-semibold">{category.title}</Text>
+        <TouchableOpacity activeOpacity={0.75} onPress={openCategory}>
+          <Text className="text-white text-[22px] font-semibold">{category.title}</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.75}
-          onPress={() =>
-            router.push({
-              pathname: "/(tabs)/home/category/[id]",
-              params: { id: category.id, title: category.title },
-            })
-          }
+          onPress={openCategory}
         >
-          <Text className="text-white/45 text-sm">{t("search.all")} ›</Text>
+          <View className="flex-row items-center gap-1">
+            <Text className="text-white/45 text-sm">{t("search.all")}</Text>
+            <ForwardIcon color="#8A8A8A" size={14} />
+          </View>
         </TouchableOpacity>
       </View>
 

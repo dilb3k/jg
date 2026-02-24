@@ -1,6 +1,8 @@
 import {
   getByMovie,
+  getReelDetail,
   getReelFeed,
+  getReelStreamingUrl,
   getTrendingReels,
   likeReel,
   unlikeReel,
@@ -15,6 +17,8 @@ interface ReelState {
   hasMore: boolean;
   page: number;
   isTrending: boolean;
+  likePending: Record<string, boolean>;
+  streamUrlMap: Record<string, string>;
 
   
 
@@ -23,6 +27,7 @@ interface ReelState {
   fetchByMovie: (movieId: string) => Promise<void>;
   setCurrentIndex: (index: number) => void;
   toggleLike: (reelId: string) => Promise<void>;
+  fetchStreamUrl: (reelId: string) => Promise<string | null>;
 }
 
 const mergeUniqueReels = (current: Reel[], incoming: Reel[]) => {
@@ -41,12 +46,15 @@ export const useReelStore = create<ReelState>((set, get) => ({
   hasMore: true,
   page: 1,
   isTrending: false,
+  likePending: {},
+  streamUrlMap: {},
 
   async fetchInitial() {
     set({ loading: true });
 
-    const trending = await getTrendingReels();
-    if (trending.length > 0) {
+    const [trending, feed] = await Promise.all([getTrendingReels(), getReelFeed(1)]);
+
+    if (feed.length === 0 && trending.length > 0) {
       set({
         reels: trending,
         currentIndex: 0,
@@ -57,9 +65,9 @@ export const useReelStore = create<ReelState>((set, get) => ({
       return;
     }
 
-    const feed = await getReelFeed(1);
+    const initial = mergeUniqueReels(feed, trending);
     set({
-      reels: feed,
+      reels: initial,
       currentIndex: 0,
       page: 2,
       hasMore: feed.length === 15,
@@ -101,10 +109,13 @@ export const useReelStore = create<ReelState>((set, get) => ({
   setCurrentIndex: (index) => set({ currentIndex: index }),
 
   async toggleLike(reelId: string) {
+    if (get().likePending[reelId]) return;
+
     const reel = get().reels.find((r) => r.id === reelId);
     if (!reel) return;
 
     const willBeLiked = !reel.is_liked;
+    set((state) => ({ likePending: { ...state.likePending, [reelId]: true } }));
 
     set((state) => ({
       reels: state.reels.map((r) =>
@@ -112,7 +123,7 @@ export const useReelStore = create<ReelState>((set, get) => ({
           ? {
               ...r,
               is_liked: willBeLiked,
-              likes_count: r.likes_count + (willBeLiked ? 1 : -1),
+              likes_count: Math.max(0, r.likes_count + (willBeLiked ? 1 : -1)),
             }
           : r,
       ),
@@ -129,11 +140,36 @@ export const useReelStore = create<ReelState>((set, get) => ({
             ? {
                 ...r,
                 is_liked: !willBeLiked,
-                likes_count: r.likes_count + (willBeLiked ? -1 : 1),
+                likes_count: Math.max(0, r.likes_count + (willBeLiked ? -1 : 1)),
               }
             : r,
         ),
       }));
     }
+
+    const fresh = await getReelDetail(reelId);
+    if (fresh) {
+      set((state) => ({
+        reels: state.reels.map((r) => (r.id === reelId ? { ...r, ...fresh } : r)),
+      }));
+    }
+
+    set((state) => ({
+      likePending: { ...state.likePending, [reelId]: false },
+    }));
+  },
+
+  async fetchStreamUrl(reelId: string) {
+    const existing = get().streamUrlMap[reelId];
+    if (existing) return existing;
+
+    const url = await getReelStreamingUrl(reelId);
+    if (url) {
+      set((state) => ({
+        streamUrlMap: { ...state.streamUrlMap, [reelId]: url },
+      }));
+      return url;
+    }
+    return null;
   },
 }));

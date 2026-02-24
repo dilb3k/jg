@@ -54,7 +54,7 @@ export default function ReelShare({ visible, onClose, reel }: Props) {
             useNativeDriver: true,
           }),
           Animated.timing(fadeAnim, {
-            toValue: 1,
+            toValue: 0.38,
             duration: 320,
             useNativeDriver: true,
           }),
@@ -64,7 +64,7 @@ export default function ReelShare({ visible, onClose, reel }: Props) {
             toValue: screenHeight,
             tension: 80,
             friction: 10,
-            useNativeDriver: true,
+            useNativeDriver: true,  
           }),
           Animated.timing(fadeAnim, {
             toValue: 0,

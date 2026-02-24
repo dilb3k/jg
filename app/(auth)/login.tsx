@@ -99,7 +99,7 @@ export default function Login() {
           <View className="bg-[#2c2c2e] rounded-full p-1 flex-row mb-6">
             <Pressable
               onPress={() => setLoginType("phone")}
-              className={`flex-1 py-3 rounded-full ${loginType === "phone" ? "bg-black" : ""}`}
+              className={`flex-1 py-3 rounded-full ${loginType === "phone" ? "bg-[#101010]" : ""}`}
             >
               <Text
                 className={`text-center text-sm font-medium ${loginType === "phone" ? "text-white" : "text-gray-400"}`}
@@ -110,7 +110,7 @@ export default function Login() {
 
             <Pressable
               onPress={() => setLoginType("username")}
-              className={`flex-1 py-3 rounded-full ${loginType === "username" ? "bg-black" : ""}`}
+              className={`flex-1 py-3 rounded-full ${loginType === "username" ? "bg-[#101010]" : ""}`}
             >
               <Text
                 className={`text-center text-sm font-medium ${loginType === "username" ? "text-white" : "text-gray-400"}`}

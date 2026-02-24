@@ -110,7 +110,7 @@ export default function ProfilePage() {
         title: t("profile.saved"),
         icon: Bookmark,
         showChevron: true,
-        onPress: () => Alert.alert(t("common.noData")),
+        onPress: () => router.push("/profile/saved"),
       },
       {
         key: "notifications",

@@ -1,5 +1,6 @@
 import { Reel } from "@/shared/types/reel";
 import { useReelStore } from "@/store/reel.store";
+import { useIsFocused } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -16,6 +17,7 @@ import EmptyMessage from "./components/EmptyMessage";
 import ReelItem from "./components/ReelItem";
 
 export default function ReelsScreen() {
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const reels = useReelStore((state) => state.reels);
   const loading = useReelStore((state) => state.loading);
@@ -55,10 +57,11 @@ export default function ReelsScreen() {
         index={index}
         itemHeight={itemHeight}
         itemWidth={screenWidth}
-        bottomInset={Math.max(insets.bottom + 58, 72)}
+        bottomInset={Math.max(insets.bottom, 8)}
+        screenActive={isFocused}
       />
     ),
-    [insets.bottom, itemHeight, screenWidth],
+    [insets.bottom, isFocused, itemHeight, screenWidth],
   );
 
   if (loading && reels.length === 0) {

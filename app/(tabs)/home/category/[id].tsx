@@ -1,4 +1,10 @@
+import { useI18n } from "@/shared/i18n/useI18n";
+import { getLatestMovies, getPopularMovies } from "@/services/home.service";
+import { Movie } from "@/shared/types/movie";
+import { NotMovieIcon } from "@/shared/ui/icons/NotMovieIcon";
+import { useHomeStore } from "@/store/home.store";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { ChevronLeft } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -8,13 +14,9 @@ import {
   Text,
   View,
 } from "react-native";
-import { useHomeStore } from "@/store/home.store";
-import { useI18n } from "@/shared/i18n/useI18n";
-import { Movie } from "@/shared/types/movie";
-import { NotMovieIcon } from "@/shared/ui/icons/NotMovieIcon";
-import { MovieCard } from "../components/MovieCard";
-import { ChevronLeft } from "lucide-react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { HeroHeader } from "../components/HeroHeader";
+import { MovieCard } from "../components/MovieCard";
 
 export default function CategoryPage() {
   const router = useRouter();
@@ -27,8 +29,17 @@ export default function CategoryPage() {
   }>();
 
   const genreId = params.id;
-  const categoryTitle = params.title ?? "";
+  const categoryTitle =
+    params.title ??
+    (genreId === "all"
+      ? t("search.all")
+      : genreId === "popular"
+        ? t("home.popular")
+        : genreId === "latest"
+          ? t("home.latest")
+          : "");
   const fetchCategoryMovies = useHomeStore((state) => state.fetchCategoryMovies);
+  const categories = useHomeStore((state) => state.categories);
 
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +50,27 @@ export default function CategoryPage() {
     const fetchMovies = async () => {
       try {
         setLoading(true);
+        if (genreId === "all") {
+          const allMovies = categories.flatMap((category) => category.movies);
+          const uniqueMovies = allMovies.filter(
+            (movie, index, self) => self.findIndex((item) => item.id === movie.id) === index,
+          );
+          setMovies(uniqueMovies);
+          return;
+        }
+
+        if (genreId === "popular") {
+          const data = await getPopularMovies(1, 40);
+          setMovies(data);
+          return;
+        }
+
+        if (genreId === "latest") {
+          const data = await getLatestMovies(1, 40);
+          setMovies(data);
+          return;
+        }
+
         const data = await fetchCategoryMovies(genreId);
         setMovies(data);
       } catch (e) {
@@ -49,7 +81,7 @@ export default function CategoryPage() {
     };
 
     fetchMovies();
-  }, [fetchCategoryMovies, genreId]);
+  }, [categories, fetchCategoryMovies, genreId]);
 
   if (loading) {
     return (
@@ -62,6 +94,7 @@ export default function CategoryPage() {
   return (
     <SafeAreaView className="flex-1 bg-[#101010]" edges={["top"]}>
       <StatusBar barStyle="light-content" />
+      <HeroHeader />
 
       <View className="px-4 pt-2 pb-3 flex-row items-center">
         <Pressable
@@ -80,18 +113,21 @@ export default function CategoryPage() {
         keyExtractor={(item) => item.id}
         numColumns={2}
         showsVerticalScrollIndicator={false}
-        columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
+        columnWrapperStyle={{ justifyContent: "space-between", paddingHorizontal: 16 }}
         contentContainerStyle={{ paddingBottom: Math.max(90, insets.bottom + 58) }}
         renderItem={({ item }) => (
-          <MovieCard
-            movie={item}
-            onPress={() =>
-              router.push({
-                pathname: "/movie/[id]",
-                params: { id: item.id },
-              })
-            }
-          />
+          <View style={{ width: "45%", minWidth: 150 }}>
+            <MovieCard
+              movie={item}
+              grid
+              onPress={() =>
+                router.push({
+                  pathname: "/movie/[id]",
+                  params: { id: item.id },
+                })
+              }
+            />
+          </View>
         )}
         ListEmptyComponent={
           <View className="px-4 py-6 mt-10 flex flex-col items-center justify-center gap-4">

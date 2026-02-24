@@ -1,7 +1,7 @@
 import { useI18n } from "@/shared/i18n/useI18n";
 import { AppLanguage, useSettingsStore } from "@/store/settings.store";
-import { Check, ChevronLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
+import { Check, ChevronLeft } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -44,11 +44,11 @@ export default function LanguageScreen() {
           return (
             <Pressable
               key={item.code}
-              className="bg-[#2C2C2C] rounded-2xl py-4 px-4 flex-row items-center"
+              className="bg-[#1A1A1A] rounded-2xl py-1 px-1 pr-4 flex-row items-center"
               onPress={() => setLanguage(item.code)}
             >
-              <Text className="text-2xl mr-3">{item.flag}</Text>
-              <Text className="text-white flex-1 text-base">{item.label}</Text>
+              <Text className="text-2xl mr-3 bg-[#2C2C2C] p-4 rounded-2xl">{item.flag}</Text>
+              <Text className="text-white text-lg flex-1">{item.label}</Text>
               {active ? <Check size={20} color="#fff" /> : null}
             </Pressable>
           );

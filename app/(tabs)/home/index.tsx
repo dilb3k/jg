@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "expo-router";
 import {
   ActivityIndicator,
   NativeScrollEvent,
@@ -20,6 +21,7 @@ import { HeroHeader } from "./components/HeroHeader";
 import { WatchHistorySection } from "./components/WatchHistorySection";
 
 export default function Home() {
+  const router = useRouter();
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const HEADER_HEIGHT = 64;
@@ -27,6 +29,7 @@ export default function Home() {
 
   const carousels = useHomeStore((state) => state.carousels);
   const categories = useHomeStore((state) => state.categories);
+  const homeSections = useHomeStore((state) => state.homeSections);
   const watchHistory = useHomeStore((state) => state.watchHistory);
   const loading = useHomeStore((state) => state.loading);
   const error = useHomeStore((state) => state.error);
@@ -46,19 +49,29 @@ export default function Home() {
     setActiveCategory(categoryId);
 
     if (categoryId === "all") {
-      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      router.push({
+        pathname: "/(tabs)/home/category/[id]",
+        params: { id: "all", title: t("search.all") },
+      });
       return;
     }
 
-    const yOffset = categoryRefs.current[categoryId];
-    if (yOffset === undefined || !scrollViewRef.current) return;
+    const selectedCategory = categories.find((category) => category.id === categoryId);
+    if (!selectedCategory) return;
 
-    const targetY = Math.max(yOffset - (insets.top + HEADER_HEIGHT + TABS_HEIGHT + 12), 0);
-    scrollViewRef.current.scrollTo({ y: targetY, animated: true });
+    router.push({
+      pathname: "/(tabs)/home/category/[id]",
+      params: { id: selectedCategory.id, title: selectedCategory.title },
+    });
   };
 
   const handleCategoryLayout = (categoryId: string, y: number) => {
     categoryRefs.current[categoryId] = y;
+  };
+
+  const handleCarouselSelect = (nextIndex: number) => {
+    if (nextIndex < 0 || nextIndex >= carousels.length) return;
+    setCurrentCarouselIndex(nextIndex);
   };
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -115,6 +128,16 @@ export default function Home() {
   }
 
   const currentCarousel = carousels[currentCarouselIndex];
+  const resolvedHomeSections = homeSections.map((section) => {
+    if (section.source === "popular") {
+      return { ...section, title: t("home.popular") };
+    }
+    if (section.source === "latest") {
+      return { ...section, title: t("home.latest") };
+    }
+    return section;
+  });
+
   const categoryTabProps = {
     categories: [
       { id: "all", title: t("search.all") },
@@ -154,6 +177,7 @@ export default function Home() {
             carousel={currentCarousel}
             index={currentCarouselIndex}
             total={carousels.length}
+            onSelect={handleCarouselSelect}
           />
         ) : null}
 
@@ -167,16 +191,18 @@ export default function Home() {
         </View>
 
         <View style={{ paddingBottom: Math.max(80, insets.bottom + 58) }}>
-          {categories.map((category, index) => (
-            <View key={category.id}>
+          {resolvedHomeSections.map((section, index) => (
+            <View key={section.id}>
               <CategorySection
-                category={category}
-                onLayout={(y) => handleCategoryLayout(category.id, y)}
+                category={section}
+                onLayout={(y) => handleCategoryLayout(section.id, y)}
               />
 
-              {(index + 1) % 2 === 0 ? <WatchHistorySection items={watchHistory} /> : null}
+              {index === 1 ? <WatchHistorySection items={watchHistory} /> : null}
             </View>
           ))}
+
+          {resolvedHomeSections.length <= 1 ? <WatchHistorySection items={watchHistory} /> : null}
         </View>
       </ScrollView>
     </SafeAreaView>

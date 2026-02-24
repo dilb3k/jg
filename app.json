@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "star-cinema",
-    "slug": "star-cinema",
+    "name": "alloplay",
+    "slug": "alloplay",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
@@ -48,7 +48,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "20984916-28ff-4feb-bc53-02b0d21d8f20"
+        "projectId": "43ec3892-3916-4c87-95f4-018ac3db1159"
       }
     }
   }

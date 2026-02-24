@@ -1,22 +1,28 @@
-import { View } from 'react-native'
+import { Pressable, View } from 'react-native'
 
 export function CarouselIndicators({
   length,
   current,
+  onSelect,
 }: {
   length: number
   current: number
+  onSelect?: (index: number) => void
 }) {
   return (
-    <View className="absolute bottom-4 left-0 right-0 flex-row items-center justify-center gap-2 px-4">
+    <View className="w-full flex-row items-center px-0">
       {Array.from({ length }).map((_, index) => (
-        <View
+        <Pressable
           key={index}
-          className={`h-1.5 rounded-full ${
-            index === current
-              ? 'bg-white w-7'
-              : 'bg-white/35 w-2.5'
-          }`}
+          onPress={() => onSelect?.(index)}
+          hitSlop={6}
+          style={{
+            height: 6,
+            borderRadius: 999,
+            flex: index === current ? 1 : 0.2,
+            marginHorizontal: 4,
+            backgroundColor: index === current ? '#FFFFFF' : 'rgba(255,255,255,0.35)',
+          }}
         />
       ))}
     </View>

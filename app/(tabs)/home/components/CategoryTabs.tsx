@@ -11,7 +11,7 @@ export function CategoryTabs({ active, categories, onChange }: Props) {
   const router = useRouter();
 
   return (
-    <View className="bg-[#101010] border-b border-white/10">
+    <View className="bg-[#101010] py-4">
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -40,7 +40,7 @@ export function CategoryTabs({ active, categories, onChange }: Props) {
                 isActive ? "bg-[#2C2C2C]" : "bg-transparent"
               }`}
             >
-              <Text className={`text-sm ${isActive ? "text-white" : "text-white/55"}`}>{cat.title}</Text>
+              <Text className={`text-md ${isActive ? "text-white" : "text-white/55"}`}>{cat.title}</Text>
             </TouchableOpacity>
           );
         })}

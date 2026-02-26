@@ -1,12 +1,12 @@
 import { useI18n } from "@/shared/i18n/useI18n";
 import { PlayIcon } from "@/shared/ui/icons/PlayIcon";
+import { useToast } from "@/shared/ui/toast";
 import { useSearchStore } from "@/store/search.store";
 import { useRouter } from "expo-router";
 import { Search, SlidersHorizontal } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Platform,
@@ -56,6 +56,7 @@ const searchInputStyle: TextStyle = {
 export default function SearchScreen() {
   const router = useRouter();
   const { t, language } = useI18n();
+  const { showToast } = useToast();
 
   const query = useSearchStore((s) => s.query);
   const filters = useSearchStore((s) => s.filters);
@@ -204,7 +205,7 @@ export default function SearchScreen() {
                 <Pressable
                   onPress={() => {
                     if (item.type !== "movie") {
-                      Alert.alert(t("common.errorTitle"), t("search.seriesSoon"));
+                      showToast({ type: "warning", title: t("common.errorTitle"), message: t("search.seriesSoon") });
                       return;
                     }
                     router.push(`/movie/${item.id}`);

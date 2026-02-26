@@ -1,6 +1,7 @@
 import { registerUser } from "@/services/auth.service";
 import { sendOtp } from "@/services/otp.service";
 import { useI18n } from "@/shared/i18n/useI18n";
+import { useToast } from "@/shared/ui/toast";
 import { useAuthStore } from "@/store/auth.store";
 import { getDeviceId } from "@/utils/device-id";
 import * as Device from "expo-device";
@@ -9,9 +10,10 @@ import { ChevronLeft } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
+  Platform,
   Pressable,
   Text,
+  TextStyle,
   TextInput,
   View,
 } from "react-native";
@@ -22,9 +24,23 @@ const formatBirthDate = (d: string) => {
   return `${year}-${month}-${day}`;
 };
 
+const otpInputStyle: TextStyle = {
+  fontSize: 20,
+  lineHeight: 24,
+  paddingTop: 0,
+  paddingBottom: 0,
+  ...(Platform.OS === "android"
+    ? {
+        textAlignVertical: "center",
+        includeFontPadding: false,
+      }
+    : null),
+};
+
 export default function Otp() {
   const router = useRouter();
   const { t } = useI18n();
+  const { showToast } = useToast();
   const { phone, profileData, setAuth, clearRegistrationData } = useAuthStore();
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -43,10 +59,10 @@ export default function Otp() {
 
   useEffect(() => {
     if (!phone || !profileData) {
-      Alert.alert(t("common.errorTitle"), t("otp.errorMissingData"));
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("otp.errorMissingData") });
       router.replace("/(auth)/register");
     }
-  }, [phone, profileData, router, t]);
+  }, [phone, profileData, router, showToast, t]);
 
   const handleChange = (text: string, index: number) => {
     if (!text) {
@@ -93,7 +109,7 @@ export default function Otp() {
   const submit = async () => {
     if (!isOtpComplete || !phone || !profileData) {
       if (!phone || !profileData) {
-        Alert.alert(t("common.errorTitle"), t("otp.errorMissingData"));
+        showToast({ type: "error", title: t("common.errorTitle"), message: t("otp.errorMissingData") });
         router.replace("/(auth)/register");
       }
       return;
@@ -135,14 +151,16 @@ export default function Otp() {
       const details = e.response?.data?.error?.details;
 
       if (details && Array.isArray(details)) {
-        Alert.alert(
-          t("common.errorTitle"),
-          errorMsg +
-            "\n\n" +
-            details.map((d: any) => `• ${d.field}: ${d.message}`).join("\n"),
-        );
+        showToast({
+          type: "error",
+          title: t("common.errorTitle"),
+          message:
+            errorMsg +
+            "\n" +
+            details.map((d: any) => `• ${d.field}: ${d.message}`).join(" "),
+        });
       } else {
-        Alert.alert(t("common.errorTitle"), errorMsg);
+        showToast({ type: "error", title: t("common.errorTitle"), message: errorMsg });
       }
     } finally {
       setLoading(false);
@@ -158,9 +176,9 @@ export default function Otp() {
       setTimer(120);
       setOtp(["", "", "", "", "", ""]);
       setError(false);
-      Alert.alert(t("common.successTitle"), t("otp.resendSuccess"));
+      showToast({ type: "success", title: t("common.successTitle"), message: t("otp.resendSuccess") });
     } catch {
-      Alert.alert(t("common.errorTitle"), t("otp.resendError"));
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("otp.resendError") });
     } finally {
       setLoading(false);
     }
@@ -206,7 +224,7 @@ export default function Otp() {
               placeholder="•"
               placeholderTextColor="#666"
               className={`w-12 h-14 bg-[#2C2C2C] text-white text-center text-xl rounded-xl border-2 ${borderColor}`}
-              style={{ paddingVertical: 0, textAlignVertical: "center", includeFontPadding: false }}
+              style={otpInputStyle}
             />
           ))}
         </View>

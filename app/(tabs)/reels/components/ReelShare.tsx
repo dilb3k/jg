@@ -1,10 +1,10 @@
 import { useI18n } from "@/shared/i18n/useI18n";
+import { useToast } from "@/shared/ui/toast";
 import { Reel } from "@/shared/types/reel";
 import { BlurView } from "expo-blur";
 import * as Clipboard from "expo-clipboard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   Animated,
   Linking,
   Modal,
@@ -35,6 +35,7 @@ type Props = {
 
 export default function ReelShare({ visible, onClose, reel }: Props) {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const { height: screenHeight } = useWindowDimensions();
   const slideAnim = useRef(new Animated.Value(screenHeight)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -84,8 +85,8 @@ export default function ReelShare({ visible, onClose, reel }: Props) {
   const copyLink = useCallback(async () => {
     await Clipboard.setStringAsync(shareUrl);
     onClose();
-    Alert.alert(t("common.success"), t("reels.linkCopied"));
-  }, [onClose, shareUrl, t]);
+    showToast({ type: "success", title: t("common.success"), message: t("reels.linkCopied") });
+  }, [onClose, shareUrl, showToast, t]);
 
   const nativeShare = useCallback(async () => {
     try {
@@ -109,10 +110,10 @@ export default function ReelShare({ visible, onClose, reel }: Props) {
 
   const openApp = useCallback(
     (scheme: string, msg: string) => {
-      Linking.openURL(scheme).catch(() => Alert.alert(t("common.error"), msg));
+      Linking.openURL(scheme).catch(() => showToast({ type: "error", title: t("common.error"), message: msg }));
       onClose();
     },
-    [onClose, t],
+    [onClose, showToast, t],
   );
 
   const socials = useMemo(

@@ -1,24 +1,39 @@
 import { sendForgotPasswordOtp, verifyForgotPasswordCode } from "@/services/otp.service";
 import { useI18n } from "@/shared/i18n/useI18n";
+import { useToast } from "@/shared/ui/toast";
 import { useAuthStore } from "@/store/auth.store";
 import { useRouter } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   Text,
+  TextStyle,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const otpInputStyle: TextStyle = {
+  fontSize: 24,
+  lineHeight: 28,
+  paddingTop: 0,
+  paddingBottom: 0,
+  ...(Platform.OS === "android"
+    ? {
+        textAlignVertical: "center",
+        includeFontPadding: false,
+      }
+    : null),
+};
+
 export default function VerifyResetCode() {
   const router = useRouter();
   const { t } = useI18n();
+  const { showToast } = useToast();
   const { resetPhone, setResetData } = useAuthStore();
 
   const [code, setCode] = useState(["", "", "", "", "", ""]);
@@ -88,9 +103,9 @@ export default function VerifyResetCode() {
       setTimer(48);
       setCode(["", "", "", "", "", ""]);
       setError(false);
-      Alert.alert(t("common.successTitle"), t("otp.resendSuccess"));
+      showToast({ type: "success", title: t("common.successTitle"), message: t("otp.resendSuccess") });
     } catch {
-      Alert.alert(t("common.errorTitle"), t("forgotPassword.errorSendCode"));
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("forgotPassword.errorSendCode") });
     } finally {
       setLoading(false);
     }
@@ -141,7 +156,7 @@ export default function VerifyResetCode() {
                   autoComplete={index === 0 ? "one-time-code" : "off"}
                   maxLength={1}
                   className={`bg-[#2C2C2C] text-white text-2xl text-center rounded-xl w-12 h-14 border-2 ${borderClass}`}
-                  style={{ paddingVertical: 0, textAlignVertical: "center", includeFontPadding: false }}
+                  style={otpInputStyle}
                 />
               ))}
             </View>

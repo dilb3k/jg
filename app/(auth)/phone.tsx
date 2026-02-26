@@ -1,6 +1,7 @@
 import { checkPhoneAvailability } from "@/services/auth.service";
 import { sendOtp } from "@/services/otp.service";
 import { useI18n } from "@/shared/i18n/useI18n";
+import { useToast } from "@/shared/ui/toast";
 import { useAuthStore } from "@/store/auth.store";
 import { formatPhone } from "@/utils/format-phone";
 import { useRouter } from "expo-router";
@@ -8,13 +9,27 @@ import { ChevronLeft } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
+  Platform,
   Pressable,
   Text,
+  TextStyle,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const inputTextStyle: TextStyle = {
+  fontSize: 16,
+  lineHeight: 20,
+  paddingTop: 0,
+  paddingBottom: 0,
+  ...(Platform.OS === "android"
+    ? {
+        textAlignVertical: "center",
+        includeFontPadding: false,
+      }
+    : null),
+};
 
 const getCleanPhone = (display: string) => {
   const digits = display.replace(/\D/g, "");
@@ -27,6 +42,7 @@ const getCleanPhone = (display: string) => {
 export default function Phone() {
   const router = useRouter();
   const { t } = useI18n();
+  const { showToast } = useToast();
   const { setPhone, profileData } = useAuthStore();
 
   const [displayPhone, setDisplayPhone] = useState("+998");
@@ -90,15 +106,12 @@ export default function Phone() {
 
   const submit = async () => {
     if (!profileData) {
-      Alert.alert(t("common.errorTitle"), t("phone.errorMissingProfile"));
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("phone.errorMissingProfile") });
       return;
     }
 
     if (!isValid) {
-      Alert.alert(
-        t("common.errorTitle"),
-        t("phone.errorInvalidFormat"),
-      );
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("phone.errorInvalidFormat") });
       return;
     }
 
@@ -107,12 +120,12 @@ export default function Phone() {
         const exists = await checkPhoneAvailability(cleanPhone!);
         setPhoneStatus(exists ? "taken" : "available");
         if (exists) {
-          Alert.alert(t("common.errorTitle"), t("phone.errorTaken"));
+          showToast({ type: "error", title: t("common.errorTitle"), message: t("phone.errorTaken") });
           return;
         }
       } catch {
         setPhoneStatus("error");
-        Alert.alert(t("common.errorTitle"), t("phone.errorCheckFailed"));
+        showToast({ type: "error", title: t("common.errorTitle"), message: t("phone.errorCheckFailed") });
         return;
       }
     }
@@ -123,7 +136,7 @@ export default function Phone() {
       setPhone(cleanPhone!);
       router.push("/(auth)/otp");
     } catch {
-      Alert.alert(t("common.errorTitle"), t("phone.errorSendOtp"));
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("phone.errorSendOtp") });
     } finally {
       setLoading(false);
     }
@@ -153,7 +166,7 @@ export default function Phone() {
           onChangeText={handleChange}
           maxLength={17}
           className={inputClass}
-          style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+          style={inputTextStyle}
         />
         {phoneStatus === "checking" ? (
           <Text className="text-xs text-gray-400 mt-2">{t("phone.checking")}</Text>

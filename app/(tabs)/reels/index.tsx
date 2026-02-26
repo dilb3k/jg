@@ -11,14 +11,12 @@ import {
   ViewToken,
   useWindowDimensions,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import EmptyMessage from "./components/EmptyMessage";
 import ReelItem from "./components/ReelItem";
 
 export default function ReelsScreen() {
   const isFocused = useIsFocused();
-  const insets = useSafeAreaInsets();
   const reels = useReelStore((state) => state.reels);
   const loading = useReelStore((state) => state.loading);
   const hasMore = useReelStore((state) => state.hasMore);
@@ -57,11 +55,11 @@ export default function ReelsScreen() {
         index={index}
         itemHeight={itemHeight}
         itemWidth={screenWidth}
-        bottomInset={Math.max(insets.bottom, 8)}
+        bottomInset={8}
         screenActive={isFocused}
       />
     ),
-    [insets.bottom, isFocused, itemHeight, screenWidth],
+    [isFocused, itemHeight, screenWidth],
   );
 
   if (loading && reels.length === 0) {

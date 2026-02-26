@@ -19,7 +19,7 @@ export default function TabsLayout() {
           backgroundColor: "#101010",
           borderTopColor: "#2C2C2C",
           borderTopWidth: 1,
-          height: 58 + insets.bottom,
+          height: 65 + insets.bottom,
           paddingTop: 8,
           paddingBottom: Math.max(insets.bottom, 8),
         },

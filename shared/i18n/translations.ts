@@ -172,6 +172,8 @@ export const translations: Record<AppLanguage, Record<string, string>> = {
     "profile.deleteConfirmTitle": "Удалить аккаунт?",
     "profile.deleteConfirmText": "Ваш профиль и все данные будут безвозвратно удалены",
     "profile.edit": "Редактировать",
+    "profile.changePassword": "Сменить пароль",
+    "profile.sendCodeForPassword": "Отправить код для смены пароля",
 
     "language.title": "Язык",
     "language.ru": "Русский",
@@ -404,6 +406,8 @@ export const translations: Record<AppLanguage, Record<string, string>> = {
     "profile.deleteConfirmTitle": "Akkaunt o'chirilsinmi?",
     "profile.deleteConfirmText": "Profil va barcha ma'lumotlaringiz butunlay o'chiriladi",
     "profile.edit": "Tahrirlash",
+    "profile.changePassword": "Parolni o'zgartirish",
+    "profile.sendCodeForPassword": "Parolni almashtirish uchun kod yuborish",
 
     "language.title": "Til",
     "language.ru": "Rus",
@@ -636,6 +640,8 @@ export const translations: Record<AppLanguage, Record<string, string>> = {
     "profile.deleteConfirmTitle": "Delete account?",
     "profile.deleteConfirmText": "Your profile and all data will be permanently deleted",
     "profile.edit": "Edit",
+    "profile.changePassword": "Change password",
+    "profile.sendCodeForPassword": "Send code to change password",
 
     "language.title": "Language",
     "language.ru": "Russian",

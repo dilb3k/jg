@@ -6,10 +6,12 @@ import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   Switch,
   Text,
+  TextStyle,
   TextInput,
   View,
 } from "react-native";
@@ -17,6 +19,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 const qualityOptions: NonNullable<SearchFilters["quality"]>[] = ["hd", "full_hd", "2k", "4k"];
 const sortOptions: NonNullable<SearchFilters["sortBy"]>[] = ["rating", "popularity", "date"];
+
+const inputTextStyle: TextStyle = {
+  fontSize: 16,
+  lineHeight: 20,
+  paddingTop: 0,
+  paddingBottom: 0,
+  ...(Platform.OS === "android"
+    ? {
+        textAlignVertical: "center",
+        includeFontPadding: false,
+      }
+    : null),
+};
 
 export default function SearchFilterScreen() {
   const router = useRouter();
@@ -200,7 +215,7 @@ export default function SearchFilterScreen() {
             placeholderTextColor="#7E7E7E"
             keyboardType="number-pad"
             className="flex-1 h-12 bg-[#2C2C2C] rounded-xl px-4 text-white"
-            style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+            style={inputTextStyle}
           />
           <Text className="text-white/55">-</Text>
           <TextInput
@@ -210,7 +225,7 @@ export default function SearchFilterScreen() {
             placeholderTextColor="#7E7E7E"
             keyboardType="number-pad"
             className="flex-1 h-12 bg-[#2C2C2C] rounded-xl px-4 text-white"
-            style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+            style={inputTextStyle}
           />
         </View>
 
@@ -223,7 +238,7 @@ export default function SearchFilterScreen() {
             placeholderTextColor="#7E7E7E"
             keyboardType="number-pad"
             className="flex-1 h-12 bg-[#2C2C2C] rounded-xl px-4 text-white"
-            style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+            style={inputTextStyle}
           />
           <Text className="text-white/55">-</Text>
           <TextInput
@@ -233,7 +248,7 @@ export default function SearchFilterScreen() {
             placeholderTextColor="#7E7E7E"
             keyboardType="number-pad"
             className="flex-1 h-12 bg-[#2C2C2C] rounded-xl px-4 text-white"
-            style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+            style={inputTextStyle}
           />
         </View>
 

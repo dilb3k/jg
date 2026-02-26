@@ -1,4 +1,5 @@
 import { useI18n } from "@/shared/i18n/useI18n";
+import { useToast } from "@/shared/ui/toast";
 import { useProfileStore } from "@/store/profile.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { useRouter } from "expo-router";
@@ -20,7 +21,6 @@ import {
 import { ComponentType, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
   Pressable,
@@ -48,6 +48,7 @@ type MenuItem = {
 export default function ProfilePage() {
   const router = useRouter();
   const { t } = useI18n();
+  const { showToast } = useToast();
 
   const profile = useProfileStore((state) => state.profile);
   const status = useProfileStore((state) => state.status);
@@ -68,12 +69,12 @@ export default function ProfilePage() {
         router.replace("/(auth)/login");
       }
       if (result === "error") {
-        Alert.alert(t("common.error"));
+        showToast({ type: "error", message: t("common.error") });
       }
     };
 
     init();
-  }, [fetchProfile, router, t]);
+  }, [fetchProfile, router, showToast, t]);
 
   const languageValue =
     language === "uz"
@@ -89,21 +90,21 @@ export default function ProfilePage() {
         title: t("profile.accountAndSubscription"),
         icon: UserRound,
         showChevron: true,
-        onPress: () => Alert.alert(t("common.noData")),
+        onPress: () => showToast({ type: "warning", message: t("common.noData") }),
       },
       {
         key: "history",
         title: t("profile.history"),
         icon: History,
         showChevron: true,
-        onPress: () => Alert.alert(t("common.noData")),
+        onPress: () => showToast({ type: "warning", message: t("common.noData") }),
       },
       {
         key: "connectTv",
         title: t("profile.connectTv"),
         icon: Tv,
         showChevron: true,
-        onPress: () => Alert.alert(t("common.noData")),
+        onPress: () => router.push("/profile/tv-link"),
       },
       {
         key: "saved",
@@ -138,14 +139,14 @@ export default function ProfilePage() {
         title: t("profile.support"),
         icon: CircleHelp,
         showChevron: true,
-        onPress: () => Alert.alert(t("common.noData")),
+        onPress: () => showToast({ type: "warning", message: t("common.noData") }),
       },
       {
         key: "about",
         title: t("profile.about"),
         icon: Info,
         showChevron: true,
-        onPress: () => Alert.alert(t("common.noData")),
+        onPress: () => showToast({ type: "warning", message: t("common.noData") }),
       },
       {
         key: "logout",
@@ -163,7 +164,7 @@ export default function ProfilePage() {
         onPress: () => setConfirmType("delete"),
       },
     ],
-    [languageValue, router, t],
+    [languageValue, router, showToast, t],
   );
 
   if (status === "loading" && !profile) {

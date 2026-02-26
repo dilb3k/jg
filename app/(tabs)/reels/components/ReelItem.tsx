@@ -4,6 +4,7 @@ import { HeartIcon } from "@/shared/ui/icons/HeartIcon";
 import { PauseIcon } from "@/shared/ui/icons/PauseIcon";
 import { PlayIcon } from "@/shared/ui/icons/PlayIcon";
 import { ShareIcon } from "@/shared/ui/icons/ShareIcon";
+import { useToast } from "@/shared/ui/toast";
 import { resolveReelPlaybackCandidates } from "@/shared/utils/reel";
 import { useReelStore } from "@/store/reel.store";
 import { ResizeMode, Video } from "expo-av";
@@ -32,6 +33,7 @@ const fill = StyleSheet.absoluteFillObject;
 
 function ReelItem({ reel, index, itemHeight, itemWidth, bottomInset, screenActive }: Props) {
   const { t, language } = useI18n();
+  const { showToast } = useToast();
   const videoRef = useRef<Video>(null);
   const router = useRouter();
   const currentIndex = useReelStore((state) => state.currentIndex);
@@ -61,7 +63,7 @@ function ReelItem({ reel, index, itemHeight, itemWidth, bottomInset, screenActiv
   const playbackCandidates = useMemo(() => resolveReelPlaybackCandidates(reel), [reel]);
 
   const isActive = index === currentIndex;
-  const bottomOffset = useMemo(() => 12 + bottomInset, [bottomInset]);
+  const bottomOffset = useMemo(() => bottomInset, [bottomInset]);
 
   // ── Reset all per-reel state when the reel itself changes ──────────────────
   useEffect(() => {
@@ -165,9 +167,12 @@ function ReelItem({ reel, index, itemHeight, itemWidth, bottomInset, screenActiv
     router.push({ pathname: "/movie/[id]", params: { id: movie.id } });
   }, [reel.linked_movies, router]);
 
-  const handleToggleLike = useCallback(() => {
-    toggleLike(reel.id);
-  }, [reel.id, toggleLike]);
+  const handleToggleLike = useCallback(async () => {
+    const success = await toggleLike(reel.id);
+    if (!success) {
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("common.error") });
+    }
+  }, [reel.id, showToast, t, toggleLike]);
 
   const handleVideoError = useCallback(() => {
     if (secureStreamUrl && !secureFailed) {

@@ -24,7 +24,7 @@ interface ReelState {
   fetchMore: () => Promise<void>;
   fetchByMovie: (movieId: string) => Promise<void>;
   setCurrentIndex: (index: number) => void;
-  toggleLike: (reelId: string) => Promise<void>;
+  toggleLike: (reelId: string) => Promise<boolean>;
   fetchStreamUrl: (reelId: string) => Promise<string | null>;
 }
 
@@ -117,10 +117,10 @@ export const useReelStore = create<ReelState>((set, get) => ({
   setCurrentIndex: (index) => set({ currentIndex: index }),
 
   async toggleLike(reelId: string) {
-    if (get().likePending[reelId]) return;
+    if (get().likePending[reelId]) return true;
 
     const reel = get().reels.find((r) => r.id === reelId);
-    if (!reel) return;
+    if (!reel) return false;
 
     const willBeLiked = !reel.is_liked;
 
@@ -138,35 +138,39 @@ export const useReelStore = create<ReelState>((set, get) => ({
       ),
     }));
 
-    const success = willBeLiked
-      ? await likeReel(reelId)
-      : await unlikeReel(reelId);
+    try {
+      const success = willBeLiked
+        ? await likeReel(reelId)
+        : await unlikeReel(reelId);
 
-    if (!success) {
-      // Roll back optimistic update
+      if (!success) {
+        // Roll back optimistic update
+        set((state) => ({
+          reels: state.reels.map((r) =>
+            r.id === reelId
+              ? {
+                  ...r,
+                  is_liked: !willBeLiked,
+                  likes_count: Math.max(0, r.likes_count + (willBeLiked ? -1 : 1)),
+                }
+              : r,
+          ),
+        }));
+      }
+
+      const fresh = await getReelDetail(reelId);
+      if (fresh) {
+        set((state) => ({
+          reels: state.reels.map((r) => (r.id === reelId ? { ...r, ...fresh } : r)),
+        }));
+      }
+
+      return success;
+    } finally {
       set((state) => ({
-        reels: state.reels.map((r) =>
-          r.id === reelId
-            ? {
-                ...r,
-                is_liked: !willBeLiked,
-                likes_count: Math.max(0, r.likes_count + (willBeLiked ? -1 : 1)),
-              }
-            : r,
-        ),
+        likePending: { ...state.likePending, [reelId]: false },
       }));
     }
-
-    const fresh = await getReelDetail(reelId);
-    if (fresh) {
-      set((state) => ({
-        reels: state.reels.map((r) => (r.id === reelId ? { ...r, ...fresh } : r)),
-      }));
-    }
-
-    set((state) => ({
-      likePending: { ...state.likePending, [reelId]: false },
-    }));
   },
 
   async fetchStreamUrl(reelId: string) {

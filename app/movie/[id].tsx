@@ -7,6 +7,7 @@ import { PauseIcon } from "@/shared/ui/icons/PauseIcon";
 import { PlayIcon } from "@/shared/ui/icons/PlayIcon";
 import { SkipBackIcon } from "@/shared/ui/icons/SkipBackIcon";
 import { SkipForwardIcon } from "@/shared/ui/icons/SkipForwardIcon";
+import { useToast } from "@/shared/ui/toast";
 import { useFavoritesStore } from "@/store/favorites.store";
 import { useMovieStore } from "@/store/movie.store";
 import { AVPlaybackStatus, ResizeMode, Video } from "expo-av";
@@ -28,7 +29,6 @@ import { RatingIconRight } from "@/shared/ui/icons/RatingIconRight";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Image,
   Pressable,
@@ -50,6 +50,7 @@ export default function MovieDetailPage() {
   const { id, episodeInfo } = useLocalSearchParams<{ id: string; episodeInfo?: string }>();
   const router = useRouter();
   const { t, language } = useI18n();
+  const { showToast } = useToast();
   const insets = useSafeAreaInsets();
   const videoRef = useRef<Video>(null);
 
@@ -289,7 +290,7 @@ export default function MovieDetailPage() {
     try {
       const payload = await getMovieStream(id);
       if (!payload?.stream_url) {
-        Alert.alert(t("common.errorTitle"), t("movie.noStream"));
+        showToast({ type: "error", title: t("common.errorTitle"), message: t("movie.noStream") });
         return;
       }
       const resume = Math.max(0, payload.resume_position_seconds ?? 0);
@@ -312,7 +313,7 @@ export default function MovieDetailPage() {
       scheduleHideControls();
       await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
     } catch {
-      Alert.alert(t("common.errorTitle"), t("movie.noStream"));
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("movie.noStream") });
     } finally {
       setPlayerLoading(false);
     }
@@ -344,7 +345,10 @@ export default function MovieDetailPage() {
     setFavoriteLoading(true);
     const result = await toggleFavorite(id);
     setFavoriteLoading(false);
-    if (result === null) { Alert.alert(t("common.errorTitle"), t("common.error")); return; }
+    if (result === null) {
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("common.error") });
+      return;
+    }
     setIsFavorite(result);
   };
 

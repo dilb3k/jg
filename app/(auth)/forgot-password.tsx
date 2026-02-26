@@ -1,25 +1,40 @@
 import { sendForgotPasswordOtp } from "@/services/otp.service";
 import { useI18n } from "@/shared/i18n/useI18n";
+import { useToast } from "@/shared/ui/toast";
 import { useAuthStore } from "@/store/auth.store";
 import { formatPhone } from "@/utils/format-phone";
 import { useRouter } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
 import { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   Text,
+  TextStyle,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const inputTextStyle: TextStyle = {
+  fontSize: 16,
+  lineHeight: 20,
+  paddingTop: 0,
+  paddingBottom: 0,
+  ...(Platform.OS === "android"
+    ? {
+        textAlignVertical: "center",
+        includeFontPadding: false,
+      }
+    : null),
+};
+
 export default function ForgotPassword() {
   const router = useRouter();
   const { t } = useI18n();
+  const { showToast } = useToast();
   const setResetData = useAuthStore((s) => s.setResetData);
   const [phone, setPhone] = useState("+998");
   const [displayPhone, setDisplayPhone] = useState("+998");
@@ -33,7 +48,7 @@ export default function ForgotPassword() {
 
   const handleSubmit = async () => {
     if (phone.length !== 13) {
-      Alert.alert(t("common.errorTitle"), t("forgotPassword.errorInvalidPhone"));
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("forgotPassword.errorInvalidPhone") });
       return;
     }
 
@@ -43,7 +58,7 @@ export default function ForgotPassword() {
       setResetData(phone, "");
       router.push("/(auth)/verify-reset-code");
     } catch {
-      Alert.alert(t("common.errorTitle"), t("forgotPassword.errorSendCode"));
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("forgotPassword.errorSendCode") });
     } finally {
       setLoading(false);
     }
@@ -83,7 +98,7 @@ export default function ForgotPassword() {
             autoComplete="tel"
             maxLength={17}
             className="bg-[#2C2C2C] text-white rounded-xl px-4 text-base h-14 mb-8"
-            style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+            style={inputTextStyle}
           />
 
           <View className="flex-1 min-h-8" />

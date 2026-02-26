@@ -11,10 +11,24 @@ import {
   Pressable,
   ScrollView,
   Text,
+  TextStyle,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const inputTextStyle: TextStyle = {
+  fontSize: 16,
+  lineHeight: 20,
+  paddingTop: 0,
+  paddingBottom: 0,
+  ...(Platform.OS === "android"
+    ? {
+        textAlignVertical: "center",
+        includeFontPadding: false,
+      }
+    : null),
+};
 
 export default function ResetPassword() {
   const router = useRouter();
@@ -92,7 +106,7 @@ export default function ResetPassword() {
               autoComplete="new-password"
               textContentType="newPassword"
               className="bg-[#2C2C2C] text-white rounded-xl px-4 pr-12 text-base h-14"
-              style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+              style={inputTextStyle}
             />
             <Pressable
               onPress={() => setShowPassword(!showPassword)}
@@ -122,7 +136,7 @@ export default function ResetPassword() {
               autoComplete="new-password"
               textContentType="newPassword"
               className="bg-[#2C2C2C] text-white rounded-xl px-4 pr-12 text-base h-14"
-              style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+              style={inputTextStyle}
             />
             <Pressable
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}

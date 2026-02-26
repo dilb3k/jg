@@ -12,8 +12,11 @@ type SettingsState = {
   setPushNotificationsEnabled: (enabled: boolean) => Promise<void>;
 };
 
-const LANGUAGE_KEY = "app_language";
 const PUSH_KEY = "app_push_notifications";
+const LANGUAGE_KEY = "app_language";
+
+const isAppLanguage = (value: string | null): value is AppLanguage =>
+  value === "uz" || value === "ru" || value === "en";
 
 export const useSettingsStore = create<SettingsState>((set) => ({
   language: "ru",
@@ -21,16 +24,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   hydrated: false,
 
   hydrate: async () => {
-    const [language, pushNotificationsEnabled] = await Promise.all([
-      AsyncStorage.getItem(LANGUAGE_KEY),
-      AsyncStorage.getItem(PUSH_KEY),
-    ]);
+    const pushNotificationsEnabled = await AsyncStorage.getItem(PUSH_KEY);
+    const savedLanguage = await AsyncStorage.getItem(LANGUAGE_KEY);
 
     set({
-      language:
-        language === "uz" || language === "ru" || language === "en"
-          ? language
-          : "ru",
+      language: isAppLanguage(savedLanguage) ? savedLanguage : "ru",
       pushNotificationsEnabled: pushNotificationsEnabled !== "false",
       hydrated: true,
     });

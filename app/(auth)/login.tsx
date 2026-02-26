@@ -1,5 +1,6 @@
 import { loginUser } from "@/services/auth.service";
 import { useI18n } from "@/shared/i18n/useI18n";
+import { useToast } from "@/shared/ui/toast";
 import { useAuthStore } from "@/store/auth.store";
 import { getDeviceId } from "@/utils/device-id";
 import { formatPhone } from "@/utils/format-phone";
@@ -8,20 +9,34 @@ import * as Device from "expo-device";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   Text,
+  TextStyle,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const inputTextStyle: TextStyle = {
+  fontSize: 16,
+  lineHeight: 20,
+  paddingTop: 0,
+  paddingBottom: 0,
+  ...(Platform.OS === "android"
+    ? {
+        textAlignVertical: "center",
+        includeFontPadding: false,
+      }
+    : null),
+};
+
 export default function Login() {
   const router = useRouter();
   const { t } = useI18n();
+  const { showToast } = useToast();
   const setAuth = useAuthStore((s) => s.setAuth);
 
   const [loginType, setLoginType] = useState<"phone" | "username">("phone");
@@ -72,7 +87,7 @@ export default function Login() {
       router.replace("/(tabs)/home");
     } catch (e: any) {
       const msg = e.response?.data?.error?.message || t("login.errorDefault");
-      Alert.alert(t("login.errorTitle"), msg);
+      showToast({ type: "error", title: t("login.errorTitle"), message: msg });
     } finally {
       setLoading(false);
     }
@@ -133,7 +148,7 @@ export default function Login() {
                 placeholder="+"
                 placeholderTextColor="#666"
                 className="bg-[#2C2C2C] text-white rounded-xl px-4 h-14"
-                style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+                style={inputTextStyle}
               />
             ) : (
               <TextInput
@@ -144,7 +159,7 @@ export default function Login() {
                 autoCapitalize="none"
                 autoComplete="username"
                 className="bg-[#2C2C2C] text-white rounded-xl px-4 h-14"
-                style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+                style={inputTextStyle}
               />
             )}
           </View>
@@ -168,7 +183,7 @@ export default function Login() {
                 autoComplete="password"
                 textContentType="password"
                 className="bg-[#2C2C2C] text-white rounded-xl px-4 pr-12 h-14"
-                style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+                style={inputTextStyle}
               />
 
               <Pressable

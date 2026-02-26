@@ -1,16 +1,18 @@
 import { checkUsernameAvailability } from "@/services/auth.service";
 import { useI18n } from "@/shared/i18n/useI18n";
+import { useToast } from "@/shared/ui/toast";
 import { useAuthStore } from "@/store/auth.store";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Text,
+  TextStyle,
   TextInput,
   View,
 } from "react-native";
@@ -22,9 +24,23 @@ const formatBirthDate = (date: Date) =>
 
 const daysInMonth = (year: number, month: number) => new Date(year, month, 0).getDate();
 
+const inputTextStyle: TextStyle = {
+  fontSize: 16,
+  lineHeight: 20,
+  paddingTop: 0,
+  paddingBottom: 0,
+  ...(Platform.OS === "android"
+    ? {
+        textAlignVertical: "center",
+        includeFontPadding: false,
+      }
+    : null),
+};
+
 export default function Register() {
   const router = useRouter();
   const { t } = useI18n();
+  const { showToast } = useToast();
   const { setProfileData } = useAuthStore();
 
   const [firstName, setFirstName] = useState("");
@@ -152,35 +168,35 @@ export default function Register() {
     };
 
     if (!trimmed.firstName || !trimmed.lastName) {
-      Alert.alert(t("common.errorTitle"), t("register.errorRequiredName"));
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("register.errorRequiredName") });
       return;
     }
 
     if (!/^[a-zA-Z0-9_]{3,32}$/.test(trimmed.username)) {
-      Alert.alert(t("common.errorTitle"), t("register.errorUsernameInvalid"));
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("register.errorUsernameInvalid") });
       return;
     }
 
     if (usernameStatus !== "available") {
       const isAvailable = await ensureUsernameAvailable();
       if (!isAvailable) {
-        Alert.alert(t("common.errorTitle"), t("register.errorUsernameTaken"));
+        showToast({ type: "error", title: t("common.errorTitle"), message: t("register.errorUsernameTaken") });
         return;
       }
     }
 
     if (!isBirthDateValid) {
-      Alert.alert(t("common.errorTitle"), t("register.errorBirthDate"));
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("register.errorBirthDate") });
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert(t("common.errorTitle"), t("register.errorPasswordMin"));
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("register.errorPasswordMin") });
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert(t("common.errorTitle"), t("register.errorPasswordMismatch"));
+      showToast({ type: "error", title: t("common.errorTitle"), message: t("register.errorPasswordMismatch") });
       return;
     }
 
@@ -219,7 +235,7 @@ export default function Register() {
           onChangeText={setFirstName}
           autoCapitalize="words"
           className={inputClass}
-          style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+          style={inputTextStyle}
         />
 
         <Text className="text-gray-400 text-sm mb-2 mt-4">{t("register.lastName")}</Text>
@@ -230,7 +246,7 @@ export default function Register() {
           onChangeText={setLastName}
           autoCapitalize="words"
           className={inputClass}
-          style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+          style={inputTextStyle}
         />
 
         <Text className="text-gray-400 text-sm mb-2 mt-4">{t("register.username")}</Text>
@@ -241,7 +257,7 @@ export default function Register() {
           onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())}
           autoCapitalize="none"
           className={inputClass}
-          style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+          style={inputTextStyle}
         />
         {usernameStatus === "checking" ? (
           <Text className="text-xs text-gray-400 mt-2">{t("register.usernameChecking")}</Text>
@@ -283,7 +299,7 @@ export default function Register() {
           autoComplete="new-password"
           textContentType="newPassword"
           className={inputClass}
-          style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+          style={inputTextStyle}
         />
 
         <Text className="text-gray-400 text-sm mb-2 mt-4">{t("register.confirmPassword")}</Text>
@@ -298,7 +314,7 @@ export default function Register() {
           autoComplete="new-password"
           textContentType="newPassword"
           className={inputClass}
-          style={{ textAlignVertical: "center", paddingVertical: 0, includeFontPadding: false }}
+          style={inputTextStyle}
         />
 
         <Pressable

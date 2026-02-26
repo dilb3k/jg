@@ -9,7 +9,7 @@ export default function NotificationsScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView className="flex-1 bg-[#07090D]" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-[#101010]" edges={["top"]}>
       <View className="px-4 flex-row items-center pt-2 pb-4">
         <Pressable
           onPress={() => router.back()}

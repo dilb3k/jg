@@ -12,7 +12,7 @@ const EmptyMessage = () => {
         width: "100%",
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "#1A1A1A",
+        backgroundColor: "#101010",
       }}
     >
       <Text className="text-white text-xl mb-2">{t("reels.emptyTitle")}</Text>

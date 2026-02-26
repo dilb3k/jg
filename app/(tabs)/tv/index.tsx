@@ -70,7 +70,7 @@ export default function TvChannelsScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-[#010101]" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-[#101010]" edges={["top"]}>
       <View className="px-4 pt-2 pb-3">
         <Text className="text-white text-[28px] font-semibold mb-3">{t("tv.title")}</Text>
 

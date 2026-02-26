@@ -1,7 +1,9 @@
 import { useI18n } from "@/shared/i18n/useI18n";
 import { useFavoritesStore } from "@/store/favorites.store";
 import { useRouter } from "expo-router";
-import { ChevronLeft, Star } from "lucide-react-native";
+import { ChevronLeft } from "lucide-react-native";
+import { RatingIconLeft } from "@/shared/ui/icons/RatingIconLeft";
+import { RatingIconRight } from "@/shared/ui/icons/RatingIconRight";
 import { useEffect } from "react";
 import {
   ActivityIndicator,
@@ -40,7 +42,7 @@ export default function SavedMoviesScreen() {
   }, [fetchInitial]);
 
   return (
-    <SafeAreaView className="flex-1 bg-[#07090D]" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-[#101010]" edges={["top"]}>
       <View className="px-4 flex-row items-center pt-2 pb-4">
         <Pressable
           onPress={() => router.back()}
@@ -76,39 +78,79 @@ export default function SavedMoviesScreen() {
             if (!loadingMore && hasNext) void fetchMore();
           }}
           onEndReachedThreshold={0.5}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={{ width: "48%", marginBottom: 18 }}
-              onPress={() =>
-                router.push({
-                  pathname: "/movie/[id]",
-                  params: { id: item.movie.id },
-                })
-              }
-            >
-              <View className="relative">
-                <Image
-                  source={{ uri: item.movie.poster_url }}
-                  className="w-full aspect-[2/3] rounded-xl bg-[#2C2C2C]"
-                  resizeMode="cover"
-                />
+          renderItem={({ item }) => {
+            const ratingValue = Number(item.movie.imdb_rating);
+            const showRating = Number.isFinite(ratingValue);
+            const isHighRating = showRating && ratingValue >= 8;
 
-                {item.movie.imdb_rating ? (
-                  <View className="absolute top-2 left-2 bg-black/65 px-1.5 py-1 rounded-md flex-row items-center">
-                    <Star size={10} color="#FCD34D" fill="#FCD34D" />
-                    <Text className="text-[#FCD34D] text-[11px] ml-1 font-semibold">
-                      {item.movie.imdb_rating}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
+            return (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={{ width: "48%", marginBottom: 18 }}
+                onPress={() =>
+                  router.push({
+                    pathname: "/movie/[id]",
+                    params: { id: item.movie.id },
+                  })
+                }
+              >
+                <View className="relative">
+                  <Image
+                    source={{ uri: item.movie.poster_url }}
+                    className="w-full aspect-[2/3] rounded-xl bg-[#2C2C2C]"
+                    resizeMode="cover"
+                  />
 
-              <Text className="text-white/85 text-sm mt-2" numberOfLines={1}>
-                {getMovieTitle(item.movie)}
-              </Text>
-            </TouchableOpacity>
-          )}
+                  {showRating ? (
+                    isHighRating ? (
+                      <View
+                        style={{
+                          position: "absolute",
+                          top: 8,
+                          left: 8,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          backgroundColor: "rgba(0,0,0,0.75)",
+                          paddingHorizontal: 7,
+                          paddingVertical: 5,
+                          borderRadius: 8,
+                          gap: 4,
+                          borderWidth: 1,
+                          borderColor: "rgba(212,175,55,0.55)",
+                        }}
+                      >
+                        <RatingIconLeft size={15} color="#D4AF37" />
+                        <Text style={{ color: "#D4AF37", fontSize: 11, fontWeight: "700", letterSpacing: 0.2 }}>
+                          {ratingValue.toFixed(1)}
+                        </Text>
+                        <RatingIconRight size={15} color="#D4AF37" />
+                      </View>
+                    ) : (
+                      <View
+                        style={{
+                          position: "absolute",
+                          top: 8,
+                          left: 8,
+                          paddingHorizontal: 8,
+                          paddingVertical: 5,
+                          borderRadius: 8,
+                          backgroundColor: "#3D9E4A",
+                        }}
+                      >
+                        <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>
+                          {ratingValue.toFixed(1)}
+                        </Text>
+                      </View>
+                    )
+                  ) : null}
+                </View>
+
+                <Text className="text-white/85 text-sm mt-2" numberOfLines={1}>
+                  {getMovieTitle(item.movie)}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
           ListEmptyComponent={
             <View className="flex-1 items-center justify-center px-8">
               <Text className="text-white/45 text-[30px] text-center leading-9">

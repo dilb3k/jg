@@ -93,7 +93,7 @@ export default function SearchScreen() {
   const showPlaceholder = initialized && !loading && !error && results.length === 0 && query.trim().length === 0 && activeFilters === 0;
 
   return (
-    <SafeAreaView className="flex-1 bg-[#060709]" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-[#101010]" edges={["top"]}>
       <View className="px-4 pt-2 pb-3 flex-row items-center gap-2">
         <View className="flex-1 h-12 bg-[#2C2C2C] rounded-xl px-3 flex-row items-center gap-2">
           <Search size={18} color="#8A8A8A" />

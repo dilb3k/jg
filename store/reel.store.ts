@@ -20,8 +20,6 @@ interface ReelState {
   likePending: Record<string, boolean>;
   streamUrlMap: Record<string, string>;
 
-  
-
   fetchInitial: () => Promise<void>;
   fetchMore: () => Promise<void>;
   fetchByMovie: (movieId: string) => Promise<void>;
@@ -52,28 +50,32 @@ export const useReelStore = create<ReelState>((set, get) => ({
   async fetchInitial() {
     set({ loading: true });
 
-    const [trending, feed] = await Promise.all([getTrendingReels(), getReelFeed(1)]);
+    try {
+      const [trending, feed] = await Promise.all([getTrendingReels(), getReelFeed(1)]);
 
-    if (feed.length === 0 && trending.length > 0) {
+      if (feed.length === 0 && trending.length > 0) {
+        set({
+          reels: trending,
+          currentIndex: 0,
+          isTrending: true,
+          hasMore: false,
+          loading: false,
+        });
+        return;
+      }
+
+      const initial = mergeUniqueReels(feed, trending);
       set({
-        reels: trending,
+        reels: initial,
         currentIndex: 0,
-        isTrending: true,
-        hasMore: false,
+        page: 2,
+        hasMore: feed.length === 15,
+        isTrending: false,
         loading: false,
       });
-      return;
+    } catch {
+      set({ loading: false });
     }
-
-    const initial = mergeUniqueReels(feed, trending);
-    set({
-      reels: initial,
-      currentIndex: 0,
-      page: 2,
-      hasMore: feed.length === 15,
-      isTrending: false,
-      loading: false,
-    });
   },
 
   async fetchMore() {
@@ -81,14 +83,17 @@ export const useReelStore = create<ReelState>((set, get) => ({
     if (loading || !hasMore || isTrending) return;
 
     set({ loading: true });
-    const data = await getReelFeed(page);
-
-    set((state) => ({
-      reels: mergeUniqueReels(state.reels, data),
-      page: page + 1,
-      hasMore: data.length === 15,
-      loading: false,
-    }));
+    try {
+      const data = await getReelFeed(page);
+      set((state) => ({
+        reels: mergeUniqueReels(state.reels, data),
+        page: page + 1,
+        hasMore: data.length === 15,
+        loading: false,
+      }));
+    } catch {
+      set({ loading: false });
+    }
   },
 
   async fetchByMovie(movieId: string) {
@@ -96,14 +101,17 @@ export const useReelStore = create<ReelState>((set, get) => ({
     if (loading || !hasMore || isTrending) return;
 
     set({ loading: true });
-    const data = await getByMovie(page, 10, movieId);
-
-    set((state) => ({
-      reels: mergeUniqueReels(state.reels, data),
-      page: page + 1,
-      hasMore: data.length === 10,
-      loading: false,
-    }));
+    try {
+      const data = await getByMovie(page, 10, movieId);
+      set((state) => ({
+        reels: mergeUniqueReels(state.reels, data),
+        page: page + 1,
+        hasMore: data.length === 10,
+        loading: false,
+      }));
+    } catch {
+      set({ loading: false });
+    }
   },
 
   setCurrentIndex: (index) => set({ currentIndex: index }),
@@ -115,9 +123,10 @@ export const useReelStore = create<ReelState>((set, get) => ({
     if (!reel) return;
 
     const willBeLiked = !reel.is_liked;
-    set((state) => ({ likePending: { ...state.likePending, [reelId]: true } }));
 
+    // Optimistic update: mark pending and update UI in a single set call
     set((state) => ({
+      likePending: { ...state.likePending, [reelId]: true },
       reels: state.reels.map((r) =>
         r.id === reelId
           ? {
@@ -134,6 +143,7 @@ export const useReelStore = create<ReelState>((set, get) => ({
       : await unlikeReel(reelId);
 
     if (!success) {
+      // Roll back optimistic update
       set((state) => ({
         reels: state.reels.map((r) =>
           r.id === reelId

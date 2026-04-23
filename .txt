@@ -1,0 +1,89 @@
+project about " project computer xonalarni bari uchun qilinayapti. page yani manu 3ta boladi statka, products, statiscs. astatkada mahsuloatlar barda qolganini kiritadi va shu qolganiga qarab qancha soitlgan ligini hisoblab toliq matematik amalarni qiladi. productsda product qoshish boladi va products crud va product yaratish boladi. statisticada kunlik, haftalik, oylik va yillik hisobotlar chqshi kere, 1kunlikni hisoblash bunday boladi: barcha sotilgan narsalarni hisoblaydi misol uchun 6ta adrenalil 100min sotuv va 30min foyda va qancah abarot bolganini hisoblaydi va bu har soat 7:00 da 0 ga tushishi kere va undan keyingi astatka qanchaligni kiritganda hisoblashni boshlasa 0dan hisoblab ketadi, yani har hisob kitaob 1kun uchun saqlanib qoladi va haftalik oylik umumiy ham boladi. produtni image boladi malumot ornida"      TZ ->  ech stack: 
+
+React Native Expo + TypeScript
+Zustand
+expo-sqlite yoki minimal variantda AsyncStorage
+Axios
+@react-native-community/netinfo
+Dayjs
+React Navigation
+Struktura:
+
+src/
+  api/
+  db/
+  store/
+  screens/
+  components/
+  hooks/
+  utils/
+  types/
+  navigation/
+  constants/
+Entitylar:
+
+Product: id?, localId, deviceId, name, buyPrice, sellPrice, image?, barcode?, category?, unit?, isDeleted, updatedAt, createdAt
+InventoryEntry: id?, localId, deviceId, productId, date, startQuantity, currentQuantity, note?, isDeleted, updatedAt, createdAt
+DailySnapshot: id?, localId, deviceId, date, totalRevenue, totalProfit, totalSoldItems, items[], isDeleted, updatedAt, createdAt
+Screenlar:
+
+ProductsScreen: add/edit/delete, image picker, search
+InventoryScreen: bugungi productlar, startQuantity, currentQuantity, note
+StatisticsScreen: daily/weekly/monthly/yearly, hammasi snapshotlardan frontend agregatsiya
+SyncStatusScreen yoki settings ichida sync holati
+Frontend hisob:
+
+sold = Math.max(startQuantity - currentQuantity, 0)
+revenue = sold * sellPrice
+profit = sold * (sellPrice - buyPrice)
+Local DB jadvallari:
+
+products
+inventory_entries
+daily_snapshots
+sync_queue
+app_meta
+Queue formati:
+
+{
+  id: string
+  entity: "product" | "inventory" | "snapshot"
+  operation: "upsert" | "delete"
+  payload: unknown
+  createdAt: string
+}
+Store actionlar:
+
+loadProducts
+createProduct
+updateProduct
+deleteProduct
+loadInventoryByDate
+setStartInventory
+setCurrentQuantity
+buildDailySnapshot
+saveDailySnapshot
+syncNow
+Backend API contract:
+
+GET /api/products
+GET /api/products/:id
+POST /api/products
+PUT /api/products/:id
+DELETE /api/products/:id
+GET /api/inventory?date=YYYY-MM-DD
+GET /api/inventory/range?from=YYYY-MM-DD&to=YYYY-MM-DD
+POST /api/inventory/start-day
+PUT /api/inventory/bulk-current
+GET /api/snapshots/daily?date=YYYY-MM-DD
+GET /api/snapshots/range?from=YYYY-MM-DD&to=YYYY-MM-DD
+POST /api/snapshots/daily
+POST /api/sync
+Sync flow:
+
+Har action local db ga yoziladi
+Shu action sync_queue ga tushadi
+Internet kelganda queue POST /api/sync ga yuboriladi
+Server updatedAt bo‘yicha merge qiladi
+Serverdan qaytgan yangi data local db ni yangilaydi
+lastSyncAt saqlanadi

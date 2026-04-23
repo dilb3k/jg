@@ -1,90 +1,98 @@
-import { OfflineNotice } from "@/shared/ui/OfflineNotice";
-import { ToastProvider } from "@/shared/ui/toast";
-import { useAuthStore } from "@/store/auth.store";
-import { useNetworkStore } from "@/store/network.store";
-import { useSettingsStore } from "@/store/settings.store";
-import { Stack, useRouter, useSegments } from "expo-router";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
-import "../global.css";
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
+import { useStore } from '../src/store';
+import { useEffect, useState } from 'react';
+import { initDatabase } from '../src/db';
 
-export default function RootLayout() {
-  const { hydrate, hydrated, accessToken, sessionExpired, clearSessionExpired } = useAuthStore();
-  const hydrateSettings = useSettingsStore((state) => state.hydrate);
-  const startMonitoring = useNetworkStore((state) => state.startMonitoring);
-  const stopMonitoring = useNetworkStore((state) => state.stopMonitoring);
-  const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
-  const segments = useSegments();
+export default function RootLayoutNav() {
+  const [isReady, setIsReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const initialize = useStore((state) => state.initialize);
+  const isLoading = useStore((state) => state.isLoading);
+  const toast = useStore((state) => state.toast);
 
   useEffect(() => {
-    const initAuth = async () => {
+    const init = async () => {
       try {
-        await Promise.all([hydrate(), hydrateSettings()]);
-      } catch (error) {
-        console.error("Auth hydration error:", error);
-      } finally {
-        setIsLoading(false);
+        console.log('Initializing DB...');
+        await initDatabase();
+        console.log('DB initialized, initializing store...');
+        await initialize();
+        console.log('Store initialized');
+        setIsReady(true);
+      } catch (err: any) {
+        console.error('Init error:', err);
+        setError(err.message || 'Initialization failed');
       }
     };
+    init();
+  }, [initialize]);
 
-    initAuth();
-  }, [hydrate, hydrateSettings]);
-
-  useEffect(() => {
-    startMonitoring();
-    return () => stopMonitoring();
-  }, [startMonitoring, stopMonitoring]);
-
-  useEffect(() => {
-    if (isLoading || !hydrated) return;
-
-    const firstSegment = segments[0];
-    const secondSegment = segments[1];
-    const inAuth = firstSegment === "(auth)";
-    const inTabs = firstSegment === "(tabs)";
-    const inMovie = firstSegment === "movie";
-    const inPasswordResetFlow =
-      inAuth &&
-      (secondSegment === "forgot-password" ||
-        secondSegment === "verify-reset-code" ||
-        secondSegment === "reset-password");
-    const inProtectedArea = inTabs || inMovie;
-
-    if (sessionExpired) {
-      if (!inAuth) {
-        router.replace("/(auth)/login");
-      }
-      clearSessionExpired();
-      return;
-    }
-
-    if (accessToken) {
-      if (!inProtectedArea && !inPasswordResetFlow) {
-        router.replace("/(tabs)/home");
-      }
-      return;
-    }
-
-    if (inProtectedArea) {
-      router.replace("/(splash)");
-    }
-  }, [isLoading, hydrated, accessToken, sessionExpired, clearSessionExpired, segments, router]);
-
-  if (isLoading) {
+  if (error) {
     return (
-      <View className="flex-1 bg-[#101010] items-center justify-center">
-        <ActivityIndicator size="large" color="#fff" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc', padding: 20 }}>
+        <Text style={{ color: '#ef4444', textAlign: 'center' }}>Error: {error}</Text>
+      </View>
+    );
+  }
+
+  if (!isReady || isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' }}>
+        <ActivityIndicator size="large" color="#6366f1" />
       </View>
     );
   }
 
   return (
-    <ToastProvider>
-      <View className="flex-1">
-        <Stack screenOptions={{ headerShown: false }} />
-        <OfflineNotice />
-      </View>
-    </ToastProvider>
+    <>
+      <StatusBar style="dark" />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+      {toast.visible && (
+        <View
+          style={[
+            styles.toast,
+            toast.type === 'success'
+              ? styles.toastSuccess
+              : toast.type === 'error'
+                ? styles.toastError
+                : styles.toastInfo,
+          ]}
+          pointerEvents="none"
+        >
+          <Text style={styles.toastText}>{toast.message}</Text>
+        </View>
+      )}
+    </>
   );
 }
+
+const styles = StyleSheet.create({
+  toast: {
+    position: 'absolute',
+    bottom: 28,
+    alignSelf: 'center',
+    maxWidth: '82%',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    zIndex: 9999,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+  },
+  toastSuccess: { backgroundColor: 'rgba(15, 23, 42, 0.86)' },
+  toastError: { backgroundColor: 'rgba(127, 29, 29, 0.92)' },
+  toastInfo: { backgroundColor: 'rgba(30, 41, 59, 0.88)' },
+  toastText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+});

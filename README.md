@@ -1,50 +1,47 @@
-# Welcome to your Expo app 👋
+# Game Club Bar
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo Router asosidagi mobil kassir ilovasi. Ilova mahsulotlar, sotuvlar, offline queue va server bilan sync oqimini boshqaradi.
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Lokal ishga tushirish
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+`.env` fayl yarating va backend manzilini kiriting:
 
-## Learn more
+```bash
+EXPO_PUBLIC_API_BASE_URL=https://your-api.example.com/api
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+So'ng dev serverni ishga tushiring:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npm run start
+```
 
-## Join the community
+## Android APK / EAS build
 
-Join our community of developers creating universal apps.
+1. `.env` ichida `EXPO_PUBLIC_API_BASE_URL` production backend URL bilan to'ldirilgan bo'lsin.
+2. Expo akkauntda login qiling: `eas login`
+3. Android buildni yuboring:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+eas build --platform android --profile preview
+```
+
+Production build uchun:
+
+```bash
+eas build --platform android --profile production
+```
+
+## Tekshirilgan holat
+
+- `npm run lint` muvaffaqiyatli o'tdi
+- `tsc --noEmit` muvaffaqiyatli o'tdi
+- `expo export --platform android` muvaffaqiyatli o'tdi
+
+## Eslatma
+
+- Haqiqiy APK qurilmada ishlashi uchun `.env` dagi `EXPO_PUBLIC_API_BASE_URL` albatta real server URL bo'lishi kerak.

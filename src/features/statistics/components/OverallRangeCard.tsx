@@ -1,8 +1,10 @@
 import dayjs from "dayjs";
 import { Text, TouchableOpacity, View } from "react-native";
+import { useMemo } from "react";
 
 import { formatMoney } from "../../../utils/inventory";
-import { statisticsStyles as styles } from "../styles";
+import { createStatisticsStyles } from "../styles";
+import { useTheme } from "../../../store/themeStore";
 
 type Props = {
   rangeLabel: string;
@@ -32,6 +34,9 @@ export function OverallRangeCard({
   onPickEnd,
   totals,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
+
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>

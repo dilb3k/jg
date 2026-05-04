@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   Image,
@@ -14,12 +14,17 @@ import {
   View,
 } from "react-native";
 
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from "../../src/constants";
+import { SPACING, FONT_SIZE, BORDER_RADIUS, type ThemeColors } from "../../src/theme";
 import { useProductsScreenStore } from "../../src/store/selectors";
+import { useTheme } from "../../src/store/themeStore";
+import { useI18n } from "../../src/i18n";
 import type { Product } from "../../src/types";
 import { formatMoney } from "../../src/utils/inventory";
 
 export default function RestockScreen() {
+  const { colors } = useTheme();
+  const { t } = useI18n();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { products, loadProducts, updateProduct, showToast } =
     useProductsScreenStore();
 
@@ -49,7 +54,7 @@ export default function RestockScreen() {
 
     const qtyToAdd = parseInt(quantity.replace(/\D/g, ""), 10);
     if (isNaN(qtyToAdd) || qtyToAdd <= 0) {
-      showToast("Noto'g'ri miqdor", "error");
+      showToast(t("error"), "error");
       return;
     }
 
@@ -62,9 +67,9 @@ export default function RestockScreen() {
       });
       await loadProducts();
       closeModal();
-      showToast(`${qtyToAdd} dona qo'shildi. Jami: ${newQuantity}`, "success");
+      showToast(`${qtyToAdd} ${t("stockAdded")} ${newQuantity}`, "success");
     } catch (error: any) {
-      showToast(error.message || "Qo'shishda xatolik", "error");
+      showToast(error.message || t("error"), "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -78,7 +83,7 @@ export default function RestockScreen() {
     >
       <View style={styles.imgBox}>
         {item.image ? (
-          <Image source={{ uri: item.image }} style={styles.img} />
+          <Image source={{ uri: item.image }} style={styles.img} resizeMode="contain" />
         ) : (
           <View style={styles.noImgBox}>
             <Text style={styles.noImg}>Rasm yo'q</Text>
@@ -112,9 +117,9 @@ export default function RestockScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mahsulot qo'shish</Text>
+        <Text style={styles.headerTitle}>{t("restock")}</Text>
         <Text style={styles.headerSubtitle}>
-          Mahsulot kelganda qoldiqni yangilash uchun ro'yxatdan tanlang
+          {t("restockSubtitle")}
         </Text>
       </View>
 
@@ -124,7 +129,7 @@ export default function RestockScreen() {
         renderItem={renderItem}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <Text style={styles.empty}>Mahsulotlar hali qo'shilmagan</Text>
+          <Text style={styles.empty}>{t("noProducts")}</Text>
         }
       />
 
@@ -140,9 +145,9 @@ export default function RestockScreen() {
         >
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={closeModal}>
-              <Text style={styles.backText}>Orqaga</Text>
+              <Text style={styles.backText}>{t("back")}</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Mahsulot qo'shish</Text>
+            <Text style={styles.modalTitle}>{t("restock")}</Text>
             <View style={styles.headerSpacer} />
           </View>
 
@@ -191,11 +196,11 @@ export default function RestockScreen() {
                   </Text>
                 </View>
 
-                <Text style={styles.label}>Qancha mahsulot keldi?</Text>
+                <Text style={styles.label}>{t("howMuchArrived")}</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="0"
-                  placeholderTextColor={COLORS.textTertiary}
+                  placeholderTextColor={colors.textTertiary}
                   keyboardType="numeric"
                   value={quantity}
                   onChangeText={(text) => {
@@ -207,19 +212,19 @@ export default function RestockScreen() {
                   <View style={styles.previewCard}>
                     <Text style={styles.previewTitle}>Natija</Text>
                     <View style={styles.previewRow}>
-                      <Text style={styles.previewLabel}>Hozirgi qoldiq</Text>
+                      <Text style={styles.previewLabel}>{t("currentStock")}</Text>
                       <Text style={styles.previewValue}>
                         {selectedProduct.quantity}
                       </Text>
                     </View>
                     <View style={styles.previewRow}>
-                      <Text style={styles.previewLabel}>Qo'shiladi</Text>
+                      <Text style={styles.previewLabel}>{t("addToStock")}</Text>
                       <Text style={[styles.previewValue, styles.addText]}>
                         +{quantity}
                       </Text>
                     </View>
                     <View style={styles.previewRow}>
-                      <Text style={styles.previewLabel}>Yangi qoldiq</Text>
+                      <Text style={styles.previewLabel}>{t("newStock")}</Text>
                       <Text style={[styles.previewValue, styles.totalText]}>
                         {selectedProduct.quantity + parseInt(quantity, 10)}
                       </Text>
@@ -240,7 +245,7 @@ export default function RestockScreen() {
               disabled={!quantity || isSubmitting}
             >
               <Text style={styles.saveButtonText}>
-                {isSubmitting ? "Qo'shilmoqda..." : "Qo'shish"}
+                {isSubmitting ? t("addingStock") : t("addStock")}
               </Text>
             </Pressable>
           </View>
@@ -250,29 +255,30 @@ export default function RestockScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     padding: SPACING.lg,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: FONT_SIZE.xl,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
   headerSubtitle: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginTop: SPACING.xs,
   },
   list: { padding: SPACING.lg },
   card: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     marginBottom: SPACING.sm,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.lg,
@@ -282,7 +288,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: BORDER_RADIUS.sm,
-    backgroundColor: COLORS.surfaceSecondary,
+    backgroundColor: colors.surfaceSecondary,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
@@ -291,72 +297,71 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: BORDER_RADIUS.sm,
-    resizeMode: "contain",
   },
   noImgBox: {
     width: "100%",
     height: "100%",
     borderRadius: BORDER_RADIUS.sm,
-    backgroundColor: COLORS.surfaceSecondary,
+    backgroundColor: colors.surfaceSecondary,
     justifyContent: "center",
     alignItems: "center",
     padding: 4,
   },
   noImg: {
     fontSize: FONT_SIZE.xs,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     textAlign: "center",
   },
   mainInfo: { flex: 1 },
-  name: { fontSize: FONT_SIZE.md, fontWeight: "600", color: COLORS.text },
-  metaText: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
+  name: { fontSize: FONT_SIZE.md, fontWeight: "600", color: colors.text },
+  metaText: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
   priceCol: { width: 72, alignItems: "center" },
   price: {
     fontSize: FONT_SIZE.xs,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
     textAlign: "center",
   },
-  priceMuted: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
+  priceMuted: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
   restockBadge: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: colors.secondary,
     justifyContent: "center",
     alignItems: "center",
   },
   restockBadgeText: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: FONT_SIZE.xl,
     fontWeight: "700",
   },
   empty: {
     textAlign: "center",
-    color: COLORS.textTertiary,
+    color: colors.textTertiary,
     marginTop: SPACING.xxxl,
   },
-  modalContainer: { flex: 1, backgroundColor: COLORS.background },
+  modalContainer: { flex: 1, backgroundColor: colors.background },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: SPACING.lg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  backText: { fontSize: FONT_SIZE.md, color: COLORS.primary },
+  backText: { fontSize: FONT_SIZE.md, color: colors.primary },
   modalTitle: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "600",
-    color: COLORS.text,
+    color: colors.text,
   },
   headerSpacer: { width: 60 },
   modalContent: { flex: 1 },
   modalBody: { padding: SPACING.lg, paddingBottom: SPACING.xxxl },
   productInfo: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.lg,
@@ -379,19 +384,19 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.surfaceSecondary,
+    backgroundColor: colors.surfaceSecondary,
     justifyContent: "center",
     alignItems: "center",
   },
   noImgLarge: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   productDetails: { flex: 1, justifyContent: "center" },
   productName: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: SPACING.sm,
   },
   productMeta: {
@@ -403,12 +408,12 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     fontSize: FONT_SIZE.xs,
-    color: COLORS.textTertiary,
+    color: colors.textTertiary,
   },
   metaValue: {
     fontSize: FONT_SIZE.sm,
     fontWeight: "600",
-    color: COLORS.text,
+    color: colors.text,
   },
   infoCard: {
     backgroundColor: "#EFF6FF",
@@ -416,38 +421,38 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     marginBottom: SPACING.lg,
     borderLeftWidth: 4,
-    borderLeftColor: COLORS.primary,
+    borderLeftColor: colors.primary,
   },
   infoTitle: {
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
-    color: COLORS.primary,
+    color: colors.primary,
     marginBottom: SPACING.xs,
   },
   infoText: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 20,
   },
   label: {
     fontSize: FONT_SIZE.sm,
     fontWeight: "600",
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginBottom: SPACING.xs,
   },
   input: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     fontSize: FONT_SIZE.xl,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: SPACING.lg,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   previewCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     gap: SPACING.sm,
@@ -455,7 +460,7 @@ const styles = StyleSheet.create({
   previewTitle: {
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: SPACING.xs,
   },
   previewRow: {
@@ -465,23 +470,23 @@ const styles = StyleSheet.create({
   },
   previewLabel: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   previewValue: {
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
-  addText: { color: COLORS.secondary },
-  totalText: { color: COLORS.primary, fontSize: FONT_SIZE.lg },
+  addText: { color: colors.secondary },
+  totalText: { color: colors.primary, fontSize: FONT_SIZE.lg },
   modalFooter: {
     padding: SPACING.lg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
   },
   saveButton: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: colors.secondary,
     padding: SPACING.lg,
     borderRadius: BORDER_RADIUS.md,
     alignItems: "center",
@@ -490,8 +495,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
   },
-});
+  });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   Image,
@@ -16,8 +16,10 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { Trash2 } from "lucide-react-native";
 
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from "../../src/constants";
+import { SPACING, FONT_SIZE, BORDER_RADIUS, type ThemeColors } from "../../src/theme";
 import { useProductsScreenStore } from "../../src/store/selectors";
+import { useTheme } from "../../src/store/themeStore";
+import { useI18n } from "../../src/i18n";
 import type { Product } from "../../src/types";
 import {
   formatMoney,
@@ -42,6 +44,9 @@ const EMPTY_ERRORS = {
 };
 
 export default function ProductsScreen() {
+  const { colors } = useTheme();
+  const { t } = useI18n();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const {
     products,
     loadProducts,
@@ -125,12 +130,9 @@ export default function ProductsScreen() {
 
       await loadProducts();
       closeModal();
-      showToast(
-        editingProduct ? "Mahsulot yangilandi" : "Mahsulot qo'shildi",
-        "success",
-      );
+      showToast(editingProduct ? t("productSaved") : t("productSaved"), "success");
     } catch (error: any) {
-      showToast(error.message || "Saqlashda xatolik yuz berdi", "error");
+      showToast(error.message || t("error"), "error");
     }
   };
 
@@ -183,8 +185,8 @@ export default function ProductsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <TextInput
-          placeholder="Qidirish..."
-          placeholderTextColor={COLORS.textTertiary}
+          placeholder={t("search")}
+          placeholderTextColor={colors.textTertiary}
           value={search}
           onChangeText={setSearch}
           style={styles.search}
@@ -207,7 +209,7 @@ export default function ProductsScreen() {
         renderItem={renderItem}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <Text style={styles.empty}>Mahsulotlar hali qo&apos;shilmagan</Text>
+          <Text style={styles.empty}>{t("noProducts")}</Text>
         }
       />
 
@@ -223,17 +225,17 @@ export default function ProductsScreen() {
         >
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={closeModal}>
-              <Text style={styles.backText}>Orqaga</Text>
+              <Text style={styles.backText}>{t("back")}</Text>
             </TouchableOpacity>
             <Text style={styles.modalTitle}>
-              {editingProduct ? "Mahsulotni tahrirlash" : "Yangi mahsulot"}
+              {editingProduct ? t("editProduct") : t("addProduct")}
             </Text>
             {editingProduct ? (
               <TouchableOpacity
                 style={styles.headerDeleteBtn}
                 onPress={() => setDeleteModalProduct(editingProduct)}
               >
-                <Trash2 size={18} color={COLORS.white} />
+                  <Trash2 size={18} color={colors.white} />
               </TouchableOpacity>
             ) : (
               <View style={styles.headerSpacer} />
@@ -264,7 +266,7 @@ export default function ProductsScreen() {
             <Text style={styles.label}>Mahsulot nomi</Text>
             <TextInput
               placeholder="Masalan: Cola 1L"
-              placeholderTextColor={COLORS.textTertiary}
+              placeholderTextColor={colors.textTertiary}
               value={form.name}
               onChangeText={(text) => {
                 setForm((prev) => ({ ...prev, name: text }));
@@ -277,7 +279,7 @@ export default function ProductsScreen() {
             <Text style={styles.label}>Kelish narxi</Text>
             <TextInput
               placeholder="0"
-              placeholderTextColor={COLORS.textTertiary}
+              placeholderTextColor={colors.textTertiary}
               keyboardType="numeric"
               value={form.buyPrice}
               onChangeText={(text) => {
@@ -291,7 +293,7 @@ export default function ProductsScreen() {
             <Text style={styles.label}>Sotish narxi</Text>
             <TextInput
               placeholder="0"
-              placeholderTextColor={COLORS.textTertiary}
+              placeholderTextColor={colors.textTertiary}
               keyboardType="numeric"
               value={form.sellPrice}
               onChangeText={(text) => {
@@ -307,7 +309,7 @@ export default function ProductsScreen() {
             <Text style={styles.label}>Joriy qoldiq</Text>
             <TextInput
               placeholder="0"
-              placeholderTextColor={COLORS.textTertiary}
+              placeholderTextColor={colors.textTertiary}
               keyboardType="numeric"
               value={form.quantity}
               onChangeText={(text) => {
@@ -344,8 +346,11 @@ export default function ProductsScreen() {
 
       {deleteModalProduct ? (
         <Modal transparent onRequestClose={() => setDeleteModalProduct(null)}>
-          <View style={styles.overlay}>
-            <View style={styles.deleteModal}>
+          <Pressable style={styles.overlay} onPress={() => setDeleteModalProduct(null)}>
+            <Pressable
+              style={styles.deleteModal}
+              onPress={(event) => event.stopPropagation()}
+            >
               <Text style={styles.deleteTitle}>Mahsulot o&apos;chirilsinmi?</Text>
               <Text style={styles.deleteText}>
                 Bu mahsulot yangi ro&apos;yxatlarda ko&apos;rinmaydi. Tarixiy ma&apos;lumotlar
@@ -366,45 +371,46 @@ export default function ProductsScreen() {
                     await loadProducts();
                     closeModal();
                     setDeleteModalProduct(null);
-                    showToast("Mahsulot o'chirildi", "success");
+                    showToast(t("productDeleted"), "success");
                   }}
                   style={styles.confirm}
                 >
                   <Text style={styles.confirmText}>O&apos;chirish</Text>
                 </TouchableOpacity>
               </View>
-            </View>
-          </View>
+            </Pressable>
+          </Pressable>
         </Modal>
       ) : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   header: { flexDirection: "row", padding: SPACING.lg, gap: SPACING.sm },
   search: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    color: COLORS.text,
+    color: colors.text,
   },
   add: {
     width: 44,
     height: 44,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: "center",
     alignItems: "center",
     borderRadius: BORDER_RADIUS.md,
   },
-  addText: { color: COLORS.white, fontSize: FONT_SIZE.xxl, lineHeight: 24 },
+  addText: { color: colors.white, fontSize: FONT_SIZE.xxl, lineHeight: 24 },
   list: { paddingBottom: SPACING.xl },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.sm,
     padding: SPACING.md,
@@ -415,7 +421,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: BORDER_RADIUS.sm,
-    backgroundColor: COLORS.surfaceSecondary,
+    backgroundColor: colors.surfaceSecondary,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
@@ -424,41 +430,40 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: BORDER_RADIUS.sm,
-    resizeMode: "contain",
   },
   noImgBox: {
     width: "100%",
     height: "100%",
     borderRadius: BORDER_RADIUS.sm,
-    backgroundColor: COLORS.surfaceSecondary,
+    backgroundColor: colors.surfaceSecondary,
     justifyContent: "center",
     alignItems: "center",
     padding: 4,
   },
   noImg: {
     fontSize: FONT_SIZE.xs,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     textAlign: "center",
   },
   mainInfo: { flex: 1 },
-  name: { fontSize: FONT_SIZE.md, fontWeight: "600", color: COLORS.text },
-  metaText: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
+  name: { fontSize: FONT_SIZE.md, fontWeight: "600", color: colors.text },
+  metaText: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
   priceCol: { width: 82, alignItems: "center" },
   price: {
     fontSize: FONT_SIZE.xs,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
     textAlign: "center",
   },
-  priceMuted: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
+  priceMuted: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
   empty: {
     textAlign: "center",
-    color: COLORS.textTertiary,
+    color: colors.textTertiary,
     marginTop: SPACING.xxxl,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   modalHeader: {
     flexDirection: "row",
@@ -466,21 +471,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: SPACING.lg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  backText: { fontSize: FONT_SIZE.md, color: COLORS.primary },
+  backText: { fontSize: FONT_SIZE.md, color: colors.primary },
   modalTitle: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "600",
-    color: COLORS.text,
+    color: colors.text,
   },
   headerSpacer: { width: 60 },
   headerDeleteBtn: {
     width: 36,
     height: 36,
     borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.danger,
+    backgroundColor: colors.danger,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -489,8 +494,8 @@ const styles = StyleSheet.create({
   modalFooter: {
     padding: SPACING.lg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
   },
   warningCard: {
     backgroundColor: "#FFF7ED",
@@ -513,22 +518,22 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginBottom: SPACING.xs,
   },
   input: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
-    color: COLORS.text,
+    color: colors.text,
   },
   inputError: {
     borderWidth: 1,
-    borderColor: COLORS.danger,
+    borderColor: colors.danger,
   },
   err: {
-    color: COLORS.danger,
+    color: colors.danger,
     fontSize: FONT_SIZE.sm,
     marginTop: -4,
     marginBottom: SPACING.sm,
@@ -538,30 +543,30 @@ const styles = StyleSheet.create({
     height: 160,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.md,
     marginTop: SPACING.md,
     marginBottom: SPACING.xl,
     overflow: "hidden",
   },
   preview: { width: "100%", height: "100%" },
-  imagePlaceholder: { color: COLORS.textSecondary, fontSize: FONT_SIZE.md },
+  imagePlaceholder: { color: colors.textSecondary, fontSize: FONT_SIZE.md },
   save: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: colors.secondary,
     padding: SPACING.lg,
     borderRadius: BORDER_RADIUS.md,
     alignItems: "center",
   },
-  saveText: { color: COLORS.white, fontWeight: "700", fontSize: FONT_SIZE.md },
+  saveText: { color: colors.white, fontWeight: "700", fontSize: FONT_SIZE.md },
   overlay: {
     flex: 1,
-    backgroundColor: COLORS.overlay,
+    backgroundColor: colors.overlay,
     justifyContent: "center",
     alignItems: "center",
     padding: SPACING.lg,
   },
   deleteModal: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     padding: SPACING.lg,
     borderRadius: BORDER_RADIUS.lg,
     width: "100%",
@@ -570,12 +575,12 @@ const styles = StyleSheet.create({
   deleteTitle: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: SPACING.sm,
   },
   deleteText: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 20,
     marginBottom: SPACING.lg,
   },
@@ -588,14 +593,14 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.surfaceSecondary,
+    backgroundColor: colors.surfaceSecondary,
   },
-  cancelText: { color: COLORS.text, fontWeight: "600" },
+  cancelText: { color: colors.text, fontWeight: "600" },
   confirm: {
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.danger,
+    backgroundColor: colors.danger,
   },
-  confirmText: { color: COLORS.white, fontWeight: "700" },
-});
+  confirmText: { color: colors.white, fontWeight: "700" },
+  });

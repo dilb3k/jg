@@ -14,8 +14,10 @@ import {
 import dayjs from "dayjs";
 
 import { apiClient } from "../../src/api/client";
-import { BORDER_RADIUS, COLORS, FONT_SIZE, SPACING } from "../../src/constants";
+import { BORDER_RADIUS, FONT_SIZE, SPACING, type ThemeColors } from "../../src/theme";
 import { useRatingScreenStore } from "../../src/store/selectors";
+import { useTheme } from "../../src/store/themeStore";
+import { useI18n } from "../../src/i18n";
 import type { InventoryWithProduct } from "../../src/types";
 import { getBusinessDate } from "../../src/utils/businessDay";
 import { formatMoney, getInventoryMetrics } from "../../src/utils/inventory";
@@ -32,6 +34,9 @@ const SORT_LABELS: Record<SortType, string> = {
 };
 
 export default function RatingScreen() {
+  const { colors } = useTheme();
+  const { t } = useI18n();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { loadProducts, loadSnapshots, products, snapshots } = useRatingScreenStore();
   const [sortBy, setSortBy] = useState<SortType>("profit_total");
   const [filter, setFilter] = useState("");
@@ -132,8 +137,8 @@ export default function RatingScreen() {
       <View style={styles.filterRow}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Mahsulot qidirish..."
-          placeholderTextColor={COLORS.textTertiary}
+          placeholder={t("search")}
+          placeholderTextColor={colors.textTertiary}
           value={filter}
           onChangeText={setFilter}
         />
@@ -200,7 +205,7 @@ export default function RatingScreen() {
                 ? "#94A3B8"
                 : index === 2
                   ? "#B45309"
-                  : COLORS.primary;
+                  : colors.primary;
 
           return (
             <View style={styles.card}>
@@ -275,15 +280,16 @@ export default function RatingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   filterRow: { padding: SPACING.lg, paddingBottom: SPACING.sm },
   searchInput: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     fontSize: FONT_SIZE.md,
-    color: COLORS.text,
+    color: colors.text,
   },
   dateRow: {
     flexDirection: "row",
@@ -292,35 +298,35 @@ const styles = StyleSheet.create({
   },
   dateButton: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
   },
   dateButtonLabel: {
     fontSize: FONT_SIZE.xs,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   dateButtonValue: {
     marginTop: 4,
     fontSize: FONT_SIZE.sm,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
   resetButton: {
     justifyContent: "center",
     paddingHorizontal: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.surfaceSecondary,
+    backgroundColor: colors.surfaceSecondary,
   },
   resetButtonText: {
     fontSize: FONT_SIZE.xs,
     fontWeight: "700",
-    color: COLORS.primary,
+    color: colors.primary,
   },
   subtext: {
     marginTop: SPACING.sm,
     fontSize: FONT_SIZE.xs,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   sortTabs: {
     flexDirection: "row",
@@ -332,16 +338,16 @@ const styles = StyleSheet.create({
   sortTab: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.full,
   },
-  sortTabActive: { backgroundColor: COLORS.primary },
-  sortTabText: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
-  sortTabTextActive: { color: COLORS.white, fontWeight: "700" },
+  sortTabActive: { backgroundColor: colors.primary },
+  sortTabText: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
+  sortTabTextActive: { color: colors.white, fontWeight: "700" },
   list: { padding: SPACING.lg, paddingTop: 0 },
   card: {
     flexDirection: "row",
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -355,7 +361,7 @@ const styles = StyleSheet.create({
     marginRight: SPACING.md,
     flexShrink: 0,
   },
-  rankText: { color: COLORS.white, fontWeight: "700", fontSize: FONT_SIZE.md },
+  rankText: { color: colors.white, fontWeight: "700", fontSize: FONT_SIZE.md },
   cardContent: { flex: 1 },
   cardTop: {
     flexDirection: "row",
@@ -368,17 +374,17 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FONT_SIZE.lg,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
   marginBadge: {
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
     borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.surfaceSecondary,
+    backgroundColor: colors.surfaceSecondary,
   },
-  marginBadgeGood: { backgroundColor: COLORS.secondary },
-  marginText: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
-  marginTextGood: { color: COLORS.white, fontWeight: "700" },
+  marginBadgeGood: { backgroundColor: colors.secondary },
+  marginText: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
+  marginTextGood: { color: colors.white, fontWeight: "700" },
   statsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -386,28 +392,28 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   stat: { flex: 1, alignItems: "center" },
-  statLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
+  statLabel: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
   statValue: {
     fontSize: FONT_SIZE.sm,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
     textAlign: "center",
   },
   totalRow: {
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: colors.border,
     paddingTop: SPACING.sm,
     gap: 4,
   },
   totalText: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
-  profit: { color: COLORS.secondary },
-  loss: { color: COLORS.danger },
+  profit: { color: colors.secondary },
+  loss: { color: colors.danger },
   emptyText: {
     textAlign: "center",
-    color: COLORS.textTertiary,
+    color: colors.textTertiary,
     marginTop: SPACING.xxxl,
   },
-});
+  });

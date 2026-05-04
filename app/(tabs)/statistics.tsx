@@ -11,9 +11,11 @@ import {
 } from "../../src/features/statistics/components/StatsSummaryCard";
 import { RankingCard } from "../../src/features/statistics/components/RankingCard";
 import { useStatisticsData } from "../../src/features/statistics/hooks/useStatisticsData";
-import { statisticsStyles as styles } from "../../src/features/statistics/styles";
+import { createStatisticsStyles } from "../../src/features/statistics/styles";
 import { useStatisticsScreenStore } from "../../src/store/selectors";
 import { getBusinessDate } from "../../src/utils/businessDay";
+import { formatMoney } from "../../src/utils/inventory";
+import { useTheme } from "../../src/store/themeStore";
 
 type PickerTarget = "period" | "overallStart" | "overallEnd";
 
@@ -25,6 +27,8 @@ const PERIOD_UNIT: Record<PeriodType, dayjs.ManipulateType> = {
 };
 
 export default function StatisticsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
   const {
     getStatistics,
     loadProducts,
@@ -45,11 +49,12 @@ export default function StatisticsScreen() {
     loadSnapshots();
   }, [loadProducts, loadSnapshots]);
 
-  const { overallRangeLabel, overallTotals, periodStats, rankingCards } =
+  const { overallRangeLabel, overallTotals, periodStats, topProducts } =
     useStatisticsData({
       getStatistics,
       products,
       snapshots,
+      period,
       selectedDate,
       overallStartDate,
       overallEndDate,
@@ -205,10 +210,14 @@ export default function StatisticsScreen() {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <StatsSummaryCard
-          title="Davr savdosi"
+          title="Jami tushum"
           items={[
-            { label: "Sotildi", value: currentPeriodStats.totalSoldItems },
-            moneyStat("Tushum", currentPeriodStats.totalRevenue),
+            {
+              label: "Asosiy KPI",
+              value: formatMoney(currentPeriodStats.totalRevenue),
+              highlight: true,
+            },
+            { label: "Sotilgan dona", value: currentPeriodStats.totalSoldItems },
             moneyStat("Sof foyda", currentPeriodStats.totalProfit, true),
             { label: "Marja", value: `${marginPercent}%`, highlight: true },
           ]}
@@ -233,15 +242,32 @@ export default function StatisticsScreen() {
         />
 
         <RankingCard
-          title="Eng ko'p sotilganlar"
-          items={rankingCards.topSold}
-          emptyText="Hali reyting uchun savdo ma'lumoti yo'q"
+          title="Top mahsulotlar"
+          items={topProducts}
+          emptyText="Tanlangan davr bo'yicha mahsulot ma'lumoti yo'q"
         />
 
-        <RankingCard
-          title="Eng ko'p foyda keltirganlar"
-          items={rankingCards.topProfit}
-          emptyText="Hali foyda reytingi uchun ma'lumot yo'q"
+        <StatsSummaryCard
+          title="Profit Insight"
+          items={[
+            moneyStat("Hozirgacha daromad", overallTotals.earnedProfit, true),
+            moneyStat(
+              "Qolgan potensial foyda",
+              Math.max(overallTotals.possibleProfit - overallTotals.earnedProfit, 0),
+            ),
+            moneyStat(
+              "Jami mumkin bo'lgan foyda",
+              overallTotals.possibleProfit,
+              true,
+            ),
+            {
+              label: "Progress",
+              value:
+                overallTotals.possibleProfit > 0
+                  ? `${Math.round((overallTotals.earnedProfit / overallTotals.possibleProfit) * 100)}%`
+                  : "0%",
+            },
+          ]}
         />
       </ScrollView>
 

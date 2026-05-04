@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Modal, Text, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, Text, TouchableOpacity, View } from "react-native";
 import dayjs from "dayjs";
 
-import { statisticsStyles as styles } from "../styles";
+import { createStatisticsStyles } from "../styles";
+import { useTheme } from "../../../store/themeStore";
 
 const WEEK_DAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 
@@ -21,6 +22,8 @@ export function DatePickerModal({
   onClose,
   onConfirm,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
   const [draftDate, setDraftDate] = useState(selectedDate);
   const [currentMonth, setCurrentMonth] = useState(() =>
     dayjs(selectedDate).startOf("month"),
@@ -57,8 +60,8 @@ export function DatePickerModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={styles.pickerOverlay}>
-        <View style={styles.pickerModal}>
+      <Pressable style={styles.pickerOverlay} onPress={onClose}>
+        <Pressable style={styles.pickerModal} onPress={(event) => event.stopPropagation()}>
           <Text style={styles.pickerTitle}>{title}</Text>
           <Text style={styles.pickerValue}>
             {dayjs(draftDate).format("DD MMMM YYYY")}
@@ -126,8 +129,8 @@ export function DatePickerModal({
               <Text style={styles.pickerSaveText}>Saqlash</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }

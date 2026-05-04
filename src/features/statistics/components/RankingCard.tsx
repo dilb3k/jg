@@ -1,6 +1,8 @@
 import { Text, View } from "react-native";
+import { useMemo } from "react";
 
-import { statisticsStyles as styles } from "../styles";
+import { createStatisticsStyles } from "../styles";
+import { useTheme } from "../../../store/themeStore";
 
 type RankingItem = {
   id: string;
@@ -15,15 +17,19 @@ type Props = {
 };
 
 export function RankingCard({ title, items, emptyText }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
+
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{title}</Text>
       {items.length ? (
-        items.map((item, index) => (
+        items.map((item) => (
           <View key={item.id} style={styles.rankItem}>
-            <Text style={styles.rankNum}>{index + 1}</Text>
             <View style={styles.rankInfo}>
-              <Text style={styles.rankName}>{item.name}</Text>
+              <Text style={styles.rankName} numberOfLines={2}>
+                {item.name}
+              </Text>
               <Text style={styles.rankSub}>{item.valueText}</Text>
             </View>
           </View>

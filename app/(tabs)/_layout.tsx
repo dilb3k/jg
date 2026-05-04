@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Tabs, useRouter } from "expo-router";
 import {
   ActivityIndicator,
@@ -25,9 +25,9 @@ import {
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppRefreshStore, useAuthStore } from "../../src/store/selectors";
-import { useThemeStore } from "../../src/store/themeStore";
+import { useTheme } from "../../src/store/themeStore";
 import { useI18n } from "../../src/i18n";
-import { SPACING, FONT_SIZE, BORDER_RADIUS, getThemeColors } from "../../src/theme";
+import { SPACING, FONT_SIZE, BORDER_RADIUS } from "../../src/theme";
 
 const LANGUAGES = [
   { code: "uz", label: "O'zbek" },
@@ -113,13 +113,7 @@ export default function TabLayout() {
   const [showSettings, setShowSettings] = useState(false);
   
   // Theme and i18n integration - use selectors to avoid side effects
-  const theme = useThemeStore((state) => state.theme);
-  const systemColorScheme = useThemeStore((state) => state.systemColorScheme);
-  const isDark = useThemeStore((state) => state.isDark);
-  const setTheme = useThemeStore((state) => state.setTheme);
-  const language = useThemeStore((state) => state.language);
-  const setLanguage = useThemeStore((state) => state.setLanguage);
-  const colors = useMemo(() => getThemeColors(theme, systemColorScheme), [theme, systemColorScheme]);
+  const { theme, isDark, setTheme, language, setLanguage, colors } = useTheme();
   const { t } = useI18n();
 
   const handleLogout = async () => {
@@ -194,15 +188,14 @@ export default function TabLayout() {
             tabBarIcon: ({ focused }) => <TabIcon name="statistics" focused={focused} colors={colors} />,
           }}
         />
-        {isSuperAdmin && (
-          <Tabs.Screen
-            name="users"
-            options={{
-              title: t("users"),
-              tabBarIcon: ({ focused }) => <TabIcon name="users" focused={focused} colors={colors} />,
-            }}
-          />
-        )}
+        <Tabs.Screen
+          name="users"
+          options={{
+            title: t("users"),
+            href: isSuperAdmin ? undefined : null,
+            tabBarIcon: ({ focused }) => <TabIcon name="users" focused={focused} colors={colors} />,
+          }}
+        />
       </Tabs>
 
       {/* Settings Modal */}
@@ -212,8 +205,14 @@ export default function TabLayout() {
         transparent
         onRequestClose={() => setShowSettings(false)}
       >
-        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+        <Pressable
+          style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}
+          onPress={() => setShowSettings(false)}
+        >
+          <Pressable
+            style={[styles.modalContent, { backgroundColor: colors.surface }]}
+            onPress={(event) => event.stopPropagation()}
+          >
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>{t("settings")}</Text>
               <TouchableOpacity onPress={() => setShowSettings(false)}>
@@ -315,8 +314,8 @@ export default function TabLayout() {
                 </Pressable>
               </View>
             </ScrollView>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </>
   );

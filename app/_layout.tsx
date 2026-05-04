@@ -2,14 +2,14 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View, ActivityIndicator, Text, StyleSheet } from "react-native";
 import { useStore } from "../src/store";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { initDatabase } from "../src/db";
 import * as secureStorage from "../src/utils/secureStorage";
 import { STORAGE_KEYS } from "../src/constants";
 import { apiClient } from "../src/api/client";
 import type { AuthUser } from "../src/types";
-import { useThemeStore } from "../src/store/themeStore";
-import { useStatusBarStyle, getThemeColors } from "../src/theme";
+import { useTheme, useThemeStore } from "../src/store/themeStore";
+import { useStatusBarStyle } from "../src/theme";
 
 export default function RootLayoutNav() {
   const [isReady, setIsReady] = useState(false);
@@ -19,9 +19,7 @@ export default function RootLayoutNav() {
   const toast = useStore((state) => state.toast);
 
   // Theme integration - use selectors to avoid re-renders
-  const theme = useThemeStore((state) => state.theme);
-  const systemColorScheme = useThemeStore((state) => state.systemColorScheme);
-  const colors = useMemo(() => getThemeColors(theme, systemColorScheme), [theme, systemColorScheme]);
+  const { theme, colors } = useTheme();
   const statusBarStyle = useStatusBarStyle(theme);
   const loadPreferences = useThemeStore((state) => state.loadPreferences);
 
@@ -136,8 +134,8 @@ export default function RootLayoutNav() {
                 : toast.type === "error"
                   ? { backgroundColor: "rgba(127, 29, 29, 0.92)" }
                   : { backgroundColor: "rgba(30, 41, 59, 0.88)" },
+              { pointerEvents: "none" },
             ]}
-            pointerEvents="none"
           >
             <Text style={styles.toastText}>{toast.message}</Text>
           </View>
@@ -162,8 +160,8 @@ export default function RootLayoutNav() {
               : toast.type === "error"
                 ? { backgroundColor: "rgba(127, 29, 29, 0.92)" }
                 : { backgroundColor: "rgba(30, 41, 59, 0.88)" },
+            { pointerEvents: "none" },
           ]}
-          pointerEvents="none"
         >
           <Text style={styles.toastText}>{toast.message}</Text>
         </View>

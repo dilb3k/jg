@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import dayjs from "dayjs";
 
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from "../../src/constants";
 import { isPastDate } from "../../src/store";
 import { useInventoryScreenStore } from "../../src/store/selectors";
 import type { InventoryWithProduct } from "../../src/types";
@@ -27,7 +26,9 @@ import {
   getInventoryTotals,
   parseWholeNumber,
 } from "../../src/utils/inventory";
-
+import { useTheme } from "../../src/store/themeStore";
+import { useI18n } from "../../src/i18n";
+import { SPACING, FONT_SIZE, BORDER_RADIUS, type ThemeColors } from "../../src/theme";
 type FormErrors = {
   currentQty: string;
   general: string;
@@ -39,6 +40,9 @@ const EMPTY_ERRORS: FormErrors = {
 };
 
 export default function InventoryScreen() {
+  const { colors } = useTheme();
+  const { t } = useI18n();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const {
     currentInventory,
     loadInventoryByDate,
@@ -184,7 +188,11 @@ export default function InventoryScreen() {
         activeOpacity={0.85}
       >
         {item.product.image ? (
-          <Image source={{ uri: item.product.image }} style={styles.productImage} />
+          <Image
+            source={{ uri: item.product.image }}
+            style={styles.productImage}
+            resizeMode="contain"
+          />
         ) : null}
 
         <View style={styles.cardHeader}>
@@ -292,12 +300,12 @@ export default function InventoryScreen() {
           <Text style={styles.dayName}>{dayjs(selectedDate).format("dddd")}</Text>
           {isReadOnly ? (
             <View style={styles.readOnlyBadge}>
-              <Text style={styles.readOnlyText}>Faqat ko&apos;rish</Text>
+              <Text style={styles.readOnlyText}>{t("readOnly")}</Text>
             </View>
           ) : null}
           {isFutureDate ? (
             <View style={styles.futureBadge}>
-              <Text style={styles.futureText}>Kelajak sana</Text>
+              <Text style={styles.futureText}>{t("futureDate")}</Text>
             </View>
           ) : null}
         </View>
@@ -313,7 +321,7 @@ export default function InventoryScreen() {
 
       {isDateLoading ? (
         <View style={styles.loadingCard}>
-          <ActivityIndicator size="small" color={COLORS.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
           <Text style={styles.loadingTitle}>Ombor ma&apos;lumotlari yuklanmoqda</Text>
           <Text style={styles.loadingText}>
             Sana bo&apos;yicha qoldiq va hisob-kitoblar qayta tayyorlanmoqda.
@@ -461,7 +469,7 @@ export default function InventoryScreen() {
                       }}
                       keyboardType="numeric"
                       placeholder="0"
-                      placeholderTextColor={COLORS.textTertiary}
+                      placeholderTextColor={colors.textTertiary}
                     />
                     {!!errors.currentQty && (
                       <Text style={styles.errorText}>{errors.currentQty}</Text>
@@ -530,8 +538,9 @@ export default function InventoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   dateNav: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -541,7 +550,7 @@ const styles = StyleSheet.create({
   navButton: {
     width: 44,
     height: 44,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.md,
     justifyContent: "center",
     alignItems: "center",
@@ -551,22 +560,22 @@ const styles = StyleSheet.create({
   },
   navButtonText: {
     fontSize: FONT_SIZE.xl,
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: "600",
   },
   dateDisplay: { alignItems: "center", flex: 1 },
-  dateText: { fontSize: FONT_SIZE.lg, fontWeight: "700", color: COLORS.text },
-  dayName: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
+  dateText: { fontSize: FONT_SIZE.lg, fontWeight: "700", color: colors.text },
+  dayName: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
   readOnlyBadge: {
     marginTop: 6,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
     borderRadius: BORDER_RADIUS.full,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
-  readOnlyText: { fontSize: FONT_SIZE.xs, color: COLORS.text },
+  readOnlyText: { fontSize: FONT_SIZE.xs, color: colors.text },
   futureBadge: {
     marginTop: 6,
     backgroundColor: "#FEF3C7",
@@ -581,14 +590,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingBottom: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   summaryItem: { alignItems: "center", flex: 1 },
-  summaryLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
+  summaryLabel: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
   summaryValue: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
   futureNotice: {
     marginHorizontal: SPACING.lg,
@@ -602,23 +611,23 @@ const styles = StyleSheet.create({
   loadingCard: {
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.lg,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     alignItems: "center",
     gap: SPACING.xs,
   },
   loadingTitle: {
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
     textAlign: "center",
   },
   loadingText: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     textAlign: "center",
     lineHeight: 20,
   },
@@ -635,14 +644,14 @@ const styles = StyleSheet.create({
   },
   list: { padding: SPACING.lg },
   emptyContainer: { alignItems: "center", marginTop: SPACING.xxxl },
-  emptyText: { fontSize: FONT_SIZE.lg, color: COLORS.textSecondary },
+  emptyText: { fontSize: FONT_SIZE.lg, color: colors.textSecondary },
   emptySubtext: {
     marginTop: SPACING.xs,
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textTertiary,
+    color: colors.textTertiary,
   },
   card: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -652,7 +661,6 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: BORDER_RADIUS.sm,
     marginBottom: SPACING.sm,
-    resizeMode: "contain",
   },
   cardHeader: {
     flexDirection: "row",
@@ -665,20 +673,20 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
-  productPrice: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
+  productPrice: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
   quantityBadge: {
     minWidth: 42,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 6,
     borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     alignItems: "center",
   },
-  quantityBadgeLow: { backgroundColor: COLORS.danger },
+  quantityBadgeLow: { backgroundColor: colors.danger },
   quantityBadgeText: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: FONT_SIZE.sm,
     fontWeight: "700",
   },
@@ -688,100 +696,100 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   quantityItem: { alignItems: "center", flex: 1 },
-  quantityLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
+  quantityLabel: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
   quantityValue: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
   statsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: colors.border,
     paddingTop: SPACING.md,
     gap: SPACING.sm,
   },
   statItem: { flex: 1, alignItems: "center" },
-  statLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
+  statLabel: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
   statValue: {
     fontSize: FONT_SIZE.sm,
     fontWeight: "600",
-    color: COLORS.text,
+    color: colors.text,
     textAlign: "center",
   },
-  profit: { color: COLORS.secondary },
-  loss: { color: COLORS.danger },
-  modalContainer: { flex: 1, backgroundColor: COLORS.background },
+  profit: { color: colors.secondary },
+  loss: { color: colors.danger },
+  modalContainer: { flex: 1, backgroundColor: colors.background },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: SPACING.lg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
-  cancelText: { fontSize: FONT_SIZE.md, color: COLORS.textSecondary },
-  modalTitle: { fontSize: FONT_SIZE.lg, fontWeight: "700", color: COLORS.text },
+  cancelText: { fontSize: FONT_SIZE.md, color: colors.textSecondary },
+  modalTitle: { fontSize: FONT_SIZE.lg, fontWeight: "700", color: colors.text },
   modalHeaderSpacer: { width: 60 },
   modalContent: { flex: 1 },
   modalBody: { padding: SPACING.lg, paddingBottom: SPACING.xxxl },
   infoBox: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.lg,
     borderLeftWidth: 4,
-    borderLeftColor: COLORS.primary,
+    borderLeftColor: colors.primary,
   },
   infoTitle: {
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: SPACING.xs,
   },
   infoText: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 20,
   },
   readOnlyBox: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     gap: SPACING.sm,
   },
   autoHint: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 20,
   },
   label: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginBottom: SPACING.xs,
   },
   input: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     fontSize: FONT_SIZE.lg,
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: SPACING.sm,
   },
   inputError: {
     borderWidth: 1,
-    borderColor: COLORS.danger,
+    borderColor: colors.danger,
   },
   errorText: {
-    color: COLORS.danger,
+    color: colors.danger,
     fontSize: FONT_SIZE.sm,
     marginTop: -4,
     marginBottom: SPACING.sm,
     marginLeft: 2,
   },
   previewCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginTop: SPACING.md,
@@ -790,18 +798,18 @@ const styles = StyleSheet.create({
   previewTitle: {
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
   previewRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: SPACING.md,
   },
-  previewLabel: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, flex: 1 },
+  previewLabel: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, flex: 1 },
   previewValue: {
     fontSize: FONT_SIZE.sm,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
     textAlign: "right",
   },
   warningBanner: {
@@ -832,17 +840,17 @@ const styles = StyleSheet.create({
   modalFooter: {
     padding: SPACING.lg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: colors.border,
   },
   saveButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     padding: SPACING.lg,
     borderRadius: BORDER_RADIUS.md,
     alignItems: "center",
   },
   saveButtonText: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
   },
-});
+  });

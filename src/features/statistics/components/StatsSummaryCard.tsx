@@ -1,7 +1,9 @@
 import { Text, View } from "react-native";
+import { useMemo } from "react";
 
 import { formatMoney } from "../../../utils/inventory";
-import { statisticsStyles as styles } from "../styles";
+import { createStatisticsStyles } from "../styles";
+import { useTheme } from "../../../store/themeStore";
 
 type Props = {
   title: string;
@@ -14,6 +16,9 @@ type Props = {
 };
 
 export function StatsSummaryCard({ title, items, emptyText }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
+
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{title}</Text>

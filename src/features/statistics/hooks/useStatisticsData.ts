@@ -19,6 +19,7 @@ type Params = {
   };
   products: Product[];
   snapshots: DailySnapshot[];
+  period: PeriodType;
   selectedDate: string;
   overallStartDate: string | null;
   overallEndDate: string | null;
@@ -28,6 +29,7 @@ export function useStatisticsData({
   getStatistics,
   products,
   snapshots,
+  period,
   selectedDate,
   overallStartDate,
   overallEndDate,
@@ -89,23 +91,33 @@ export function useStatisticsData({
     [overallInventory],
   );
 
-  const overallSoldByProduct = useMemo(
-    () =>
-      overallSnapshots.reduce<Record<string, { sold: number; profit: number }>>(
-        (acc, snapshot) => {
-          snapshot.items.forEach((item) => {
-            const current = acc[item.productId] || { sold: 0, profit: 0 };
-            current.sold += item.sold;
-            current.profit += item.profit;
-            acc[item.productId] = current;
-          });
+  const periodSnapshots = useMemo(() => {
+    const baseDate = dayjs(selectedDate);
+    const start =
+      period === "daily"
+        ? baseDate.startOf("day")
+        : period === "weekly"
+          ? baseDate.startOf("week")
+          : period === "monthly"
+            ? baseDate.startOf("month")
+            : baseDate.startOf("year");
+    const end =
+      period === "daily"
+        ? baseDate.endOf("day")
+        : period === "weekly"
+          ? baseDate.endOf("week")
+          : period === "monthly"
+            ? baseDate.endOf("month")
+            : baseDate.endOf("year");
 
-          return acc;
-        },
-        {},
-      ),
-    [overallSnapshots],
-  );
+    return snapshots.filter((snapshot) => {
+      const date = dayjs(snapshot.date);
+      return (
+        (date.isAfter(start) || date.isSame(start, "day")) &&
+        (date.isBefore(end) || date.isSame(end, "day"))
+      );
+    });
+  }, [period, selectedDate, snapshots]);
 
   const productRanking = useMemo(() => {
     const namesById = new Map<string, string>();
@@ -124,20 +136,27 @@ export function useStatisticsData({
       }
     });
 
-    const rows = Object.entries(overallSoldByProduct)
+    const rows = periodSnapshots
+      .reduce<Record<string, { sold: number; profit: number }>>((acc, snapshot) => {
+        snapshot.items.forEach((item) => {
+          const current = acc[item.productId] || { sold: 0, profit: 0 };
+          current.sold += item.sold;
+          current.profit += item.profit;
+          acc[item.productId] = current;
+        });
+        return acc;
+      }, {});
+
+    return Object.entries(rows)
       .map(([productId, totals]) => ({
         id: productId,
         name: namesById.get(productId) || "Noma'lum mahsulot",
         sold: totals.sold,
         profit: totals.profit,
       }))
-      .filter((item) => item.sold > 0 || item.profit > 0);
-
-    return {
-      topSold: [...rows].sort((a, b) => b.sold - a.sold).slice(0, 5),
-      topProfit: [...rows].sort((a, b) => b.profit - a.profit).slice(0, 5),
-    };
-  }, [overallSnapshots, overallSoldByProduct, products]);
+      .filter((item) => item.sold > 0 || item.profit > 0)
+      .sort((a, b) => (b.sold === a.sold ? b.profit - a.profit : b.sold - a.sold));
+  }, [periodSnapshots, products]);
 
   const overallTotals = useMemo(() => {
     const earnedProfit = overallSnapshots.reduce(
@@ -169,26 +188,20 @@ export function useStatisticsData({
     };
   }, [overallInventoryStats, overallSnapshots]);
 
-  const rankingCards = useMemo(
-    () => ({
-      topSold: productRanking.topSold.map((item) => ({
+  const topProducts = useMemo(
+    () =>
+      productRanking.map((item) => ({
         id: item.id,
         name: item.name,
-        valueText: `${item.sold} ta sotilgan`,
+        valueText: `${item.sold} ta sotilgan • ${formatMoney(item.profit)}`,
       })),
-      topProfit: productRanking.topProfit.map((item) => ({
-        id: item.id,
-        name: item.name,
-        valueText: formatMoney(item.profit),
-      })),
-    }),
-    [productRanking.topProfit, productRanking.topSold],
+    [productRanking],
   );
 
   return {
     overallRangeLabel,
     overallTotals,
     periodStats,
-    rankingCards,
+    topProducts,
   };
 }

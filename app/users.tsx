@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -15,12 +15,17 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from "../src/constants";
+import { SPACING, FONT_SIZE, BORDER_RADIUS, type ThemeColors } from "../src/theme";
 import { useAuthStore } from "../src/store/selectors";
 import { apiClient } from "../src/api/client";
 import type { AuthUser } from "../src/types";
+import { useTheme } from "../src/store/themeStore";
+import { useI18n } from "../src/i18n";
 
 export default function AdminsScreen() {
+  const { colors } = useTheme();
+  const { t } = useI18n();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const [admins, setAdmins] = useState<AuthUser[]>([]);
@@ -95,9 +100,9 @@ export default function AdminsScreen() {
   const getRoleLabel = (role: string) => {
     switch (role) {
       case "superAdmin":
-        return "Super Admin";
+        return t("superAdmin");
       case "admin":
-        return "Admin";
+        return t("admin");
       default:
         return role;
     }
@@ -110,16 +115,16 @@ export default function AdminsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Adminlar</Text>
+        <Text style={styles.headerTitle}>{t("usersTitle")}</Text>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Chiqish</Text>
+          <Text style={styles.logoutButtonText}>{t("logout")}</Text>
         </TouchableOpacity>
       </View>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Yuklanmoqda...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>{t("loading")}</Text>
         </View>
       ) : (
         <>
@@ -134,7 +139,7 @@ export default function AdminsScreen() {
                     <Text style={styles.roleText}>{getRoleLabel(item.role)}</Text>
                   </View>
                   <Text style={styles.adminDate}>
-                    Yaratilgan: {formatDate(item.createdAt)}
+                    {t("createdAt")}: {formatDate(item.createdAt)}
                   </Text>
                 </View>
               </View>
@@ -152,7 +157,7 @@ export default function AdminsScreen() {
                 setPassword("");
               }}
             >
-              <Text style={styles.addButtonText}>+ Yangi admin</Text>
+              <Text style={styles.addButtonText}>+ {t("createUser")}</Text>
             </Pressable>
           </View>
         </>
@@ -199,7 +204,7 @@ export default function AdminsScreen() {
             <TextInput
               style={styles.input}
               placeholder="Admin loginini kiriting"
-              placeholderTextColor={COLORS.textTertiary}
+              placeholderTextColor={colors.textTertiary}
               value={username}
               onChangeText={setUsername}
               autoCapitalize="none"
@@ -210,7 +215,7 @@ export default function AdminsScreen() {
             <TextInput
               style={styles.input}
               placeholder="Parolni kiriting (kamida 6 belgi)"
-              placeholderTextColor={COLORS.textTertiary}
+              placeholderTextColor={colors.textTertiary}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -224,7 +229,7 @@ export default function AdminsScreen() {
               disabled={isCreating}
             >
               {isCreating ? (
-                <ActivityIndicator size="small" color={COLORS.white} />
+                <ActivityIndicator size="small" color={colors.white} />
               ) : (
                 <Text style={styles.createButtonText}>Yaratish</Text>
               )}
@@ -236,33 +241,34 @@ export default function AdminsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: SPACING.lg,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: FONT_SIZE.xl,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
   logoutButton: {
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.danger,
+    backgroundColor: colors.danger,
   },
   logoutButtonText: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: FONT_SIZE.sm,
     fontWeight: "600",
   },
@@ -274,14 +280,14 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: FONT_SIZE.md,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   list: {
     padding: SPACING.lg,
     paddingBottom: 100,
   },
   adminCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -292,23 +298,23 @@ const styles = StyleSheet.create({
   adminName: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
   roleBadge: {
     alignSelf: "flex-start",
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
     borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   roleText: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: FONT_SIZE.xs,
     fontWeight: "600",
   },
   adminDate: {
     fontSize: FONT_SIZE.xs,
-    color: COLORS.textTertiary,
+    color: colors.textTertiary,
   },
   footer: {
     position: "absolute",
@@ -316,24 +322,24 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: SPACING.lg,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: colors.border,
   },
   addButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     padding: SPACING.lg,
     borderRadius: BORDER_RADIUS.md,
     alignItems: "center",
   },
   addButtonText: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   modalHeader: {
     flexDirection: "row",
@@ -341,17 +347,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: SPACING.lg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
   backText: {
     fontSize: FONT_SIZE.md,
-    color: COLORS.primary,
+    color: colors.primary,
   },
   modalTitle: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "600",
-    color: COLORS.text,
+    color: colors.text,
   },
   headerSpacer: {
     width: 60,
@@ -372,7 +378,7 @@ const styles = StyleSheet.create({
     borderColor: "#FECACA",
   },
   errorText: {
-    color: COLORS.danger,
+    color: colors.danger,
     fontSize: FONT_SIZE.sm,
   },
   infoCard: {
@@ -381,37 +387,37 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     marginBottom: SPACING.lg,
     borderLeftWidth: 4,
-    borderLeftColor: COLORS.primary,
+    borderLeftColor: colors.primary,
   },
   infoTitle: {
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
-    color: COLORS.primary,
+    color: colors.primary,
     marginBottom: SPACING.xs,
   },
   infoText: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 20,
   },
   label: {
     fontSize: FONT_SIZE.sm,
     fontWeight: "600",
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginBottom: SPACING.xs,
   },
   input: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.md,
     fontSize: FONT_SIZE.md,
-    color: COLORS.text,
+    color: colors.text,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   createButton: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: colors.secondary,
     padding: SPACING.lg,
     borderRadius: BORDER_RADIUS.md,
     alignItems: "center",
@@ -421,8 +427,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   createButtonText: {
-    color: COLORS.white,
+    color: colors.white,
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
   },
-});
+  });

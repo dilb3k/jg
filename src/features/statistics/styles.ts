@@ -1,13 +1,14 @@
 import { StyleSheet } from "react-native";
 
-import { BORDER_RADIUS, COLORS, FONT_SIZE, SPACING } from "../../constants";
+import { BORDER_RADIUS, FONT_SIZE, SPACING, type ThemeColors } from "../../theme";
 
-export const statisticsStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+export const createStatisticsStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   header: { padding: SPACING.lg, paddingBottom: 0 },
   periodTabs: {
     flexDirection: "row",
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.xs,
   },
@@ -17,13 +18,13 @@ export const statisticsStyles = StyleSheet.create({
     alignItems: "center",
     borderRadius: BORDER_RADIUS.md,
   },
-  periodTabActive: { backgroundColor: COLORS.primary },
+  periodTabActive: { backgroundColor: colors.primary },
   periodTabText: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     fontWeight: "500",
   },
-  periodTabTextActive: { color: COLORS.white, fontWeight: "700" },
+  periodTabTextActive: { color: colors.white, fontWeight: "700" },
   dateNav: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -33,20 +34,20 @@ export const statisticsStyles = StyleSheet.create({
   navButton: {
     width: 44,
     height: 44,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.md,
     justifyContent: "center",
     alignItems: "center",
   },
   navButtonText: {
     fontSize: FONT_SIZE.xl,
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: "600",
   },
   datePickerButton: {
     flex: 1,
     marginHorizontal: SPACING.md,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.md,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
@@ -55,17 +56,17 @@ export const statisticsStyles = StyleSheet.create({
     textAlign: "center",
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
   dateHint: {
     marginTop: 2,
     textAlign: "center",
     fontSize: FONT_SIZE.xs,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   content: { flex: 1, paddingHorizontal: SPACING.lg },
   card: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
@@ -81,12 +82,12 @@ export const statisticsStyles = StyleSheet.create({
   cardTitle: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
   rangeLabel: {
     marginTop: 4,
     fontSize: FONT_SIZE.xs,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   rangeActions: {
     flexDirection: "row",
@@ -95,22 +96,22 @@ export const statisticsStyles = StyleSheet.create({
   },
   rangeButton: {
     flex: 1,
-    backgroundColor: COLORS.surfaceSecondary,
+    backgroundColor: colors.surfaceSecondary,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
   },
   rangeButtonLabel: {
     fontSize: FONT_SIZE.xs,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   rangeButtonValue: {
     fontSize: FONT_SIZE.sm,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
   resetButton: {
-    backgroundColor: COLORS.surfaceSecondary,
+    backgroundColor: colors.surfaceSecondary,
     borderRadius: BORDER_RADIUS.full,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
@@ -118,19 +119,19 @@ export const statisticsStyles = StyleSheet.create({
   resetButtonText: {
     fontSize: FONT_SIZE.xs,
     fontWeight: "700",
-    color: COLORS.primary,
+    color: colors.primary,
   },
   statsGrid: { flexDirection: "row", flexWrap: "wrap" },
   statItem: { width: "50%", marginBottom: SPACING.lg },
-  statLabel: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
+  statLabel: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
   statValue: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
   noDataText: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textTertiary,
+    color: colors.textTertiary,
     textAlign: "center",
     paddingTop: SPACING.sm,
   },
@@ -139,39 +140,33 @@ export const statisticsStyles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: SPACING.sm,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  rankNum: {
-    width: 28,
-    fontSize: FONT_SIZE.lg,
-    fontWeight: "700",
-    color: COLORS.primary,
+    borderBottomColor: colors.border,
   },
   rankInfo: { flex: 1 },
-  rankName: { fontSize: FONT_SIZE.md, fontWeight: "600", color: COLORS.text },
-  rankSub: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
+  rankName: { fontSize: FONT_SIZE.md, fontWeight: "600", color: colors.text },
+  rankSub: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
   pickerOverlay: {
     flex: 1,
-    backgroundColor: COLORS.overlay,
+    backgroundColor: colors.overlay,
     justifyContent: "center",
     padding: SPACING.lg,
   },
   pickerModal: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
   },
   pickerTitle: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
     textAlign: "center",
   },
   pickerValue: {
     marginTop: SPACING.xs,
     marginBottom: SPACING.md,
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     textAlign: "center",
   },
   calendarHeader: {
@@ -184,19 +179,19 @@ export const statisticsStyles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.surfaceSecondary,
+    backgroundColor: colors.surfaceSecondary,
     alignItems: "center",
     justifyContent: "center",
   },
   calendarNavText: {
     fontSize: FONT_SIZE.xl,
     fontWeight: "700",
-    color: COLORS.primary,
+    color: colors.primary,
   },
   calendarMonthLabel: {
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
   },
   calendarWeekRow: {
     flexDirection: "row",
@@ -206,7 +201,7 @@ export const statisticsStyles = StyleSheet.create({
     width: "14.2857%",
     textAlign: "center",
     fontSize: FONT_SIZE.xs,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     fontWeight: "600",
   },
   calendarGrid: {
@@ -222,18 +217,18 @@ export const statisticsStyles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   calendarDaySelected: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   calendarDayText: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.text,
+    color: colors.text,
     fontWeight: "600",
   },
   calendarDayTextMuted: {
-    color: COLORS.textTertiary,
+    color: colors.textTertiary,
   },
   calendarDayTextSelected: {
-    color: COLORS.white,
+    color: colors.white,
   },
   pickerActions: {
     flexDirection: "row",
@@ -245,21 +240,21 @@ export const statisticsStyles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.surfaceSecondary,
+    backgroundColor: colors.surfaceSecondary,
   },
   pickerCancelText: {
-    color: COLORS.text,
+    color: colors.text,
     fontWeight: "600",
   },
   pickerSave: {
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   pickerSaveText: {
-    color: COLORS.white,
+    color: colors.white,
     fontWeight: "700",
   },
-  profit: { color: COLORS.secondary },
+  profit: { color: colors.secondary },
 });

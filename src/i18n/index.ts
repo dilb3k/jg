@@ -1,6 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import * as secureStorage from '../utils/secureStorage';
-import { STORAGE_KEYS } from '../constants';
+import { useCallback } from 'react';
+import { useThemeStore } from '../store/themeStore';
 
 export type Language = 'uz' | 'ru';
 
@@ -250,22 +249,8 @@ export type TranslationKey = keyof typeof translations.uz;
  * Hook for internationalization
  */
 export const useI18n = () => {
-  const [language, setLanguageState] = useState<Language>('uz');
-
-  // Load saved language on mount
-  useEffect(() => {
-    const loadLanguage = async () => {
-      try {
-        const savedLanguage = await secureStorage.getItemAsync(STORAGE_KEYS.LANGUAGE);
-        if (savedLanguage && (savedLanguage === 'uz' || savedLanguage === 'ru')) {
-          setLanguageState(savedLanguage);
-        }
-      } catch (error) {
-        console.error('Failed to load language preference:', error);
-      }
-    };
-    loadLanguage();
-  }, []);
+  const language = useThemeStore((state) => state.language);
+  const setLanguageFromStore = useThemeStore((state) => state.setLanguage);
 
   /**
    * Translate a key to the current language
@@ -278,13 +263,8 @@ export const useI18n = () => {
    * Set the language and persist to storage
    */
   const setLanguage = useCallback(async (newLanguage: Language) => {
-    setLanguageState(newLanguage);
-    try {
-      await secureStorage.setItemAsync(STORAGE_KEYS.LANGUAGE, newLanguage);
-    } catch (error) {
-      console.error('Failed to save language preference:', error);
-    }
-  }, []);
+    await setLanguageFromStore(newLanguage);
+  }, [setLanguageFromStore]);
 
   return {
     language,

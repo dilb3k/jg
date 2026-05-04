@@ -1,15 +1,11 @@
 import { Text, TouchableOpacity, View } from "react-native";
+import { useMemo } from "react";
 
-import { statisticsStyles as styles } from "../styles";
+import { createStatisticsStyles } from "../styles";
+import { useTheme } from "../../../store/themeStore";
+import { useI18n } from "../../../i18n";
 
 export type PeriodType = "daily" | "weekly" | "monthly" | "yearly";
-
-const PERIOD_LABELS: Record<PeriodType, string> = {
-  daily: "Kun",
-  weekly: "Hafta",
-  monthly: "Oy",
-  yearly: "Yil",
-};
 
 type Props = {
   period: PeriodType;
@@ -17,9 +13,19 @@ type Props = {
 };
 
 export function PeriodTabs({ period, onChange }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
+  const { t } = useI18n();
+  const labels: Record<PeriodType, string> = {
+    daily: t("daily"),
+    weekly: t("weekly"),
+    monthly: t("monthly"),
+    yearly: t("yearly"),
+  };
+
   return (
     <View style={styles.periodTabs}>
-      {(Object.keys(PERIOD_LABELS) as PeriodType[]).map((value) => (
+      {(Object.keys(labels) as PeriodType[]).map((value) => (
         <TouchableOpacity
           key={value}
           style={[styles.periodTab, period === value ? styles.periodTabActive : null]}
@@ -31,7 +37,7 @@ export function PeriodTabs({ period, onChange }: Props) {
               period === value ? styles.periodTabTextActive : null,
             ]}
           >
-            {PERIOD_LABELS[value]}
+            {labels[value]}
           </Text>
         </TouchableOpacity>
       ))}

@@ -16,6 +16,7 @@ import { apiClient } from "../src/api/client";
 import * as secureStorage from "../src/utils/secureStorage";
 import { STORAGE_KEYS } from "../src/constants";
 import { useTheme } from "../src/store/themeStore";
+import { useI18n } from "../src/i18n";
 import { SPACING, FONT_SIZE, BORDER_RADIUS } from "../src/theme";
 
 export default function LoginScreen() {
@@ -27,10 +28,11 @@ export default function LoginScreen() {
   
   // Theme integration
   const { colors } = useTheme();
+  const { t } = useI18n();
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
-      setError("Login va parolni kiriting");
+      setError(t("enterLoginPassword"));
       return;
     }
 
@@ -49,7 +51,7 @@ export default function LoginScreen() {
 
       router.replace("/(tabs)");
     } catch (err: any) {
-      setError(err.message || "Login xatoligi");
+      setError(err.message || t("loginError"));
     } finally {
       setIsLoading(false);
     }
@@ -68,8 +70,8 @@ export default function LoginScreen() {
           <View style={[styles.logoCircle, { backgroundColor: colors.primary }]}>
             <Text style={[styles.logoText, { color: colors.white }]}>B</Text>
           </View>
-          <Text style={[styles.title, { color: colors.text }]}>Barrel Management</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Tizimga kiring</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{t("barrelManagement")}</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t("signInToSystem")}</Text>
         </View>
 
         <View style={styles.form}>
@@ -80,10 +82,10 @@ export default function LoginScreen() {
           ) : null}
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Login</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>{t("username")}</Text>
             <TextInput
               style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-              placeholder="Loginingizni kiriting"
+              placeholder={t("loginPlaceholder")}
               placeholderTextColor={colors.textTertiary}
               value={username}
               onChangeText={setUsername}
@@ -93,10 +95,10 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Parol</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>{t("password")}</Text>
             <TextInput
               style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-              placeholder="Parolingizni kiriting"
+              placeholder={t("passwordPlaceholder")}
               placeholderTextColor={colors.textTertiary}
               value={password}
               onChangeText={setPassword}
@@ -115,14 +117,14 @@ export default function LoginScreen() {
             {isLoading ? (
               <ActivityIndicator size="small" color={colors.white} />
             ) : (
-              <Text style={[styles.loginButtonText, { color: colors.white }]}>Kirish</Text>
+              <Text style={[styles.loginButtonText, { color: colors.white }]}>{t("signIn")}</Text>
             )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-            {`Hisobingiz yo'qmi? Administratorga murojaat qiling`}
+            {t("noAccount")}
           </Text>
         </View>
       </ScrollView>

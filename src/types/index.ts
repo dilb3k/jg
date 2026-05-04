@@ -89,3 +89,22 @@ export interface SyncStatus {
   pendingCount: number;
   isSyncing: boolean;
 }
+
+// Auth types
+export type UserRole = 'admin' | 'superAdmin';
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  role: UserRole;
+  createdBy: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuthState {
+  isAuthenticated: boolean;
+  user: AuthUser | null;
+  token: string | null;
+}

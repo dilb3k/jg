@@ -17,6 +17,7 @@ import {
   isTodayBusinessDate,
 } from "../utils/businessDay";
 import type {
+  AuthUser,
   Product,
   InventoryEntry,
   DailySnapshot,
@@ -48,6 +49,11 @@ const stripInventoryProduct = (
 };
 
 interface AppState {
+  // Auth state
+  user: AuthUser | null;
+  isAuthenticated: boolean;
+  
+  // App state
   products: Product[];
   currentInventory: InventoryWithProduct[];
   snapshots: DailySnapshot[];
@@ -63,6 +69,11 @@ interface AppState {
     type: "success" | "error" | "info";
   };
 
+  // Auth actions
+  setUser: (user: AuthUser | null) => void;
+  logout: () => Promise<void>;
+  
+  // App actions
   initialize: () => Promise<void>;
   refreshAppData: () => Promise<void>;
   loadProducts: () => Promise<void>;
@@ -100,6 +111,11 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set, get) => ({
+  // Auth state
+  user: null,
+  isAuthenticated: false,
+  
+  // App state
   products: [],
   currentInventory: [],
   snapshots: [],
@@ -120,9 +136,32 @@ export const useStore = create<AppState>((set, get) => ({
     type: "info" as "success" | "error" | "info",
   },
 
+  // Auth actions
+  setUser: (user) => set({ user, isAuthenticated: !!user }),
+  
+  logout: async () => {
+    apiClient.setToken(null);
+    await secureStorage.deleteItemAsync(STORAGE_KEYS.USER_TOKEN);
+    await secureStorage.deleteItemAsync(STORAGE_KEYS.AUTH_USER);
+    set({
+      user: null,
+      isAuthenticated: false,
+      products: [],
+      currentInventory: [],
+      snapshots: [],
+    });
+  },
+
   initialize: async () => {
     try {
       set({ isLoading: true, error: null });
+
+      // Load user from storage
+      const userJson = await secureStorage.getItemAsync(STORAGE_KEYS.AUTH_USER);
+      if (userJson) {
+        const user: AuthUser = JSON.parse(userJson);
+        set({ user, isAuthenticated: true });
+      }
 
       let deviceId = await secureStorage.getItemAsync(STORAGE_KEYS.DEVICE_ID);
       if (!deviceId) {

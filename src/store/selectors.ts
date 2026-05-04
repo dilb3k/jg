@@ -56,3 +56,12 @@ export const useStatisticsScreenStore = () =>
       snapshots: state.snapshots,
     })),
   );
+
+export const useAuthStore = () =>
+  useStore(
+    useShallow((state) => ({
+      user: state.user,
+      isAuthenticated: state.isAuthenticated,
+      logout: state.logout,
+    })),
+  );

@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosInstance } from "axios";
 
 import { API_BASE_URL } from "../constants";
 import type {
+  AuthUser,
   DailySnapshot,
   InventoryEntry,
   InventoryWithProduct,
@@ -85,24 +86,53 @@ const joinInventoryWithProducts = (
 
 class ApiClient {
   private client: AxiosInstance;
+  private token: string | null = null;
 
   constructor() {
     this.client = axios.create({
       baseURL: API_BASE_URL,
-      timeout: 30000,
+      timeout: 15000,
       headers: {
         "Content-Type": "application/json",
       },
+      // Prevent stream issues by setting max content length
+      maxContentLength: 10 * 1024 * 1024, // 10MB
+      maxBodyLength: 10 * 1024 * 1024, // 10MB
     });
+
+    this.client.interceptors.request.use(
+      (config) => {
+        if (this.token) {
+          config.headers.Authorization = `Bearer ${this.token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error),
+    );
 
     this.client.interceptors.response.use(
       (response) => response,
       (error: AxiosError<{ message?: string }>) => {
+        // Handle specific error types
+        if (error.code === 'ECONNABORTED') {
+          return Promise.reject(new Error("So'rov vaqti tugadi. Internet aloqasini tekshiring."));
+        }
+        if (error.code === 'ERR_NETWORK') {
+          return Promise.reject(new Error("Tarmoq xatoligi. Server bilan aloqa yo'q."));
+        }
         const message =
           error.response?.data?.message || error.message || "API xatoligi";
         return Promise.reject(new Error(message));
       },
     );
+  }
+
+  setToken(token: string | null) {
+    this.token = token;
+  }
+
+  getToken(): string | null {
+    return this.token;
   }
 
   private unwrap<T>(response: { data: ApiResponse<T> | T }): T {
@@ -291,6 +321,33 @@ class ApiClient {
       }>
     >("/sync", data);
 
+    return this.unwrap(response);
+  }
+
+  // Auth methods
+  async login(username: string, password: string): Promise<{ token: string; user: AuthUser }> {
+    const response = await this.client.post<ApiResponse<{ token: string; user: AuthUser }>>(
+      "/auth/login",
+      { username, password },
+    );
+    return this.unwrap(response);
+  }
+
+  async getMe(): Promise<AuthUser> {
+    const response = await this.client.get<ApiResponse<AuthUser>>("/auth/me");
+    return this.unwrap(response);
+  }
+
+  async getAdmins(): Promise<AuthUser[]> {
+    const response = await this.client.get<ApiResponse<AuthUser[]>>("/auth/admins");
+    return this.unwrap(response);
+  }
+
+  async createAdmin(username: string, password: string): Promise<AuthUser> {
+    const response = await this.client.post<ApiResponse<AuthUser>>("/auth/admins", {
+      username,
+      password,
+    });
     return this.unwrap(response);
   }
 }

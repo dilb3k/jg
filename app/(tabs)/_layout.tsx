@@ -14,6 +14,7 @@ import {
   BarChart3,
   ClipboardList,
   Package,
+  Home,
   RefreshCw,
   Settings,
   LogOut,
@@ -42,6 +43,8 @@ const TabIcon = ({
   const size = 22;
 
   switch (name) {
+    case "index":
+      return <Home size={size} color={color} />;
     case "products":
       return <Package size={size} color={color} />;
     case "inventory":
@@ -62,7 +65,7 @@ const THEMES = [
 
 function HeaderRefreshButton({ colors, t }: { colors: any; t: any }) {
   const { isLoading, refreshAppData } = useAppRefreshStore();
-  const { showToast } = useAppRefreshStore(); // assuming showToast is here or in global store
+  const { showToast } = useAppRefreshStore();
 
   const handleRefresh = async () => {
     if (isLoading) return;
@@ -181,6 +184,15 @@ export default function TabLayout() {
         }}
       >
         <Tabs.Screen
+          name="index"
+          options={{
+            title: t("restock"),
+            tabBarIcon: ({ focused }) => (
+              <TabIcon name="index" focused={focused} colors={colors} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="products"
           options={{
             title: t("products"),
@@ -248,7 +260,6 @@ export default function TabLayout() {
             </View>
 
             <ScrollView style={styles.modalBody}>
-              {/* User Info */}
               {user && (
                 <View style={styles.section}>
                   <View
@@ -411,11 +422,7 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: 4,
-  },
+  headerRight: { flexDirection: "row", alignItems: "center", marginRight: 4 },
   refreshButton: {
     width: 38,
     height: 38,

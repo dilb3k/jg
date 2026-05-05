@@ -127,10 +127,6 @@ export default function RestockScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t("restock")}</Text>
-      </View>
-
       <FlatList
         data={products}
         keyExtractor={(item) => item.localId}
@@ -291,8 +287,8 @@ const createStyles = (colors: ThemeColors) =>
       gap: SPACING.sm,
     },
     imgBox: {
-      width: 52,
-      height: 52,
+      width: 72,
+      height: 72,
       borderRadius: BORDER_RADIUS.sm,
       backgroundColor: colors.surfaceSecondary,
       justifyContent: "center",

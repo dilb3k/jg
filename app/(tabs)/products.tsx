@@ -161,7 +161,7 @@ export default function ProductsScreen() {
     <TouchableOpacity style={styles.row} onPress={() => openEdit(item)}>
       <View style={styles.imgBox}>
         {item.image ? (
-          <Image source={{ uri: item.image }} style={styles.img} />
+            <Image source={{ uri: item.image }} style={styles.img} />
         ) : (
           <View style={styles.noImgBox}>
             <Text style={styles.noImg}>{t("noImage")}</Text>
@@ -432,8 +432,8 @@ const createStyles = (colors: ThemeColors) =>
       gap: SPACING.sm,
     },
     imgBox: {
-      width: 52,
-      height: 52,
+      width: 72,
+      height: 72,
       borderRadius: BORDER_RADIUS.sm,
       backgroundColor: colors.surfaceSecondary,
       justifyContent: "center",

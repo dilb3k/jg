@@ -190,12 +190,6 @@ export default function RestockScreen() {
                     </View>
                   </View>
                 </View>
-
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoTitle}>{t("important")}</Text>
-                  <Text style={styles.infoText}>{t("restockInfo")}</Text>
-                </View>
-
                 <Text style={styles.label}>{t("howMuchArrived")}</Text>
                 <TextInput
                   style={styles.input}

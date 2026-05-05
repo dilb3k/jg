@@ -254,16 +254,6 @@ export default function ProductsScreen() {
             contentContainerStyle={styles.modalBody}
             keyboardShouldPersistTaps="always"
           >
-            <View style={styles.warningCard}>
-              <Text style={styles.warningTitle}>{t("important")}</Text>
-              <Text style={styles.warningText}>{t("price_qty_warning")}</Text>
-              {editingProduct ? (
-                <Text style={styles.warningText}>
-                  {t("edit_product_warning")}
-                </Text>
-              ) : null}
-            </View>
-
             <Text style={styles.label}>{t("productName")}</Text>
             <TextInput
               placeholder={t("productNamePlaceholder")}

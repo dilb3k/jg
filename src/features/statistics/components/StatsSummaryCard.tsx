@@ -12,6 +12,7 @@ type Props = {
     label: string;
     value: string | number;
     highlight?: boolean;
+    isMain?: boolean; // Main KPI uchun
   }[];
   emptyText?: string | null;
 };
@@ -25,10 +26,21 @@ export function StatsSummaryCard({ title, items, emptyText }: Props) {
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{title}</Text>
       <View style={styles.statsGrid}>
-        {items.map((item) => (
-          <View key={item.label} style={styles.statItem}>
-            <Text style={styles.statLabel}>{item.label}</Text>
-            <Text style={[styles.statValue, item.highlight ? styles.profit : null]}>
+        {items.map((item, index) => (
+          <View
+            key={item.label || index}
+            style={[styles.statItem, item.isMain && styles.mainKPIContainer]}
+          >
+            {/* Main KPI bo'lsa label chiqarmaymiz */}
+            {!item.isMain && <Text style={styles.statLabel}>{item.label}</Text>}
+
+            <Text
+              style={[
+                styles.statValue,
+                item.highlight ? styles.profit : null,
+                item.isMain ? styles.mainKPIValue : null,
+              ]}
+            >
               {item.value}
             </Text>
           </View>
@@ -39,11 +51,7 @@ export function StatsSummaryCard({ title, items, emptyText }: Props) {
   );
 }
 
-export const moneyStat = (
-  label: string,
-  value: number,
-  highlight = false,
-) => ({
+export const moneyStat = (label: string, value: number, highlight = false) => ({
   label,
   value: formatMoney(value),
   highlight,

@@ -6,6 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 import {
   DateTimePickerAndroid,
@@ -44,6 +45,10 @@ export default function RatingScreen() {
     InventoryWithProduct[]
   >([]);
 
+  // ==================== LOADING STATES ====================
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isInventoryLoading, setIsInventoryLoading] = useState(false);
+
   const sortLabels = useMemo(
     () => ({
       profit_unit: t("profitPerUnit"),
@@ -53,22 +58,36 @@ export default function RatingScreen() {
     [t],
   );
 
-  // Load initial data
+  // Load initial data (Products + Snapshots)
   useEffect(() => {
-    loadProducts();
-    loadSnapshots();
+    const loadInitialData = async () => {
+      setIsInitialLoading(true);
+      try {
+        await Promise.all([loadProducts(), loadSnapshots()]);
+      } catch (error) {
+        console.error("Initial data load error:", error);
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+
+    loadInitialData();
   }, [loadProducts, loadSnapshots]);
 
   // Load inventory for selected date
   useEffect(() => {
     const loadInventory = async () => {
+      setIsInventoryLoading(true);
       try {
         const inventory = await apiClient.getInventory(
           selectedDate || getBusinessDate(),
         );
         setInventoryForDate(inventory);
-      } catch {
+      } catch (error) {
+        console.error("Inventory load error:", error);
         setInventoryForDate([]);
+      } finally {
+        setIsInventoryLoading(false);
       }
     };
 
@@ -89,7 +108,6 @@ export default function RatingScreen() {
     DateTimePickerAndroid.open(params);
   };
 
-  // Calculate sold and profit from snapshots
   const soldByProduct = useMemo(() => {
     const relevantSnapshots = selectedDate
       ? snapshots.filter((snapshot) => snapshot.date === selectedDate)
@@ -108,7 +126,6 @@ export default function RatingScreen() {
     }, {});
   }, [selectedDate, snapshots]);
 
-  // Prepare and sort ranking data
   const rankingRows = useMemo(() => {
     let list = inventoryForDate
       .map((item) => {
@@ -143,6 +160,18 @@ export default function RatingScreen() {
       }
     });
   }, [filter, inventoryForDate, soldByProduct, sortBy]);
+
+  // ==================== RENDER ====================
+  if (isInitialLoading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>
+          {t("loading") || "Yuklanmoqda..."}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -197,13 +226,25 @@ export default function RatingScreen() {
         ))}
       </View>
 
+      {/* Loading indicator for date change */}
+      {isInventoryLoading && (
+        <View style={styles.inventoryLoading}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={styles.loadingTextSmall}>
+            Ma'lumotlar yangilanmoqda...
+          </Text>
+        </View>
+      )}
+
       {/* Ranking List */}
       <FlatList
         data={rankingRows}
         keyExtractor={(item) => item.localId}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>{t("ratingNoData")}</Text>
+          <Text style={styles.emptyText}>
+            {isInventoryLoading ? "" : t("ratingNoData")}
+          </Text>
         }
         renderItem={({ item, index }) => {
           const profitPerUnit = item.product.sellPrice - item.product.buyPrice;
@@ -294,9 +335,34 @@ export default function RatingScreen() {
   );
 }
 
+// ==================== STYLES ====================
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
+
+    // New loading styles
+    centerContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: colors.background,
+    },
+    inventoryLoading: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: SPACING.md,
+      gap: SPACING.sm,
+    },
+    loadingText: {
+      marginTop: SPACING.md,
+      color: colors.textSecondary,
+      fontSize: FONT_SIZE.md,
+    },
+    loadingTextSmall: {
+      color: colors.textSecondary,
+      fontSize: FONT_SIZE.sm,
+    },
 
     filterRow: {
       padding: SPACING.lg,

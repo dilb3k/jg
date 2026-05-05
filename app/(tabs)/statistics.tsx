@@ -4,7 +4,10 @@ import dayjs from "dayjs";
 
 import { DatePickerModal } from "../../src/features/statistics/components/DatePickerModal";
 import { OverallRangeCard } from "../../src/features/statistics/components/OverallRangeCard";
-import { PeriodTabs, type PeriodType } from "../../src/features/statistics/components/PeriodTabs";
+import {
+  PeriodTabs,
+  type PeriodType,
+} from "../../src/features/statistics/components/PeriodTabs";
 import {
   StatsSummaryCard,
   moneyStat,
@@ -31,13 +34,8 @@ export default function StatisticsScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
-  const {
-    getStatistics,
-    loadProducts,
-    loadSnapshots,
-    products,
-    snapshots,
-  } = useStatisticsScreenStore();
+  const { getStatistics, loadProducts, loadSnapshots, products, snapshots } =
+    useStatisticsScreenStore();
 
   const [period, setPeriod] = useState<PeriodType>("daily");
   const [selectedDate, setSelectedDate] = useState(() => getBusinessDate());
@@ -72,7 +70,9 @@ export default function StatisticsScreen() {
 
     return snapshots.reduce((earliest, snapshot) => {
       if (!earliest) return snapshot.date;
-      return dayjs(snapshot.date).isBefore(dayjs(earliest)) ? snapshot.date : earliest;
+      return dayjs(snapshot.date).isBefore(dayjs(earliest))
+        ? snapshot.date
+        : earliest;
     }, snapshots[0]?.date ?? null);
   }, [snapshots]);
 
@@ -81,7 +81,9 @@ export default function StatisticsScreen() {
 
     return snapshots.reduce((latest, snapshot) => {
       if (!latest) return snapshot.date;
-      return dayjs(snapshot.date).isAfter(dayjs(latest)) ? snapshot.date : latest;
+      return dayjs(snapshot.date).isAfter(dayjs(latest))
+        ? snapshot.date
+        : latest;
     }, snapshots[0]?.date ?? null);
   }, [snapshots]);
 
@@ -131,7 +133,9 @@ export default function StatisticsScreen() {
     }
 
     const otherDate =
-      pickerTarget === "overallStart" ? normalizedRange.end : normalizedRange.start;
+      pickerTarget === "overallStart"
+        ? normalizedRange.end
+        : normalizedRange.start;
 
     if (!otherDate) {
       if (pickerTarget === "overallStart") {
@@ -181,7 +185,8 @@ export default function StatisticsScreen() {
   const marginPercent =
     currentPeriodStats.totalRevenue > 0
       ? Math.round(
-          (currentPeriodStats.totalProfit / currentPeriodStats.totalRevenue) * 100,
+          (currentPeriodStats.totalProfit / currentPeriodStats.totalRevenue) *
+            100,
         )
       : 0;
 
@@ -192,43 +197,55 @@ export default function StatisticsScreen() {
       </View>
 
       <View style={styles.dateNav}>
-        <TouchableOpacity style={styles.navButton} onPress={() => handleDateChange(-1)}>
+        <TouchableOpacity
+          style={styles.navButton}
+          onPress={() => handleDateChange(-1)}
+        >
           <Text style={styles.navButtonText}>{"<"}</Text>
         </TouchableOpacity>
 
-         <TouchableOpacity
-           style={styles.datePickerButton}
-           onPress={() => openAndroidPicker("period")}
-           activeOpacity={0.85}
-         >
-           <Text style={styles.dateText}>{periodLabel}</Text>
-           <Text style={styles.dateHint}>{t("selectDateHint")}</Text>
-         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.datePickerButton}
+          onPress={() => openAndroidPicker("period")}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.dateText}>{periodLabel}</Text>
+          <Text style={styles.dateHint}>{t("selectDateHint")}</Text>
+        </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navButton} onPress={() => handleDateChange(1)}>
+        <TouchableOpacity
+          style={styles.navButton}
+          onPress={() => handleDateChange(1)}
+        >
           <Text style={styles.navButtonText}>{">"}</Text>
         </TouchableOpacity>
       </View>
 
-       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-         <StatsSummaryCard
-           title={t("totalRevenueLabel")}
-           items={[
-             {
-               label: t("mainKPI"),
-               value: formatMoney(currentPeriodStats.totalRevenue),
-               highlight: true,
-             },
-             { label: t("soldPieces"), value: currentPeriodStats.totalSoldItems },
-             moneyStat(t("netProfit"), currentPeriodStats.totalProfit, true),
-             { label: t("marginPercent"), value: `${marginPercent}%`, highlight: true },
-           ]}
-           emptyText={
-             currentPeriodStats.totalSoldItems === 0
-               ? t("noSalesPeriod")
-               : null
-           }
-         />
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <StatsSummaryCard
+          title={t("totalRevenueLabel")}
+          items={[
+            {
+              label: "", // label bo'sh
+              value: formatMoney(currentPeriodStats.totalRevenue),
+              highlight: true,
+              isMain: true, // Muhim
+            },
+            {
+              label: t("soldPieces"),
+              value: currentPeriodStats.totalSoldItems,
+            },
+            moneyStat(t("netProfit"), currentPeriodStats.totalProfit, true),
+            {
+              label: t("marginPercent"),
+              value: `${marginPercent}%`,
+              highlight: true,
+            },
+          ]}
+          emptyText={
+            currentPeriodStats.totalSoldItems === 0 ? t("noSalesPeriod") : null
+          }
+        />
 
         <OverallRangeCard
           rangeLabel={overallRangeLabel}
@@ -243,34 +260,33 @@ export default function StatisticsScreen() {
           totals={overallTotals}
         />
 
-         <RankingCard
-           title={t("topProductsLabel")}
-           items={topProducts}
-           emptyText={t("noProductsPeriod")}
-         />
+        <RankingCard
+          title={t("topProductsLabel")}
+          items={topProducts}
+          emptyText={t("noProductsPeriod")}
+        />
 
-          <StatsSummaryCard
-            title={t("profitInsight")}
-            items={[
-              moneyStat(t("earningsSoFar"), overallTotals.earnedProfit, true),
-              moneyStat(
-                t("remainingPotentialProfit"),
-                Math.max(overallTotals.possibleProfit - overallTotals.earnedProfit, 0),
+        <StatsSummaryCard
+          title={t("profitInsight")}
+          items={[
+            moneyStat(t("earningsSoFar"), overallTotals.earnedProfit, true),
+            moneyStat(
+              t("remainingPotentialProfit"),
+              Math.max(
+                overallTotals.possibleProfit - overallTotals.earnedProfit,
+                0,
               ),
-              moneyStat(
-                t("totalPotential"),
-                overallTotals.possibleProfit,
-                true,
-              ),
-              {
-                label: t("progress"),
-                value:
-                  overallTotals.possibleProfit > 0
-                    ? `${Math.round((overallTotals.earnedProfit / overallTotals.possibleProfit) * 100)}%`
-                    : "0%",
-              },
-            ]}
-          />
+            ),
+            moneyStat(t("totalPotential"), overallTotals.possibleProfit, true),
+            {
+              label: t("progress"),
+              value:
+                overallTotals.possibleProfit > 0
+                  ? `${Math.round((overallTotals.earnedProfit / overallTotals.possibleProfit) * 100)}%`
+                  : "0%",
+            },
+          ]}
+        />
       </ScrollView>
 
       <DatePickerModal

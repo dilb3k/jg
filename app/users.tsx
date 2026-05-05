@@ -51,7 +51,7 @@ export default function AdminsScreen() {
       const data = await apiClient.getAdmins();
       setAdmins(data);
     } catch (err: any) {
-      setError(err.message || "Adminlarni yuklashda xatolik");
+      setError(err.message || t("errorLoadingAdmins"));
     } finally {
       setIsLoading(false);
     }
@@ -59,29 +59,30 @@ export default function AdminsScreen() {
 
   const handleCreateAdmin = async () => {
     if (!username.trim() || !password.trim()) {
-      setError("Login va parolni kiriting");
+      setError(t("enterLoginPassword"));
       return;
     }
 
     if (password.length < 6) {
-      setError("Parol kamida 6 ta belgidan iborat bo'lishi kerak");
+      setError(t("passwordLength"));
       return;
     }
 
-    setIsCreating(true);
-    setError(null);
+      setIsCreating(true);
+      setError(null);
 
-    try {
-      await apiClient.createAdmin(username.trim(), password);
-      setShowModal(false);
-      setUsername("");
-      setPassword("");
-      loadAdmins();
-    } catch (err: any) {
-      setError(err.message || "Admin yaratishda xatolik");
-    } finally {
-      setIsCreating(false);
-    }
+      try {
+        await apiClient.createAdmin(username.trim(), password);
+        setShowModal(false);
+        setUsername("");
+        setPassword("");
+        loadAdmins();
+        showToast(t("userCreated"), "success");
+      } catch (err: any) {
+        setError(err.message || t("createUserError"));
+      } finally {
+        setIsCreating(false);
+      }
   };
 
   const handleLogout = async () => {
@@ -173,67 +174,66 @@ export default function AdminsScreen() {
           style={styles.modalContainer}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowModal(false)}>
-              <Text style={styles.backText}>Orqaga</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Yangi admin yaratish</Text>
-            <View style={styles.headerSpacer} />
-          </View>
+             <View style={styles.modalHeader}>
+               <TouchableOpacity onPress={() => setShowModal(false)}>
+                 <Text style={styles.backText}>{t("back")}</Text>
+               </TouchableOpacity>
+               <Text style={styles.modalTitle}>{t("createAdmin")}</Text>
+               <View style={styles.headerSpacer} />
+             </View>
 
-          <ScrollView
-            style={styles.modalContent}
-            contentContainerStyle={styles.modalBody}
-            keyboardShouldPersistTaps="always"
-          >
-            {error ? (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
+           <ScrollView
+             style={styles.modalContent}
+             contentContainerStyle={styles.modalBody}
+             keyboardShouldPersistTaps="always"
+           >
+             {error ? (
+               <View style={styles.errorContainer}>
+                 <Text style={styles.errorText}>{error}</Text>
+               </View>
+             ) : null}
 
-            <View style={styles.infoCard}>
-              <Text style={styles.infoTitle}>Muhim ma'lumot</Text>
-              <Text style={styles.infoText}>
-                Yangi admin faqat mahsulot va ombor bilan ishlay oladi.
-                Adminlar ro'yxatini faqat superAdmin ko'ra oladi.
-              </Text>
-            </View>
+             <View style={styles.infoCard}>
+               <Text style={styles.infoTitle}>{t("importantInfo")}</Text>
+               <Text style={styles.infoText}>
+                 {t("adminInfo")}
+               </Text>
+             </View>
 
-            <Text style={styles.label}>Login</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Admin loginini kiriting"
-              placeholderTextColor={colors.textTertiary}
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+             <Text style={styles.label}>{t("username")}</Text>
+             <TextInput
+               style={styles.input}
+               placeholder={t("loginPlaceholder_Admin")}
+               placeholderTextColor={colors.textTertiary}
+               value={username}
+               onChangeText={setUsername}
+               autoCapitalize="none"
+               autoCorrect={false}
+             />
 
-            <Text style={styles.label}>Parol</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Parolni kiriting (kamida 6 belgi)"
-              placeholderTextColor={colors.textTertiary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+             <Text style={styles.label}>{t("password")}</Text>
+             <TextInput
+               style={styles.input}
+               placeholder={t("passwordPlaceholder_Admin")}
+               placeholderTextColor={colors.textTertiary}
+               value={password}
+               onChangeText={setPassword}
+               secureTextEntry
+               autoCapitalize="none"
+               autoCorrect={false}
+             />
 
-            <TouchableOpacity
-              style={[styles.createButton, isCreating && styles.createButtonDisabled]}
-              onPress={handleCreateAdmin}
-              disabled={isCreating}
-            >
-              {isCreating ? (
-                <ActivityIndicator size="small" color={colors.white} />
-              ) : (
-                <Text style={styles.createButtonText}>Yaratish</Text>
-              )}
-            </TouchableOpacity>
+             <TouchableOpacity
+               style={[styles.createButton, isCreating && styles.createButtonDisabled]}
+               onPress={handleCreateAdmin}
+               disabled={isCreating}
+             >
+               {isCreating ? (
+                 <ActivityIndicator size="small" color={colors.white} />
+               ) : (
+                 <Text style={styles.createButtonText}>{t("confirmCreate")}</Text>
+               )}
+             </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>

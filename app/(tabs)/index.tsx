@@ -13,150 +13,89 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
-import { Trash2 } from "lucide-react-native";
 
-import { SPACING, FONT_SIZE, BORDER_RADIUS, type ThemeColors } from "../../src/theme";
+import {
+  SPACING,
+  FONT_SIZE,
+  BORDER_RADIUS,
+  type ThemeColors,
+} from "../../src/theme";
 import { useProductsScreenStore } from "../../src/store/selectors";
 import { useTheme } from "../../src/store/themeStore";
 import { useI18n } from "../../src/i18n";
 import type { Product } from "../../src/types";
-import {
-  formatMoney,
-  hasValidationErrors,
-  normalizeDigits,
-  validateProductInput,
-} from "../../src/utils/inventory";
+import { formatMoney } from "../../src/utils/inventory";
 
-const EMPTY_FORM = {
-  name: "",
-  quantity: "",
-  buyPrice: "",
-  sellPrice: "",
-  image: "",
-};
-
-const EMPTY_ERRORS = {
-  name: "",
-  buyPrice: "",
-  sellPrice: "",
-  quantity: "",
-};
-
-export default function ProductsScreen() {
+export default function RestockScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const {
-    products,
-    loadProducts,
-    createProduct,
-    updateProduct,
-    deleteProduct,
-    searchProducts,
-    showToast,
-  } = useProductsScreenStore();
+  const { products, loadProducts, updateProduct, showToast } =
+    useProductsScreenStore();
 
-  const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [deleteModalProduct, setDeleteModalProduct] = useState<Product | null>(
-    null,
-  );
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [errors, setErrors] = useState(EMPTY_ERRORS);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [quantity, setQuantity] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
 
-  useEffect(() => {
-    const timeoutId = setTimeout(() => searchProducts(search), 300);
-    return () => clearTimeout(timeoutId);
-  }, [search, searchProducts]);
-
-  const resetForm = () => {
-    setForm(EMPTY_FORM);
-    setErrors(EMPTY_ERRORS);
-    setEditingProduct(null);
+  const openRestockModal = (product: Product) => {
+    setSelectedProduct(product);
+    setQuantity("");
+    setShowModal(true);
   };
 
   const closeModal = () => {
     setShowModal(false);
-    resetForm();
+    setSelectedProduct(null);
+    setQuantity("");
   };
 
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 1,
-    });
+  const handleRestock = async () => {
+    if (!selectedProduct || !quantity) return;
 
-    if (!result.canceled) {
-      setForm((prev) => ({ ...prev, image: result.assets[0].uri }));
+    const qtyToAdd = parseInt(quantity.replace(/\D/g, ""), 10);
+    if (isNaN(qtyToAdd) || qtyToAdd <= 0) {
+      showToast(t("error"), "error");
+      return;
     }
-  };
 
-  const validate = () => {
-    const nextErrors = validateProductInput({
-      name: form.name.trim(),
-      quantity: Number(form.quantity || 0),
-      buyPrice: Number(form.buyPrice),
-      sellPrice: Number(form.sellPrice),
-      image: form.image || undefined,
-    });
-
-    setErrors(nextErrors);
-    return !hasValidationErrors(nextErrors);
-  };
-
-  const handleSave = async () => {
-    if (!validate()) return;
-
-    const payload = {
-      name: form.name.trim(),
-      quantity: Number(form.quantity || 0),
-      buyPrice: Number(form.buyPrice),
-      sellPrice: Number(form.sellPrice),
-      image: form.image || undefined,
-    };
+    setIsSubmitting(true);
 
     try {
-      if (editingProduct) {
-        await updateProduct(editingProduct.localId, payload);
-      } else {
-        await createProduct(payload);
-      }
-
+      const newQuantity = selectedProduct.quantity + qtyToAdd;
+      await updateProduct(selectedProduct.localId, {
+        quantity: newQuantity,
+      });
       await loadProducts();
       closeModal();
-      showToast(editingProduct ? t("productSaved") : t("productSaved"), "success");
+      showToast(`${qtyToAdd} ${t("stockAdded")} ${newQuantity}`, "success");
     } catch (error: any) {
       showToast(error.message || t("error"), "error");
+    } finally {
+      setIsSubmitting(false);
     }
-  };
-
-  const openEdit = (item: Product) => {
-    setEditingProduct(item);
-    setErrors(EMPTY_ERRORS);
-    setForm({
-      name: item.name,
-      quantity: String(item.quantity ?? ""),
-      buyPrice: String(item.buyPrice ?? ""),
-      sellPrice: String(item.sellPrice ?? ""),
-      image: item.image ?? "",
-    });
-    setShowModal(true);
   };
 
   const renderItem = ({ item }: { item: Product }) => (
-    <TouchableOpacity style={styles.row} onPress={() => openEdit(item)}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => openRestockModal(item)}
+      activeOpacity={0.85}
+    >
       <View style={styles.imgBox}>
         {item.image ? (
-          <Image source={{ uri: item.image }} style={styles.img} />
+          <Image
+            source={{ uri: item.image }}
+            style={styles.img}
+            resizeMode="contain"
+          />
         ) : (
           <View style={styles.noImgBox}>
-            <Text style={styles.noImg}>Rasm yo&apos;q</Text>
+            <Text style={styles.noImg}>{t("noImage")}</Text>
           </View>
         )}
       </View>
@@ -165,42 +104,31 @@ export default function ProductsScreen() {
         <Text style={styles.name} numberOfLines={1}>
           {item.name}
         </Text>
-        <Text style={styles.metaText}>Joriy qoldiq: {item.quantity}</Text>
+        <Text style={styles.metaText}>
+          {t("stockInfo", { quantity: item.quantity })}
+        </Text>
       </View>
 
       <View style={styles.priceCol}>
         <Text style={styles.price}>{formatMoney(item.buyPrice)}</Text>
-        <Text style={styles.priceMuted}>Kelish</Text>
+        <Text style={styles.priceMuted}>{t("buy")}</Text>
       </View>
 
       <View style={styles.priceCol}>
         <Text style={styles.price}>{formatMoney(item.sellPrice)}</Text>
-        <Text style={styles.priceMuted}>Sotish</Text>
+        <Text style={styles.priceMuted}>{t("sell")}</Text>
       </View>
 
+      <View style={styles.restockBadge}>
+        <Text style={styles.restockBadgeText}>+</Text>
+      </View>
     </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TextInput
-          placeholder={t("search")}
-          placeholderTextColor={colors.textTertiary}
-          value={search}
-          onChangeText={setSearch}
-          style={styles.search}
-        />
-
-        <Pressable
-          style={styles.add}
-          onPressOut={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-        >
-          <Text style={styles.addText}>+</Text>
-        </Pressable>
+        <Text style={styles.headerTitle}>{t("restock")}</Text>
       </View>
 
       <FlatList
@@ -208,9 +136,7 @@ export default function ProductsScreen() {
         keyExtractor={(item) => item.localId}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <Text style={styles.empty}>{t("noProducts")}</Text>
-        }
+        ListEmptyComponent={<Text style={styles.empty}>{t("noProducts")}</Text>}
       />
 
       <Modal
@@ -227,380 +153,356 @@ export default function ProductsScreen() {
             <TouchableOpacity onPress={closeModal}>
               <Text style={styles.backText}>{t("back")}</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>
-              {editingProduct ? t("editProduct") : t("addProduct")}
-            </Text>
-            {editingProduct ? (
-              <TouchableOpacity
-                style={styles.headerDeleteBtn}
-                onPress={() => setDeleteModalProduct(editingProduct)}
-              >
-                  <Trash2 size={18} color={colors.white} />
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.headerSpacer} />
-            )}
+            <Text style={styles.modalTitle}>{t("restock")}</Text>
+            <View style={styles.headerSpacer} />
           </View>
 
           <ScrollView
-            style={styles.modal}
+            style={styles.modalContent}
             contentContainerStyle={styles.modalBody}
             keyboardShouldPersistTaps="always"
           >
-            <View style={styles.warningCard}>
-              <Text style={styles.warningTitle}>Hisob-kitob uchun muhim</Text>
-              <Text style={styles.warningText}>
-                Narx va miqdor noto&apos;g&apos;ri kiritilsa keyingi hisoblarda chalkashlik
-                yuz beradi. Shu sabab manfiy miqdor, 0 narx va zararli sotuv
-                avtomatik bloklanadi.
-              </Text>
-              {editingProduct ? (
-                <Text style={styles.warningText}>
-                  Bu yerda mahsulotning real qoldig&apos;i yuradi. Mahsulot kelsa
-                  yoki soni oshsa shu yerdan yangilang, ombor sahifasi ham shunga
-                  moslashadi.
-                </Text>
-              ) : null}
-            </View>
+            {selectedProduct && (
+              <>
+                <View style={styles.productInfo}>
+                  {selectedProduct.image ? (
+                    <View style={styles.imageContainer}>
+                      <Image
+                        source={{ uri: selectedProduct.image }}
+                        style={styles.productImage}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  ) : (
+                    <View style={styles.noImgBoxLarge}>
+                      <Text style={styles.noImgLarge}>{t("noImage")}</Text>
+                    </View>
+                  )}
+                  <View style={styles.productDetails}>
+                    <Text style={styles.productName}>
+                      {selectedProduct.name}
+                    </Text>
+                    <View style={styles.productMeta}>
+                      <View style={styles.metaItem}>
+                        <Text style={styles.metaLabel}>
+                          {t("currentStock")}
+                        </Text>
+                        <Text style={styles.metaValue}>
+                          {selectedProduct.quantity}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
 
-            <Text style={styles.label}>Mahsulot nomi</Text>
-            <TextInput
-              placeholder="Masalan: Cola 1L"
-              placeholderTextColor={colors.textTertiary}
-              value={form.name}
-              onChangeText={(text) => {
-                setForm((prev) => ({ ...prev, name: text }));
-                setErrors((prev) => ({ ...prev, name: "" }));
-              }}
-              style={[styles.input, errors.name ? styles.inputError : null]}
-            />
-            {!!errors.name && <Text style={styles.err}>{errors.name}</Text>}
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoTitle}>{t("important")}</Text>
+                  <Text style={styles.infoText}>{t("restockInfo")}</Text>
+                </View>
 
-            <Text style={styles.label}>Kelish narxi</Text>
-            <TextInput
-              placeholder="0"
-              placeholderTextColor={colors.textTertiary}
-              keyboardType="numeric"
-              value={form.buyPrice}
-              onChangeText={(text) => {
-                setForm((prev) => ({ ...prev, buyPrice: normalizeDigits(text) }));
-                setErrors((prev) => ({ ...prev, buyPrice: "" }));
-              }}
-              style={[styles.input, errors.buyPrice ? styles.inputError : null]}
-            />
-            {!!errors.buyPrice && <Text style={styles.err}>{errors.buyPrice}</Text>}
-
-            <Text style={styles.label}>Sotish narxi</Text>
-            <TextInput
-              placeholder="0"
-              placeholderTextColor={colors.textTertiary}
-              keyboardType="numeric"
-              value={form.sellPrice}
-              onChangeText={(text) => {
-                setForm((prev) => ({ ...prev, sellPrice: normalizeDigits(text) }));
-                setErrors((prev) => ({ ...prev, sellPrice: "" }));
-              }}
-              style={[styles.input, errors.sellPrice ? styles.inputError : null]}
-            />
-            {!!errors.sellPrice && (
-              <Text style={styles.err}>{errors.sellPrice}</Text>
-            )}
-
-            <Text style={styles.label}>Joriy qoldiq</Text>
-            <TextInput
-              placeholder="0"
-              placeholderTextColor={colors.textTertiary}
-              keyboardType="numeric"
-              value={form.quantity}
-              onChangeText={(text) => {
-                setForm((prev) => ({ ...prev, quantity: normalizeDigits(text) }));
-                setErrors((prev) => ({ ...prev, quantity: "" }));
-              }}
-              style={[styles.input, errors.quantity ? styles.inputError : null]}
-            />
-            {!!errors.quantity && (
-              <Text style={styles.err}>{errors.quantity}</Text>
-            )}
-
-            <TouchableOpacity onPress={pickImage} style={styles.imgPicker}>
-              {form.image ? (
-                <Image
-                  source={{ uri: form.image }}
-                  style={styles.preview}
-                  resizeMode="contain"
+                <Text style={styles.label}>{t("howMuchArrived")}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="0"
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="numeric"
+                  value={quantity}
+                  onChangeText={(text) => {
+                    setQuantity(text.replace(/\D/g, ""));
+                  }}
                 />
-              ) : (
-                <Text style={styles.imagePlaceholder}>+ Rasm tanlash</Text>
-              )}
-            </TouchableOpacity>
 
+                {quantity && (
+                  <View style={styles.previewCard}>
+                    <Text style={styles.previewTitle}>{t("result")}</Text>
+                    <View style={styles.previewRow}>
+                      <Text style={styles.previewLabel}>
+                        {t("currentStock")}
+                      </Text>
+                      <Text style={styles.previewValue}>
+                        {selectedProduct.quantity}
+                      </Text>
+                    </View>
+                    <View style={styles.previewRow}>
+                      <Text style={styles.previewLabel}>{t("addToStock")}</Text>
+                      <Text style={[styles.previewValue, styles.addText]}>
+                        +{quantity}
+                      </Text>
+                    </View>
+                    <View style={styles.previewRow}>
+                      <Text style={styles.previewLabel}>{t("newStock")}</Text>
+                      <Text style={[styles.previewValue, styles.totalText]}>
+                        {selectedProduct.quantity + parseInt(quantity, 10)}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <Pressable onPressOut={handleSave} style={styles.save}>
-              <Text style={styles.saveText}>Saqlash</Text>
+            <Pressable
+              style={[
+                styles.saveButton,
+                (!quantity || isSubmitting) && styles.saveButtonDisabled,
+              ]}
+              onPress={handleRestock}
+              disabled={!quantity || isSubmitting}
+            >
+              <Text style={styles.saveButtonText}>
+                {isSubmitting ? t("addingStock") : t("addStock")}
+              </Text>
             </Pressable>
           </View>
         </KeyboardAvoidingView>
       </Modal>
-
-      {deleteModalProduct ? (
-        <Modal transparent onRequestClose={() => setDeleteModalProduct(null)}>
-          <Pressable style={styles.overlay} onPress={() => setDeleteModalProduct(null)}>
-            <Pressable
-              style={styles.deleteModal}
-              onPress={(event) => event.stopPropagation()}
-            >
-              <Text style={styles.deleteTitle}>Mahsulot o&apos;chirilsinmi?</Text>
-              <Text style={styles.deleteText}>
-                Bu mahsulot yangi ro&apos;yxatlarda ko&apos;rinmaydi. Tarixiy ma&apos;lumotlar
-                saqlanib qoladi.
-              </Text>
-
-              <View style={styles.deleteActions}>
-                <TouchableOpacity
-                  onPress={() => setDeleteModalProduct(null)}
-                  style={styles.cancel}
-                >
-                  <Text style={styles.cancelText}>Bekor</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={async () => {
-                    await deleteProduct(deleteModalProduct.localId);
-                    await loadProducts();
-                    closeModal();
-                    setDeleteModalProduct(null);
-                    showToast(t("productDeleted"), "success");
-                  }}
-                  style={styles.confirm}
-                >
-                  <Text style={styles.confirmText}>O&apos;chirish</Text>
-                </TouchableOpacity>
-              </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
-      ) : null}
     </View>
   );
 }
 
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: "row", padding: SPACING.lg, gap: SPACING.sm },
-  search: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    color: colors.text,
-  },
-  add: {
-    width: 44,
-    height: 44,
-    backgroundColor: colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: BORDER_RADIUS.md,
-  },
-  addText: { color: colors.white, fontSize: FONT_SIZE.xxl, lineHeight: 24 },
-  list: { paddingBottom: SPACING.xl },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    marginHorizontal: SPACING.lg,
-    marginBottom: SPACING.sm,
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.lg,
-    gap: SPACING.sm,
-  },
-  imgBox: {
-    width: 52,
-    height: 52,
-    borderRadius: BORDER_RADIUS.sm,
-    backgroundColor: colors.surfaceSecondary,
-    justifyContent: "center",
-    alignItems: "center",
-    overflow: "hidden",
-  },
-  img: {
-    width: "100%",
-    height: "100%",
-    borderRadius: BORDER_RADIUS.sm,
-  },
-  noImgBox: {
-    width: "100%",
-    height: "100%",
-    borderRadius: BORDER_RADIUS.sm,
-    backgroundColor: colors.surfaceSecondary,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 4,
-  },
-  noImg: {
-    fontSize: FONT_SIZE.xs,
-    color: colors.textSecondary,
-    textAlign: "center",
-  },
-  mainInfo: { flex: 1 },
-  name: { fontSize: FONT_SIZE.md, fontWeight: "600", color: colors.text },
-  metaText: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
-  priceCol: { width: 82, alignItems: "center" },
-  price: {
-    fontSize: FONT_SIZE.xs,
-    fontWeight: "700",
-    color: colors.text,
-    textAlign: "center",
-  },
-  priceMuted: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
-  empty: {
-    textAlign: "center",
-    color: colors.textTertiary,
-    marginTop: SPACING.xxxl,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  backText: { fontSize: FONT_SIZE.md, color: colors.primary },
-  modalTitle: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  headerSpacer: { width: 60 },
-  headerDeleteBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: BORDER_RADIUS.full,
-    backgroundColor: colors.danger,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modal: { flex: 1 },
-  modalBody: { padding: SPACING.lg, paddingBottom: SPACING.xxxl },
-  modalFooter: {
-    padding: SPACING.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  warningCard: {
-    backgroundColor: "#FFF7ED",
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.lg,
-    borderWidth: 1,
-    borderColor: "#FED7AA",
-    gap: SPACING.xs,
-  },
-  warningTitle: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: "700",
-    color: "#9A3412",
-  },
-  warningText: {
-    fontSize: FONT_SIZE.sm,
-    color: "#9A3412",
-    lineHeight: 20,
-  },
-  label: {
-    fontSize: FONT_SIZE.sm,
-    color: colors.textSecondary,
-    marginBottom: SPACING.xs,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    marginBottom: SPACING.sm,
-    color: colors.text,
-  },
-  inputError: {
-    borderWidth: 1,
-    borderColor: colors.danger,
-  },
-  err: {
-    color: colors.danger,
-    fontSize: FONT_SIZE.sm,
-    marginTop: -4,
-    marginBottom: SPACING.sm,
-    marginLeft: 2,
-  },
-  imgPicker: {
-    height: 160,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: BORDER_RADIUS.md,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.xl,
-    overflow: "hidden",
-  },
-  preview: { width: "100%", height: "100%" },
-  imagePlaceholder: { color: colors.textSecondary, fontSize: FONT_SIZE.md },
-  save: {
-    backgroundColor: colors.secondary,
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.md,
-    alignItems: "center",
-  },
-  saveText: { color: colors.white, fontWeight: "700", fontSize: FONT_SIZE.md },
-  overlay: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: SPACING.lg,
-  },
-  deleteModal: {
-    backgroundColor: colors.surface,
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    width: "100%",
-    maxWidth: 360,
-  },
-  deleteTitle: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: SPACING.sm,
-  },
-  deleteText: {
-    fontSize: FONT_SIZE.sm,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: SPACING.lg,
-  },
-  deleteActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: SPACING.sm,
-  },
-  cancel: {
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: colors.surfaceSecondary,
-  },
-  cancelText: { color: colors.text, fontWeight: "600" },
-  confirm: {
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: colors.danger,
-  },
-  confirmText: { color: colors.white, fontWeight: "700" },
+    container: { flex: 1, backgroundColor: colors.background },
+    header: {
+      padding: SPACING.lg,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTitle: {
+      fontSize: FONT_SIZE.xl,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    headerSubtitle: {
+      fontSize: FONT_SIZE.sm,
+      color: colors.textSecondary,
+      marginTop: SPACING.xs,
+    },
+    list: { padding: SPACING.lg },
+    card: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      marginBottom: SPACING.sm,
+      padding: SPACING.md,
+      borderRadius: BORDER_RADIUS.lg,
+      gap: SPACING.sm,
+    },
+    imgBox: {
+      width: 52,
+      height: 52,
+      borderRadius: BORDER_RADIUS.sm,
+      backgroundColor: colors.surfaceSecondary,
+      justifyContent: "center",
+      alignItems: "center",
+      overflow: "hidden",
+    },
+    img: {
+      width: "100%",
+      height: "100%",
+      borderRadius: BORDER_RADIUS.sm,
+    },
+    noImgBox: {
+      width: "100%",
+      height: "100%",
+      borderRadius: BORDER_RADIUS.sm,
+      backgroundColor: colors.surfaceSecondary,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 4,
+    },
+    noImg: {
+      fontSize: FONT_SIZE.xs,
+      color: colors.textSecondary,
+      textAlign: "center",
+    },
+    mainInfo: { flex: 1 },
+    name: { fontSize: FONT_SIZE.md, fontWeight: "600", color: colors.text },
+    metaText: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
+    priceCol: { width: 72, alignItems: "center" },
+    price: {
+      fontSize: FONT_SIZE.xs,
+      fontWeight: "700",
+      color: colors.text,
+      textAlign: "center",
+    },
+    priceMuted: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
+    restockBadge: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.secondary,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    restockBadgeText: {
+      color: colors.white,
+      fontSize: FONT_SIZE.xl,
+      fontWeight: "700",
+    },
+    empty: {
+      textAlign: "center",
+      color: colors.textTertiary,
+      marginTop: SPACING.xxxl,
+    },
+    modalContainer: { flex: 1, backgroundColor: colors.background },
+    modalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: SPACING.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    backText: { fontSize: FONT_SIZE.md, color: colors.primary },
+    modalTitle: {
+      fontSize: FONT_SIZE.lg,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    headerSpacer: { width: 60 },
+    modalContent: { flex: 1 },
+    modalBody: { padding: SPACING.lg, paddingBottom: SPACING.xxxl },
+    productInfo: {
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg,
+      padding: SPACING.md,
+      marginBottom: SPACING.lg,
+    },
+    imageContainer: {
+      width: "100%",
+      height: 200,
+      borderRadius: BORDER_RADIUS.md,
+      marginBottom: SPACING.md,
+      justifyContent: "center",
+      alignItems: "center",
+      overflow: "hidden",
+    },
+    productImage: {
+      width: "100%",
+      height: "100%",
+      borderRadius: BORDER_RADIUS.md,
+    },
+    noImgBoxLarge: {
+      width: 80,
+      height: 80,
+      borderRadius: BORDER_RADIUS.md,
+      backgroundColor: colors.surfaceSecondary,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    noImgLarge: {
+      fontSize: FONT_SIZE.sm,
+      color: colors.textSecondary,
+    },
+    productDetails: { flex: 1, justifyContent: "center" },
+    productName: {
+      fontSize: FONT_SIZE.lg,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: SPACING.sm,
+    },
+    productMeta: {
+      flexDirection: "row",
+      gap: SPACING.md,
+    },
+    metaItem: {
+      gap: 2,
+    },
+    metaLabel: {
+      fontSize: FONT_SIZE.xs,
+      color: colors.textTertiary,
+    },
+    metaValue: {
+      fontSize: FONT_SIZE.sm,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    infoCard: {
+      backgroundColor: "#EFF6FF",
+      borderRadius: BORDER_RADIUS.md,
+      padding: SPACING.md,
+      marginBottom: SPACING.lg,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.primary,
+    },
+    infoTitle: {
+      fontSize: FONT_SIZE.md,
+      fontWeight: "700",
+      color: colors.primary,
+      marginBottom: SPACING.xs,
+    },
+    infoText: {
+      fontSize: FONT_SIZE.sm,
+      color: colors.textSecondary,
+      lineHeight: 20,
+    },
+    label: {
+      fontSize: FONT_SIZE.sm,
+      fontWeight: "600",
+      color: colors.textSecondary,
+      marginBottom: SPACING.xs,
+    },
+    input: {
+      backgroundColor: colors.surface,
+      padding: SPACING.md,
+      borderRadius: BORDER_RADIUS.md,
+      fontSize: FONT_SIZE.xl,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: SPACING.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    previewCard: {
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.md,
+      padding: SPACING.md,
+      gap: SPACING.sm,
+    },
+    previewTitle: {
+      fontSize: FONT_SIZE.md,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: SPACING.xs,
+    },
+    previewRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    previewLabel: {
+      fontSize: FONT_SIZE.sm,
+      color: colors.textSecondary,
+    },
+    previewValue: {
+      fontSize: FONT_SIZE.md,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    addText: { color: colors.secondary },
+    totalText: { color: colors.primary, fontSize: FONT_SIZE.lg },
+    modalFooter: {
+      padding: SPACING.lg,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    saveButton: {
+      backgroundColor: colors.secondary,
+      padding: SPACING.lg,
+      borderRadius: BORDER_RADIUS.md,
+      alignItems: "center",
+    },
+    saveButtonDisabled: {
+      opacity: 0.6,
+    },
+    saveButtonText: {
+      color: colors.white,
+      fontSize: FONT_SIZE.md,
+      fontWeight: "700",
+    },
   });

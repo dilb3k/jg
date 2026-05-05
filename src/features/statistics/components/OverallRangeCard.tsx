@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { formatMoney } from "../../../utils/inventory";
 import { createStatisticsStyles } from "../styles";
 import { useTheme } from "../../../store/themeStore";
+import { useI18n } from "../../../i18n";
 
 type Props = {
   rangeLabel: string;
@@ -35,81 +36,82 @@ export function OverallRangeCard({
   totals,
 }: Props) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
+
+  function RangeStat({
+    label,
+    value,
+    highlight,
+  }: {
+    label: string;
+    value: string | number;
+    highlight?: boolean;
+  }) {
+    return (
+      <View style={styles.statItem}>
+        <Text style={styles.statLabel}>{label}</Text>
+        <Text style={[styles.statValue, highlight ? styles.profit : null]}>{value}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.cardHeaderInfo}>
-          <Text style={styles.cardTitle}>Barcha vaqtdagi umumiy holat</Text>
+          <Text style={styles.cardTitle}>{t("ranging_overall")}</Text>
           <Text style={styles.rangeLabel}>{rangeLabel}</Text>
         </View>
         {overallStartDate || overallEndDate ? (
           <TouchableOpacity onPress={onReset} style={styles.resetButton}>
-            <Text style={styles.resetButtonText}>All data</Text>
+            <Text style={styles.resetButtonText}>{t("all_data")}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
 
       <View style={styles.rangeActions}>
         <TouchableOpacity style={styles.rangeButton} onPress={onPickStart}>
-          <Text style={styles.rangeButtonLabel}>Boshlanish</Text>
+          <Text style={styles.rangeButtonLabel}>{t("start")}</Text>
           <Text style={styles.rangeButtonValue}>
             {overallStartDate
               ? dayjs(overallStartDate).format("DD MMM YYYY")
-              : "Boshidan"}
+              : t("from_beginning")}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.rangeButton} onPress={onPickEnd}>
-          <Text style={styles.rangeButtonLabel}>Tugash</Text>
+          <Text style={styles.rangeButtonLabel}>{t("end")}</Text>
           <Text style={styles.rangeButtonValue}>
-            {overallEndDate ? dayjs(overallEndDate).format("DD MMM YYYY") : "Hozirgacha"}
+            {overallEndDate ? dayjs(overallEndDate).format("DD MMM YYYY") : t("until_now")}
           </Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.statsGrid}>
-        <RangeStat label="Jami sotiladigan dona" value={totals.sellableItems} />
-        <RangeStat label="Sotilgan dona" value={totals.soldItems} />
+        <RangeStat label={t("totalSellablePieces")} value={totals.sellableItems} />
+        <RangeStat label={t("soldPieces")} value={totals.soldItems} />
         <RangeStat
-          label="Jami sotish qiymati"
+          label={t("totalSellValue")}
           value={formatMoney(totals.sellableValue)}
         />
         <RangeStat
-          label="Sotilgan qiymat"
+          label={t("soldValue")}
           value={formatMoney(totals.earnedRevenue)}
         />
         <RangeStat
-          label="Olinishi mumkin foyda"
+          label={t("potentialProfit")}
           value={formatMoney(totals.possibleProfit)}
           highlight
         />
         <RangeStat
-          label="Olingan foyda"
+          label={t("earnedProfit")}
           value={formatMoney(totals.earnedProfit)}
           highlight
         />
-        <RangeStat label="Qolgan dona" value={totals.remainingItems} />
-        <RangeStat label="Qolgan qiymat" value={formatMoney(totals.stockValue)} />
+        <RangeStat label={t("remainingPieces")} value={totals.remainingItems} />
+        <RangeStat label={t("remainingStockValue")} value={formatMoney(totals.stockValue)} />
       </View>
-    </View>
-  );
-}
-
-function RangeStat({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string | number;
-  highlight?: boolean;
-}) {
-  return (
-    <View style={styles.statItem}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, highlight ? styles.profit : null]}>{value}</Text>
     </View>
   );
 }

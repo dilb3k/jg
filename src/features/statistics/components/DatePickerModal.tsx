@@ -4,6 +4,7 @@ import dayjs from "dayjs";
 
 import { createStatisticsStyles } from "../styles";
 import { useTheme } from "../../../store/themeStore";
+import { useI18n } from "../../../i18n";
 
 const WEEK_DAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 
@@ -23,6 +24,7 @@ export function DatePickerModal({
   onConfirm,
 }: Props) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
   const [draftDate, setDraftDate] = useState(selectedDate);
   const [currentMonth, setCurrentMonth] = useState(() =>
@@ -118,17 +120,17 @@ export function DatePickerModal({
             ))}
           </View>
 
-          <View style={styles.pickerActions}>
-            <TouchableOpacity style={styles.pickerCancel} onPress={onClose}>
-              <Text style={styles.pickerCancelText}>Bekor</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.pickerSave}
-              onPress={() => onConfirm(draftDate)}
-            >
-              <Text style={styles.pickerSaveText}>Saqlash</Text>
-            </TouchableOpacity>
-          </View>
+           <View style={styles.pickerActions}>
+             <TouchableOpacity style={styles.pickerCancel} onPress={onClose}>
+               <Text style={styles.pickerCancelText}>{t("cancel")}</Text>
+             </TouchableOpacity>
+             <TouchableOpacity
+               style={styles.pickerSave}
+               onPress={() => onConfirm(draftDate)}
+             >
+               <Text style={styles.pickerSaveText}>{t("save")}</Text>
+             </TouchableOpacity>
+           </View>
         </Pressable>
       </Pressable>
     </Modal>

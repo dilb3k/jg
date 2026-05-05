@@ -15,13 +15,13 @@ export const translations = {
     noAccount: 'Hisobingiz yo\'qmi? Administratorga murojaat qiling',
     enterLoginPassword: 'Login va parolni kiriting',
     signIn: 'Kirish',
-    
+
     // Navigation
     main: 'Asosiy',
     inventory: 'Ombor',
     statistics: 'Statistika',
     users: 'Foydalanuvchilar',
-    
+
     // Products
     products: 'Mahsulotlar',
     addProduct: 'Yangi mahsulot',
@@ -38,7 +38,18 @@ export const translations = {
     productInfoIncorrect: 'Mahsulot ma\'lumoti noto\'g\'ri',
     barrelManagement: 'Barrel Management',
     signInToSystem: 'Tizimga kiring',
-    
+
+    // Products Screen
+    noImage: 'Rasm yo\'q',
+    currentQuantity: 'Joriy qoldiq',
+    productNamePlaceholder: 'Masalan: Cola 1L',
+    pricePlaceholder: '0',
+    quantityPlaceholder: '0',
+    addImage: 'Rasm qo\'shish',
+    important: 'Hisob-kitob uchun muhim',
+    price_qty_warning: 'Narx va miqdor noto\'g\'ri kiritilsa keyingi hisoblarda chalkashlik yuz beradi. Shu sabab manfiy miqdor, 0 narx va zararli sotuv avtomatik bloklanadi.',
+    edit_product_warning: 'Bu yerda mahsulotning real qoldig\'i yuradi. Mahsulot kelsa yoki soni oshsa shu yerdan yangilang, ombor sahifasi ham shunga moslashadi.',
+
     // Restock
     restock: 'Mahsulot qo\'shish',
     restockSubtitle: 'Mahsulot kelganda qoldiqni yangilash uchun ro\'yxatdan tanlang',
@@ -49,10 +60,17 @@ export const translations = {
     addStock: 'Qo\'shish',
     addingStock: 'Qo\'shilmoqda...',
     stockAdded: 'dona qo\'shildi. Jami:',
-    
+    stockInfo: 'Qoldiq: {quantity} dona',
+    restockInfo: 'Bu yerda faqat mahsulot miqdorini oshirasiz. Yangi kelgan mahsulot miqdorini kiriting, tizim avtomatik ravishda umumiy qoldiqni yangilaydi.',
+    result: 'Natija',
+    buy: 'Kelish',
+    sell: 'Sotish',
+    add: 'Qo\'shish',
+
     // Inventory
+    start: 'Boshlang\'ich',
     startQuantity: 'Boshlang\'ich miqdor',
-    currentQuantity: 'Joriy miqdor',
+    currentQuantityInv: 'Joriy miqdor',
     sold: 'Sotilgan',
     remaining: 'Qoldiq',
     revenue: 'Tushum',
@@ -61,15 +79,41 @@ export const translations = {
     readOnly: 'Faqat ko\'rish',
     futureDate: 'Kelajak sana',
     pastDateError: 'O\'tgan kunlar uchun o\'zgartirish kiritib bo\'lmaydi!',
-    cannotBeLessThan: 'Boshlang\'ich miqdor',
     cannotBeLessThanSuffix: 'tadan kam bo\'lolmaydi',
     alreadySold: 'allaqachon sotilgan',
-    
+    unitProfit: 'Birlik foyda',
+    potentialProfit: 'Qolgan potensial foyda',
+    totalPotentialProfit: 'Jami mumkin bo\'lgan foyda',
+    progress: 'Progress',
+    inventoryUpdated: 'Ombor qoldig\'i yangilandi',
+    saveError: 'Saqlashda xatolik yuz berdi',
+    cannotIncreaseStock: 'Joriy qoldiqni oshirib bo\'lmaydi. Mahsulot qo\'shish mahsulotlar sahifasidan qilinadi',
+    inventoryInfo: 'Omborda faqat real qoldiq kiritiladi. Sotilgan miqdor avtomatik hisoblanadi. Mahsulot kelsa, mahsulotlar sahifasidan qoldiqni oshiring.',
+    readOnlyMode: 'Ko\'rish rejimi',
+    startQtyAuto: 'Boshlang\'ich miqdor avtomatik. Uni ombordan o\'zgartirib bo\'lmaydi.',
+    todayStart: 'Bugungi boshlang\'ich',
+    currentInventory: 'Ombor qoldig\'i',
+    preSaveCheck: 'Saqlashdan oldingi tekshiruv',
+    expectedRevenue: 'Kutilgan tushum',
+    expectedProfit: 'Kutilgan foyda',
+    previousSold: 'Avval sotilgan',
+    newSold: 'Yangi sotilgan',
+    warning_qtyAdjust: 'Omborda qoldiqni faqat kamaytirasiz. Mahsulot kelsa, mahsulotlar sahifasidan qoldiqni ko\'paytiring.',
+    loadingInventory: 'Ombor ma\'lumotlari yuklanmoqda...',
+    notAvailableYet: 'Hali mavjud emas',
+    futureDateNotice: 'Kelajak kuni',
+    futureDateNoticeText: 'Bu sana hali kelmagan, shuning uchun inventarizatsiya va savdo hisobi amalga oshirilmaydi.',
+    addProductsFirst: 'Avval mahsulot qo\'shing',
+
     // Statistics
     daily: 'Kun',
     weekly: 'Hafta',
     monthly: 'Oy',
     yearly: 'Yil',
+    selectPeriodDate: 'Davr sanasini tanlang',
+    selectStartDate: 'Boshlanish sanasini tanlang',
+    selectEndDate: 'Tugash sanasini tanlang',
+    selectDateHint: 'Davr sanasini tanlash',
     totalRevenue: 'Tushum',
     totalProfit: 'Sof foyda',
     totalSold: 'Sotildi',
@@ -79,7 +123,19 @@ export const translations = {
     noData: 'Ma\'lumot yo\'q',
     dataRefreshed: 'Ma\'lumotlar yangilandi',
     refreshError: 'Yangilashda xatolik yuz berdi',
-    
+    noSalesPeriod: 'Bu davrda hali savdo yo\'q, shuning uchun qiymatlar 0 ko\'rsatildi.',
+    noProductsPeriod: 'Tanlangan davr bo\'yicha mahsulot ma\'lumoti yo\'q',
+
+    // Rating
+    rating: 'Reyting',
+    date: 'Sana',
+    allTimeRating: 'Barcha vaqt reytingi',
+    profitPerUnit: 'Birlik foyda',
+    totalProfitRating: 'Jami foyda',
+    leastSold: 'Kam sotilgan',
+    profitEarned: 'Olingan foyda',
+    ratingNoData: 'Reyting uchun ma\'lumot topilmadi',
+
     // Users
     usersTitle: 'Adminlar',
     createUser: 'Yangi admin',
@@ -88,7 +144,13 @@ export const translations = {
     superAdmin: 'Super Admin',
     admin: 'Admin',
     createdAt: 'Yaratilgan',
-    
+    createAdmin: 'Yangi admin yaratish',
+    adminInfo: 'Yangi admin faqat mahsulot va ombor bilan ishlay oladi. Adminlar ro\'yxatini faqat superAdmin ko\'ra oladi.',
+    loginPlaceholder_Admin: 'Admin loginini kiriting',
+    passwordPlaceholder_Admin: 'Parolni kiriting (kamida 6 belgi)',
+    passwordLength: 'Parol kamida 6 ta belgidan iborat bo\'lishi kerak',
+    confirmCreate: 'Yaratish',
+
     // Settings
     settings: 'Sozlamalar',
     language: 'Til',
@@ -96,10 +158,11 @@ export const translations = {
     light: 'Yorug\'',
     dark: 'Tungi',
     system: 'Tizim',
+    lang_uz: "O'zbek",
+    lang_ru: 'Русский',
     logout: 'Chiqish',
-    userInfo: 'Foydalanuvchi ma\'lumotlari',
     close: 'Yopish',
-    
+
     // Common
     save: 'Saqlash',
     cancel: 'Bekor',
@@ -113,15 +176,8 @@ export const translations = {
     confirm: 'Tasdiqlash',
     online: 'Online',
     offline: 'Offline',
-    syncPending: 'Sinxdan o\'tishi kerak',
-    syncing: 'Sinxdan o\'tmoqda...',
-    syncComplete: 'Sinx yakunlandi',
-    syncError: 'Sinx bajarilmadi',
-    initializationError: 'Boshlashda xatolik yuz berdi',
-    productLoadError: 'Mahsulotlar yuklanmadi',
-    inventoryLoadError: 'Ombor ma\'lumotlari yuklanmadi',
-    snapshotLoadError: 'Snapshotlar yuklanmadi',
   },
+
   ru: {
     // Auth
     login: 'Вход',
@@ -133,13 +189,13 @@ export const translations = {
     noAccount: 'Нет аккаунта? Обратитесь к администратору',
     enterLoginPassword: 'Введите логин и пароль',
     signIn: 'Войти',
-    
+
     // Navigation
     main: 'Главная',
     inventory: 'Склад',
     statistics: 'Статистика',
     users: 'Пользователи',
-    
+
     // Products
     products: 'Продукты',
     addProduct: 'Новый продукт',
@@ -154,23 +210,29 @@ export const translations = {
     deleteConfirm: 'Удалить продукт?',
     deleteMessage: 'Этот продукт не будет отображаться в новых списках. Исторические данные сохранятся.',
     productInfoIncorrect: 'Информация о продукте неверна',
-    barrelManagement: 'Barrel Management',
-    signInToSystem: 'Войти в систему',
-    
+
+    // Products Screen
+    noImage: 'Изображение отсутствует',
+    currentQuantity: 'Текущий остаток',
+    productNamePlaceholder: 'Например: Cola 1L',
+    pricePlaceholder: '0',
+    quantityPlaceholder: '0',
+    addImage: 'Добавить изображение',
+    important: 'Важно для расчетов',
+    price_qty_warning: 'Неверные данные о цене или количестве приведут к путанице в будущих расчетах.',
+    edit_product_warning: 'Здесь находится реальный остаток товара.',
+
     // Restock
     restock: 'Пополнение',
-    restockSubtitle: 'Выберите из списка для обновления остатка при поступлении товара',
     howMuchArrived: 'Сколько товара прибыло?',
     currentStock: 'Текущий остаток',
-    addToStock: 'Добавить',
-    newStock: 'Новый остаток',
     addStock: 'Добавить',
     addingStock: 'Добавление...',
-    stockAdded: 'штук добавлено. Всего:',
-    
+
     // Inventory
+    start: 'Начальное',
     startQuantity: 'Начальное количество',
-    currentQuantity: 'Текущее количество',
+    currentQuantityInv: 'Текущее количество',
     sold: 'Продано',
     remaining: 'Остаток',
     revenue: 'Выручка',
@@ -178,11 +240,17 @@ export const translations = {
     stockValue: 'Стоимость остатка',
     readOnly: 'Только просмотр',
     futureDate: 'Будущая дата',
-    pastDateError: 'Нельзя вносить изменения за прошедшие дни!',
-    cannotBeLessThan: 'Начальное количество не может быть меньше',
-    cannotBeLessThanSuffix: 'штук',
-    alreadySold: 'уже продано',
-    
+    inventoryUpdated: 'Остаток на складе обновлен',
+    saveError: 'Ошибка при сохранении',
+    cannotIncreaseStock: 'Нельзя увеличить текущий остаток. Добавление товара осуществляется на странице продуктов.',
+    readOnlyMode: 'Режим просмотра',
+    currentInventory: 'Остаток на складе',
+    loadingInventory: 'Данные об остатках загружаются...',
+    notAvailableYet: 'Еще не доступно',
+    futureDateNotice: 'Будущий день закрыт',
+    futureDateNoticeText: 'Эта дата еще не наступила, поэтому инвентаризация и расчет продаж не производятся.',
+    addProductsFirst: 'Сначала добавьте продукты',
+
     // Statistics
     daily: 'День',
     weekly: 'Неделя',
@@ -191,22 +259,28 @@ export const translations = {
     totalRevenue: 'Выручка',
     totalProfit: 'Чистая прибыль',
     totalSold: 'Продано',
-    margin: 'Маржа',
-    topProducts: 'Самые продаваемые продукты',
-    periodSales: 'Продажи за период',
     noData: 'Нет данных',
     dataRefreshed: 'Данные обновлены',
     refreshError: 'Ошибка обновления',
-    
+
+    // Rating
+    rating: 'Рейтинг',
+    date: 'Дата',
+    allTimeRating: 'Рейтинг за все время',
+    profitPerUnit: 'Прибыль с единицы',
+    totalProfitRating: 'Общая прибыль',
+    leastSold: 'Меньше всего продано',
+    profitEarned: 'Полученная прибыль',
+    ratingNoData: 'Данные для рейтинга не найдены',
+
     // Users
     usersTitle: 'Админы',
     createUser: 'Новый админ',
     userCreated: 'Админ создан',
-    userRole: 'Роль',
     superAdmin: 'Супер Админ',
     admin: 'Админ',
-    createdAt: 'Создан',
-    
+    createAdmin: 'Создать нового администратора',
+
     // Settings
     settings: 'Настройки',
     language: 'Язык',
@@ -214,10 +288,11 @@ export const translations = {
     light: 'Светлая',
     dark: 'Тёмная',
     system: 'Системная',
+    lang_uz: 'Узбекский',
+    lang_ru: 'Русский',
     logout: 'Выход',
-    userInfo: 'Информация о пользователе',
     close: 'Закрыть',
-    
+
     // Common
     save: 'Сохранить',
     cancel: 'Отмена',
@@ -227,20 +302,9 @@ export const translations = {
     error: 'Ошибка',
     success: 'Успешно',
     search: 'Поиск...',
-    empty: 'Пусто',
     confirm: 'Подтвердить',
-    online: 'Онлайн',
-    offline: 'Офлайн',
-    syncPending: 'Требуется синхронизация',
-    syncing: 'Синхронизация...',
-    syncComplete: 'Синхронизация завершена',
-    syncError: 'Ошибка синхронизации',
-    initializationError: 'Ошибка инициализации',
-    productLoadError: 'Не удалось загрузить продукты',
-    inventoryLoadError: 'Не удалось загрузить данные склада',
-    snapshotLoadError: 'Не удалось загрузить снимки',
   },
-};
+} as const;
 
 // Type for translation keys
 export type TranslationKey = keyof typeof translations.uz;
@@ -252,16 +316,19 @@ export const useI18n = () => {
   const language = useThemeStore((state) => state.language);
   const setLanguageFromStore = useThemeStore((state) => state.setLanguage);
 
-  /**
-   * Translate a key to the current language
-   */
-  const t = useCallback((key: TranslationKey): string => {
-    return translations[language][key] || key;
+  const t = useCallback((key: TranslationKey, params?: Record<string, any>): string => {
+    let text = translations[language][key] || key;
+
+    if (params) {
+      Object.keys(params).forEach((paramKey) => {
+        const placeholder = `{${paramKey}}`;
+        text = text.replace(new RegExp(placeholder, 'g'), String(params[paramKey]));
+      });
+    }
+
+    return text;
   }, [language]);
 
-  /**
-   * Set the language and persist to storage
-   */
   const setLanguage = useCallback(async (newLanguage: Language) => {
     await setLanguageFromStore(newLanguage);
   }, [setLanguageFromStore]);
@@ -270,13 +337,21 @@ export const useI18n = () => {
     language,
     setLanguage,
     t,
-    translations: translations[language],
   };
 };
 
 /**
  * Simple translate function for non-hook usage
  */
-export const t = (key: TranslationKey, lang: Language = 'uz'): string => {
-  return translations[lang][key] || key;
+export const translate = (key: TranslationKey, lang: Language = 'uz', params?: Record<string, any>): string => {
+  let text = translations[lang][key] || key;
+
+  if (params) {
+    Object.keys(params).forEach((paramKey) => {
+      const placeholder = `{${paramKey}}`;
+      text = text.replace(new RegExp(placeholder, 'g'), String(params[paramKey]));
+    });
+  }
+
+  return text;
 };

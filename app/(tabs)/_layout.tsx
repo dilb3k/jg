@@ -29,58 +29,57 @@ import { useTheme } from "../../src/store/themeStore";
 import { useI18n } from "../../src/i18n";
 import { SPACING, FONT_SIZE, BORDER_RADIUS } from "../../src/theme";
 
-const LANGUAGES = [
-  { code: "uz", label: "O'zbek" },
-  { code: "ru", label: "Русский" },
-];
+const TabIcon = ({
+  name,
+  focused,
+  colors,
+}: {
+  name: string;
+  focused: boolean;
+  colors: any;
+}) => {
+  const color = focused ? colors.primary : colors.textTertiary;
+  const size = 22;
+
+  switch (name) {
+    case "products":
+      return <Package size={size} color={color} />;
+    case "inventory":
+      return <ClipboardList size={size} color={color} />;
+    case "statistics":
+      return <BarChart3 size={size} color={color} />;
+    case "users":
+      return <Users size={size} color={color} />;
+    default:
+      return <Package size={size} color={color} />;
+  }
+};
 
 const THEMES = [
   { code: "light", labelKey: "light", icon: Sun },
   { code: "dark", labelKey: "dark", icon: Moon },
 ];
 
-function TabIcon({ name, focused, colors }: { name: string; focused: boolean; colors: any }) {
-  const iconColor = focused ? colors.primary : colors.textTertiary;
-
-  const renderIcon = () => {
-    switch (name) {
-      case "restock":
-        return <Package size={24} color={iconColor} />;
-      case "inventory":
-        return <ClipboardList size={24} color={iconColor} />;
-      case "statistics":
-        return <BarChart3 size={24} color={iconColor} />;
-      case "users":
-        return <Users size={24} color={iconColor} />;
-      default:
-        return <Package size={24} color={iconColor} />;
-    }
-  };
-
-  return (
-    <View style={styles.tabIconContainer}>
-      {renderIcon()}
-    </View>
-  );
-}
-
-function HeaderRefreshButton({ colors }: { colors: any }) {
-  const { isLoading, refreshAppData, showToast } = useAppRefreshStore();
+function HeaderRefreshButton({ colors, t }: { colors: any; t: any }) {
+  const { isLoading, refreshAppData } = useAppRefreshStore();
+  const { showToast } = useAppRefreshStore(); // assuming showToast is here or in global store
 
   const handleRefresh = async () => {
     if (isLoading) return;
-
     try {
       await refreshAppData();
-      showToast("Ma'lumotlar yangilandi", "success");
+      showToast(t("dataRefreshed"), "success");
     } catch {
-      showToast("Yangilashda xatolik yuz berdi", "error");
+      showToast(t("refreshError"), "error");
     }
   };
 
   return (
     <TouchableOpacity
-      style={[styles.refreshButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+      style={[
+        styles.refreshButton,
+        { backgroundColor: colors.background, borderColor: colors.border },
+      ]}
       onPress={handleRefresh}
       activeOpacity={0.8}
       disabled={isLoading}
@@ -94,10 +93,19 @@ function HeaderRefreshButton({ colors }: { colors: any }) {
   );
 }
 
-function HeaderSettingsButton({ onPress, colors }: { onPress: () => void; colors: any }) {
+function HeaderSettingsButton({
+  onPress,
+  colors,
+}: {
+  onPress: () => void;
+  colors: any;
+}) {
   return (
     <TouchableOpacity
-      style={[styles.settingsButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+      style={[
+        styles.settingsButton,
+        { backgroundColor: colors.background, borderColor: colors.border },
+      ]}
       onPress={onPress}
       activeOpacity={0.8}
     >
@@ -111,10 +119,14 @@ export default function TabLayout() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const [showSettings, setShowSettings] = useState(false);
-  
-  // Theme and i18n integration - use selectors to avoid side effects
+
   const { theme, isDark, setTheme, language, setLanguage, colors } = useTheme();
   const { t } = useI18n();
+
+  const LANGUAGES = [
+    { code: "uz", label: t("lang_uz") },
+    { code: "ru", label: t("lang_ru") },
+  ];
 
   const handleLogout = async () => {
     await logout();
@@ -134,10 +146,8 @@ export default function TabLayout() {
 
   const isSuperAdmin = user?.role === "superAdmin";
 
-  // Get theme labels from translations
-  const getThemeLabel = (key: string) => {
-    return key === "light" ? "Yorug'" : "Tungi";
-  };
+  const getThemeLabel = (key: string) =>
+    key === "light" ? t("light") : t("dark");
 
   return (
     <>
@@ -150,8 +160,11 @@ export default function TabLayout() {
           headerTitleStyle: { color: colors.text, fontWeight: "600" },
           headerRight: () => (
             <View style={styles.headerRight}>
-              <HeaderRefreshButton colors={colors} />
-              <HeaderSettingsButton onPress={() => setShowSettings(true)} colors={colors} />
+              <HeaderRefreshButton colors={colors} t={t} />
+              <HeaderSettingsButton
+                onPress={() => setShowSettings(true)}
+                colors={colors}
+              />
             </View>
           ),
           tabBarStyle: {
@@ -168,24 +181,30 @@ export default function TabLayout() {
         }}
       >
         <Tabs.Screen
-          name="restock"
+          name="products"
           options={{
-            title: t("main"),
-            tabBarIcon: ({ focused }) => <TabIcon name="restock" focused={focused} colors={colors} />,
+            title: t("products"),
+            tabBarIcon: ({ focused }) => (
+              <TabIcon name="products" focused={focused} colors={colors} />
+            ),
           }}
         />
         <Tabs.Screen
           name="inventory"
           options={{
             title: t("inventory"),
-            tabBarIcon: ({ focused }) => <TabIcon name="inventory" focused={focused} colors={colors} />,
+            tabBarIcon: ({ focused }) => (
+              <TabIcon name="inventory" focused={focused} colors={colors} />
+            ),
           }}
         />
         <Tabs.Screen
           name="statistics"
           options={{
             title: t("statistics"),
-            tabBarIcon: ({ focused }) => <TabIcon name="statistics" focused={focused} colors={colors} />,
+            tabBarIcon: ({ focused }) => (
+              <TabIcon name="statistics" focused={focused} colors={colors} />
+            ),
           }}
         />
         <Tabs.Screen
@@ -193,7 +212,9 @@ export default function TabLayout() {
           options={{
             title: t("users"),
             href: isSuperAdmin ? undefined : null,
-            tabBarIcon: ({ focused }) => <TabIcon name="users" focused={focused} colors={colors} />,
+            tabBarIcon: ({ focused }) => (
+              <TabIcon name="users" focused={focused} colors={colors} />
+            ),
           }}
         />
       </Tabs>
@@ -211,12 +232,18 @@ export default function TabLayout() {
         >
           <Pressable
             style={[styles.modalContent, { backgroundColor: colors.surface }]}
-            onPress={(event) => event.stopPropagation()}
+            onPress={(e) => e.stopPropagation()}
           >
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>{t("settings")}</Text>
+            <View
+              style={[styles.modalHeader, { borderBottomColor: colors.border }]}
+            >
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {t("settings")}
+              </Text>
               <TouchableOpacity onPress={() => setShowSettings(false)}>
-                <Text style={[styles.modalClose, { color: colors.primary }]}>{t("close")}</Text>
+                <Text style={[styles.modalClose, { color: colors.primary }]}>
+                  {t("close")}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -224,12 +251,26 @@ export default function TabLayout() {
               {/* User Info */}
               {user && (
                 <View style={styles.section}>
-                  <View style={[styles.userInfo, { backgroundColor: colors.background }]}>
+                  <View
+                    style={[
+                      styles.userInfo,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
                     <User size={20} color={colors.textSecondary} />
                     <View style={styles.userInfoText}>
-                      <Text style={[styles.userName, { color: colors.text }]}>{user.username}</Text>
-                      <Text style={[styles.userRole, { color: colors.textSecondary }]}>
-                        {user.role === "superAdmin" ? t("superAdmin") : t("admin")}
+                      <Text style={[styles.userName, { color: colors.text }]}>
+                        {user.username}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.userRole,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {user.role === "superAdmin"
+                          ? t("superAdmin")
+                          : t("admin")}
                       </Text>
                     </View>
                   </View>
@@ -240,7 +281,14 @@ export default function TabLayout() {
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <Globe size={18} color={colors.textSecondary} />
-                  <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t("language")}</Text>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {t("language")}
+                  </Text>
                 </View>
                 <View style={styles.optionsList}>
                   {LANGUAGES.map((lang) => (
@@ -248,16 +296,27 @@ export default function TabLayout() {
                       key={lang.code}
                       style={[
                         styles.optionItem,
-                        language === lang.code && [styles.optionItemActive, { borderColor: colors.primary, backgroundColor: colors.primary + "15" }],
+                        language === lang.code && [
+                          styles.optionItemActive,
+                          {
+                            borderColor: colors.primary,
+                            backgroundColor: colors.primary + "15",
+                          },
+                        ],
                         { backgroundColor: colors.background },
                       ]}
-                      onPress={() => handleLanguageChange(lang.code as "uz" | "ru")}
+                      onPress={() =>
+                        handleLanguageChange(lang.code as "uz" | "ru")
+                      }
                     >
                       <Text
                         style={[
                           styles.optionText,
                           { color: colors.text },
-                          language === lang.code && { color: colors.primary, fontWeight: "600" },
+                          language === lang.code && {
+                            color: colors.primary,
+                            fontWeight: "600",
+                          },
                         ]}
                       >
                         {lang.label}
@@ -275,28 +334,53 @@ export default function TabLayout() {
                   ) : (
                     <Sun size={18} color={colors.textSecondary} />
                   )}
-                  <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t("theme")}</Text>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {t("theme")}
+                  </Text>
                 </View>
                 <View style={styles.optionsList}>
-                  {THEMES.map((t_item) => (
+                  {THEMES.map((item) => (
                     <Pressable
-                      key={t_item.code}
+                      key={item.code}
                       style={[
                         styles.optionItem,
-                        theme === t_item.code && [styles.optionItemActive, { borderColor: colors.primary, backgroundColor: colors.primary + "15" }],
+                        theme === item.code && [
+                          styles.optionItemActive,
+                          {
+                            borderColor: colors.primary,
+                            backgroundColor: colors.primary + "15",
+                          },
+                        ],
                         { backgroundColor: colors.background },
                       ]}
-                      onPress={() => handleThemeChange(t_item.code as "light" | "dark")}
+                      onPress={() =>
+                        handleThemeChange(item.code as "light" | "dark")
+                      }
                     >
-                      <t_item.icon size={18} color={theme === t_item.code ? colors.primary : colors.textSecondary} />
+                      <item.icon
+                        size={18}
+                        color={
+                          theme === item.code
+                            ? colors.primary
+                            : colors.textSecondary
+                        }
+                      />
                       <Text
                         style={[
                           styles.optionText,
                           { color: colors.text },
-                          theme === t_item.code && { color: colors.primary, fontWeight: "600" },
+                          theme === item.code && {
+                            color: colors.primary,
+                            fontWeight: "600",
+                          },
                         ]}
                       >
-                        {getThemeLabel(t_item.labelKey)}
+                        {getThemeLabel(item.labelKey)}
                       </Text>
                     </Pressable>
                   ))}
@@ -306,11 +390,16 @@ export default function TabLayout() {
               {/* Logout */}
               <View style={styles.section}>
                 <Pressable
-                  style={[styles.logoutButton, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}
+                  style={[
+                    styles.logoutButton,
+                    { backgroundColor: "#FEF2F2", borderColor: "#FECACA" },
+                  ]}
                   onPress={handleLogout}
                 >
                   <LogOut size={18} color={colors.danger} />
-                  <Text style={[styles.logoutText, { color: colors.danger }]}>{t("logout")}</Text>
+                  <Text style={[styles.logoutText, { color: colors.danger }]}>
+                    {t("logout")}
+                  </Text>
                 </Pressable>
               </View>
             </ScrollView>
@@ -344,14 +433,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
   },
-  tabIconContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
+  modalOverlay: { flex: 1, justifyContent: "flex-end" },
   modalContent: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -364,20 +446,10 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     borderBottomWidth: 1,
   },
-  modalTitle: {
-    fontSize: FONT_SIZE.xl,
-    fontWeight: "700",
-  },
-  modalClose: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: "600",
-  },
-  modalBody: {
-    padding: SPACING.lg,
-  },
-  section: {
-    marginBottom: SPACING.lg,
-  },
+  modalTitle: { fontSize: FONT_SIZE.xl, fontWeight: "700" },
+  modalClose: { fontSize: FONT_SIZE.lg, fontWeight: "600" },
+  modalBody: { padding: SPACING.lg },
+  section: { marginBottom: SPACING.lg },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -397,19 +469,10 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.lg,
   },
-  userInfoText: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: "700",
-  },
-  userRole: {
-    fontSize: FONT_SIZE.sm,
-  },
-  optionsList: {
-    gap: SPACING.xs,
-  },
+  userInfoText: { flex: 1 },
+  userName: { fontSize: FONT_SIZE.lg, fontWeight: "700" },
+  userRole: { fontSize: FONT_SIZE.sm },
+  optionsList: { gap: SPACING.xs },
   optionItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -417,12 +480,8 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
   },
-  optionItemActive: {
-    borderWidth: 1,
-  },
-  optionText: {
-    fontSize: FONT_SIZE.lg,
-  },
+  optionItemActive: { borderWidth: 1 },
+  optionText: { fontSize: FONT_SIZE.lg },
   logoutButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -432,8 +491,5 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
   },
-  logoutText: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: "600",
-  },
+  logoutText: { fontSize: FONT_SIZE.lg, fontWeight: "600" },
 });

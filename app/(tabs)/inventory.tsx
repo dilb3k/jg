@@ -136,47 +136,46 @@ export default function InventoryScreen() {
     setShowModal(true);
   };
 
-  const validateInputs = (): boolean => {
-    if (!selectedEntry) return false;
+   const validateInputs = (): boolean => {
+     if (!selectedEntry) return false;
 
-    const inputCurrent = parseWholeNumber(currentQty);
-    const nextErrors: FormErrors = {
-      currentQty: "",
-      general: "",
-    };
+     const inputCurrent = parseWholeNumber(currentQty);
+     const nextErrors: FormErrors = {
+       currentQty: "",
+       general: "",
+     };
 
-    if (inputCurrent > selectedEntry.currentQuantity) {
-      nextErrors.currentQty =
-        "Joriy qoldiqni oshirib bo'lmaydi. Mahsulot qo'shish mahsulotlar sahifasidan qilinadi";
-    }
+     if (inputCurrent > selectedEntry.currentQuantity) {
+       nextErrors.currentQty = t("cannotIncreaseStock");
+     }
 
-    setErrors(nextErrors);
-    return !Object.values(nextErrors).some(Boolean);
-  };
+     setErrors(nextErrors);
+     return !Object.values(nextErrors).some(Boolean);
+   };
 
-  const handleSave = async () => {
-    if (!selectedEntry || isReadOnly || isFutureDate) return;
-    if (!validateInputs()) return;
+   const handleSave = async () => {
+     if (!selectedEntry || isReadOnly || isFutureDate) return;
+     if (!validateInputs()) return;
 
-    const inputCurrent = parseWholeNumber(currentQty);
+     const inputCurrent = parseWholeNumber(currentQty);
 
-    try {
-      await setCurrentQuantity(
-        selectedEntry.productId,
-        selectedDate,
-        inputCurrent,
-      );
+     try {
+       await setCurrentQuantity(
+         selectedEntry.productId,
+         selectedDate,
+         inputCurrent,
+       );
 
-      await loadInventoryByDate(selectedDate);
-      closeModal();
-      showToast("Ombor qoldig'i yangilandi", "success");
-    } catch (error: any) {
-      setErrors((prev) => ({
-        ...prev,
-        general: error.message || "Saqlashda xatolik yuz berdi",
-      }));
-    }
-  };
+       await loadInventoryByDate(selectedDate);
+       closeModal();
+       showToast(t("inventoryUpdated"), "success");
+     } catch (error: any) {
+       setErrors((prev) => ({
+         ...prev,
+         general: error.message || t("saveError"),
+       }));
+     }
+   };
 
   const renderItem = ({ item }: { item: InventoryWithProduct }) => {
     const metrics = getInventoryMetrics(item);
@@ -195,89 +194,89 @@ export default function InventoryScreen() {
           />
         ) : null}
 
-        <View style={styles.cardHeader}>
-          <View style={styles.cardTitleWrap}>
-            <Text style={styles.productName}>{item.product.name}</Text>
-            <Text style={styles.productPrice}>
-              {formatMoney(item.product.sellPrice)}
-            </Text>
-          </View>
+           <View style={styles.cardHeader}>
+             <View style={styles.cardTitleWrap}>
+               <Text style={styles.productName}>{item.product.name}</Text>
+               <Text style={styles.productPrice}>
+                 {formatMoney(item.product.sellPrice)}
+               </Text>
+             </View>
 
-          <View
-            style={[
-              styles.quantityBadge,
-              metrics.remaining <= 5 && styles.quantityBadgeLow,
-            ]}
-          >
-            <Text style={styles.quantityBadgeText}>{metrics.remaining}</Text>
-          </View>
-        </View>
+             <View
+               style={[
+                 styles.quantityBadge,
+                 metrics.remaining <= 5 && styles.quantityBadgeLow,
+               ]}
+             >
+               <Text style={styles.quantityBadgeText}>{metrics.remaining}</Text>
+             </View>
+           </View>
 
-        <View style={styles.quantityRow}>
-          <View style={styles.quantityItem}>
-            <Text style={styles.quantityLabel}>Boshlang&apos;ich</Text>
-            <Text style={styles.quantityValue}>{item.startQuantity}</Text>
-          </View>
-          <View style={styles.quantityItem}>
-            <Text style={styles.quantityLabel}>Qoldiq</Text>
-            <Text
-              style={[
-                styles.quantityValue,
-                metrics.remaining <= 5 ? styles.loss : null,
-              ]}
-            >
-              {metrics.remaining}
-            </Text>
-          </View>
-          <View style={styles.quantityItem}>
-            <Text style={styles.quantityLabel}>Sotilgan</Text>
-            <Text
-              style={[
-                styles.quantityValue,
-                metrics.sold > 0 ? styles.profit : null,
-              ]}
-            >
-              {metrics.sold}
-            </Text>
-          </View>
-        </View>
+           <View style={styles.quantityRow}>
+             <View style={styles.quantityItem}>
+               <Text style={styles.quantityLabel}>{t("start")}</Text>
+               <Text style={styles.quantityValue}>{item.startQuantity}</Text>
+             </View>
+             <View style={styles.quantityItem}>
+               <Text style={styles.quantityLabel}>{t("remaining")}</Text>
+               <Text
+                 style={[
+                   styles.quantityValue,
+                   metrics.remaining <= 5 ? styles.loss : null,
+                 ]}
+               >
+                 {metrics.remaining}
+               </Text>
+             </View>
+             <View style={styles.quantityItem}>
+               <Text style={styles.quantityLabel}>{t("sold")}</Text>
+               <Text
+                 style={[
+                   styles.quantityValue,
+                   metrics.sold > 0 ? styles.profit : null,
+                 ]}
+               >
+                 {metrics.sold}
+               </Text>
+             </View>
+           </View>
 
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Tushum</Text>
-            <Text style={styles.statValue}>{formatMoney(metrics.revenue)}</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Birlik foyda</Text>
-            <Text
-              style={[
-                styles.statValue,
-                item.product.sellPrice - item.product.buyPrice >= 0
-                  ? styles.profit
-                  : styles.loss,
-              ]}
-            >
-              {formatMoney(item.product.sellPrice - item.product.buyPrice)}
-            </Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Foyda</Text>
-            <Text
-              style={[
-                styles.statValue,
-                metrics.realizedProfit >= 0 ? styles.profit : styles.loss,
-              ]}
-            >
-              {formatMoney(metrics.realizedProfit)}
-            </Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Qoldiq qiymati</Text>
-            <Text style={styles.statValue}>
-              {formatMoney(metrics.stockSellValue)}
-            </Text>
-          </View>
-        </View>
+           <View style={styles.statsRow}>
+             <View style={styles.statItem}>
+               <Text style={styles.statLabel}>{t("revenue")}</Text>
+               <Text style={styles.statValue}>{formatMoney(metrics.revenue)}</Text>
+             </View>
+             <View style={styles.statItem}>
+               <Text style={styles.statLabel}>{t("unitProfit")}</Text>
+               <Text
+                 style={[
+                   styles.statValue,
+                   item.product.sellPrice - item.product.buyPrice >= 0
+                     ? styles.profit
+                     : styles.loss,
+                 ]}
+               >
+                 {formatMoney(item.product.sellPrice - item.product.buyPrice)}
+               </Text>
+             </View>
+             <View style={styles.statItem}>
+               <Text style={styles.statLabel}>{t("profit")}</Text>
+               <Text
+                 style={[
+                   styles.statValue,
+                   metrics.realizedProfit >= 0 ? styles.profit : styles.loss,
+                 ]}
+               >
+                 {formatMoney(metrics.realizedProfit)}
+               </Text>
+             </View>
+             <View style={styles.statItem}>
+               <Text style={styles.statLabel}>{t("stockValue")}</Text>
+               <Text style={styles.statValue}>
+                 {formatMoney(metrics.stockSellValue)}
+               </Text>
+             </View>
+           </View>
       </TouchableOpacity>
     );
   };
@@ -322,45 +321,44 @@ export default function InventoryScreen() {
       {isDateLoading ? (
         <View style={styles.loadingCard}>
           <ActivityIndicator size="small" color={colors.primary} />
-          <Text style={styles.loadingTitle}>Ombor ma&apos;lumotlari yuklanmoqda</Text>
+          <Text style={styles.loadingTitle}>{t("loading")}</Text>
           <Text style={styles.loadingText}>
-            Sana bo&apos;yicha qoldiq va hisob-kitoblar qayta tayyorlanmoqda.
+            {t("loadingInventory")}
           </Text>
         </View>
       ) : null}
 
-      {!isFutureDate && !isDateLoading ? (
-        <View style={styles.totalsSummary}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Jami boshlang&apos;ich</Text>
-            <Text style={styles.summaryValue}>{totals.start}</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Jami qoldiq</Text>
-            <Text style={styles.summaryValue}>{totals.current}</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Sotildi</Text>
-            <Text style={[styles.summaryValue, styles.profit]}>{totals.sold}</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Foyda</Text>
-            <Text
-              style={[
-                styles.summaryValue,
-                totals.profit >= 0 ? styles.profit : styles.loss,
-              ]}
-            >
-              {formatWholeNumber(totals.profit)}
-            </Text>
-          </View>
-        </View>
+       {!isFutureDate && !isDateLoading ? (
+         <View style={styles.totalsSummary}>
+           <View style={styles.summaryItem}>
+             <Text style={styles.summaryLabel}>{t("start")}</Text>
+             <Text style={styles.summaryValue}>{totals.start}</Text>
+           </View>
+           <View style={styles.summaryItem}>
+             <Text style={styles.summaryLabel}>{t("remaining")}</Text>
+             <Text style={styles.summaryValue}>{totals.current}</Text>
+           </View>
+           <View style={styles.summaryItem}>
+             <Text style={styles.summaryLabel}>{t("sold")}</Text>
+             <Text style={[styles.summaryValue, styles.profit]}>{totals.sold}</Text>
+           </View>
+           <View style={styles.summaryItem}>
+             <Text style={styles.summaryLabel}>{t("profit")}</Text>
+             <Text
+               style={[
+                 styles.summaryValue,
+                 totals.profit >= 0 ? styles.profit : styles.loss,
+               ]}
+             >
+               {formatWholeNumber(totals.profit)}
+             </Text>
+           </View>
+         </View>
       ) : !isDateLoading ? (
         <View style={styles.futureNotice}>
-          <Text style={styles.futureNoticeTitle}>Kelajakdagi kun yopiq</Text>
+          <Text style={styles.futureNoticeTitle}>{t("futureDateNotice")}</Text>
           <Text style={styles.futureNoticeText}>
-            Bu sana hali kelmagan, shuning uchun inventar va savdo hisobi
-            yaratilmaydi.
+            {t("futureDateNoticeText")}
           </Text>
         </View>
       ) : null}
@@ -374,12 +372,12 @@ export default function InventoryScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
-                {isFutureDate ? "Hali bu kun kelmadi" : "Mahsulotlar topilmadi"}
+                {isFutureDate ? t("notAvailableYet") : t("noProductsFound")}
               </Text>
               <Text style={styles.emptySubtext}>
                 {isFutureDate
-                  ? "Kelajakdagi sana uchun inventar ochilmaydi"
-                  : "Avval mahsulot qo&apos;shing"}
+                  ? t("futureDateNoticeText")
+                  : t("addProductsFirst")}
               </Text>
             </View>
           }
@@ -396,63 +394,60 @@ export default function InventoryScreen() {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.modalContainer}
         >
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={closeModal}>
-              <Text style={styles.cancelText}>Bekor</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>
-              {isReadOnly ? "Ko&apos;rish rejimi" : "Ombor qoldig&apos;i"}
-            </Text>
-            <View style={styles.modalHeaderSpacer} />
-          </View>
+           <View style={styles.modalHeader}>
+             <TouchableOpacity onPress={closeModal}>
+               <Text style={styles.cancelText}>{t("cancel")}</Text>
+             </TouchableOpacity>
+             <Text style={styles.modalTitle}>
+               {isReadOnly ? t("readOnlyMode") : t("currentInventory")}
+             </Text>
+             <View style={styles.modalHeaderSpacer} />
+           </View>
 
           <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalBody}>
-            {selectedEntry ? (
-              <>
-                <View style={styles.infoBox}>
-                  <Text style={styles.infoTitle}>{selectedEntry.product.name}</Text>
-                  <Text style={styles.infoText}>
-                    Omborda faqat real qoldiq kiritiladi. Sotilgan miqdor
-                    avtomatik hisoblanadi. Mahsulot kelsa, mahsulotlar
-                    sahifasidan qoldiqni oshiring.
-                  </Text>
-                </View>
+             {selectedEntry ? (
+               <>
+                 <View style={styles.infoBox}>
+                   <Text style={styles.infoTitle}>{selectedEntry.product.name}</Text>
+                   <Text style={styles.infoText}>
+                     {t("inventoryInfo")}
+                   </Text>
+                 </View>
 
-                {isReadOnly ? (
-                  <View style={styles.readOnlyBox}>
-                    <View style={styles.previewRow}>
-                      <Text style={styles.previewLabel}>Boshlang&apos;ich</Text>
-                      <Text style={styles.previewValue}>{selectedEntry.startQuantity}</Text>
-                    </View>
-                    <View style={styles.previewRow}>
-                      <Text style={styles.previewLabel}>Joriy</Text>
-                      <Text style={styles.previewValue}>{selectedEntry.currentQuantity}</Text>
-                    </View>
-                    <View style={styles.previewRow}>
-                      <Text style={styles.previewLabel}>Sotilgan</Text>
-                      <Text style={styles.previewValue}>
-                        {Math.max(
-                          selectedEntry.startQuantity - selectedEntry.currentQuantity,
-                          0,
-                        )}
-                      </Text>
-                    </View>
-                  </View>
-                ) : (
-                  <>
-                    <Text style={styles.label}>Boshlang&apos;ich miqdor</Text>
-                    <View style={styles.readOnlyBox}>
-                      <View style={styles.previewRow}>
-                        <Text style={styles.previewLabel}>Bugungi boshlang&apos;ich</Text>
-                        <Text style={styles.previewValue}>{selectedEntry.startQuantity}</Text>
-                      </View>
-                      <Text style={styles.autoHint}>
-                        Boshlang&apos;ich miqdor avtomatik. Uni ombordan
-                        o&apos;zgartirib bo&apos;lmaydi.
-                      </Text>
-                    </View>
+                 {isReadOnly ? (
+                   <View style={styles.readOnlyBox}>
+                     <View style={styles.previewRow}>
+                       <Text style={styles.previewLabel}>{t("start")}</Text>
+                       <Text style={styles.previewValue}>{selectedEntry.startQuantity}</Text>
+                     </View>
+                     <View style={styles.previewRow}>
+                       <Text style={styles.previewLabel}>{t("currentQuantityInv")}</Text>
+                       <Text style={styles.previewValue}>{selectedEntry.currentQuantity}</Text>
+                     </View>
+                     <View style={styles.previewRow}>
+                       <Text style={styles.previewLabel}>{t("sold")}</Text>
+                       <Text style={styles.previewValue}>
+                         {Math.max(
+                           selectedEntry.startQuantity - selectedEntry.currentQuantity,
+                           0,
+                         )}
+                       </Text>
+                     </View>
+                   </View>
+                 ) : (
+                   <>
+                     <Text style={styles.label}>{t("startQuantity")}</Text>
+                     <View style={styles.readOnlyBox}>
+                       <View style={styles.previewRow}>
+                         <Text style={styles.previewLabel}>{t("todayStart")}</Text>
+                         <Text style={styles.previewValue}>{selectedEntry.startQuantity}</Text>
+                       </View>
+                       <Text style={styles.autoHint}>
+                         {t("startQtyAuto")}
+                       </Text>
+                     </View>
 
-                    <Text style={styles.label}>Joriy miqdor</Text>
+                     <Text style={styles.label}>{t("currentQuantityInv")}</Text>
                     <TextInput
                       style={[
                         styles.input,
@@ -475,42 +470,41 @@ export default function InventoryScreen() {
                       <Text style={styles.errorText}>{errors.currentQty}</Text>
                     )}
 
-                    {preview ? (
-                      <View style={styles.previewCard}>
-                        <Text style={styles.previewTitle}>Saqlashdan oldingi tekshiruv</Text>
+                     {preview ? (
+                       <View style={styles.previewCard}>
+                         <Text style={styles.previewTitle}>{t("preSaveCheck")}</Text>
 
-                        <View style={styles.warningBanner}>
-                          <Text style={styles.warningBannerText}>
-                            Omborda qoldiqni faqat kamaytirasiz. Mahsulot kelsa,
-                            mahsulotlar sahifasidan qoldiqni ko&apos;paytiring.
-                          </Text>
-                        </View>
+                         <View style={styles.warningBanner}>
+                           <Text style={styles.warningBannerText}>
+                             {t("warning_qtyAdjust")}
+                           </Text>
+                         </View>
 
-                        <View style={styles.previewRow}>
-                          <Text style={styles.previewLabel}>Avval sotilgan</Text>
-                          <Text style={styles.previewValue}>{preview.previousSold}</Text>
-                        </View>
-                        <View style={styles.previewRow}>
-                          <Text style={styles.previewLabel}>Yangi sotilgan</Text>
-                          <Text style={styles.previewValue}>{preview.nextSold}</Text>
-                        </View>
-                        <View style={styles.previewRow}>
-                          <Text style={styles.previewLabel}>Kutilgan tushum</Text>
-                          <Text style={styles.previewValue}>
-                            {formatMoney(preview.revenue)}
-                          </Text>
-                        </View>
-                        <View style={styles.previewRow}>
-                          <Text style={styles.previewLabel}>Kutilgan foyda</Text>
-                          <Text
-                            style={[
-                              styles.previewValue,
-                              preview.profit >= 0 ? styles.profit : styles.loss,
-                            ]}
-                          >
-                            {formatMoney(preview.profit)}
-                          </Text>
-                        </View>
+                         <View style={styles.previewRow}>
+                           <Text style={styles.previewLabel}>{t("previousSold")}</Text>
+                           <Text style={styles.previewValue}>{preview.previousSold}</Text>
+                         </View>
+                         <View style={styles.previewRow}>
+                           <Text style={styles.previewLabel}>{t("newSold")}</Text>
+                           <Text style={styles.previewValue}>{preview.nextSold}</Text>
+                         </View>
+                         <View style={styles.previewRow}>
+                           <Text style={styles.previewLabel}>{t("expectedRevenue")}</Text>
+                           <Text style={styles.previewValue}>
+                             {formatMoney(preview.revenue)}
+                           </Text>
+                         </View>
+                         <View style={styles.previewRow}>
+                           <Text style={styles.previewLabel}>{t("expectedProfit")}</Text>
+                           <Text
+                             style={[
+                               styles.previewValue,
+                               preview.profit >= 0 ? styles.profit : styles.loss,
+                             ]}
+                           >
+                             {formatMoney(preview.profit)}
+                           </Text>
+                         </View>
                       </View>
                     ) : null}
 
@@ -525,13 +519,13 @@ export default function InventoryScreen() {
             ) : null}
           </ScrollView>
 
-          {!isReadOnly ? (
-            <View style={styles.modalFooter}>
-              <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                <Text style={styles.saveButtonText}>Saqlash</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
+           {!isReadOnly ? (
+             <View style={styles.modalFooter}>
+               <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+                 <Text style={styles.saveButtonText}>{t("save")}</Text>
+               </TouchableOpacity>
+             </View>
+           ) : null}
         </KeyboardAvoidingView>
       </Modal>
     </View>

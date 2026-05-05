@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -564,6 +565,15 @@ export default function InventoryScreen() {
 
           {!isReadOnly ? (
             <View style={styles.modalFooter}>
+              <Pressable
+                onPress={closeModal}
+                style={({ pressed }) => [
+                  styles.backButton,
+                  pressed && styles.backButtonPressed,
+                ]}
+              >
+                <Text style={styles.backText}>{t("back")}</Text>
+              </Pressable>
               <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
                 <Text style={styles.saveButtonText}>{t("save")}</Text>
               </TouchableOpacity>
@@ -783,6 +793,28 @@ const createStyles = (colors: ThemeColors) =>
       borderLeftWidth: 4,
       borderLeftColor: colors.primary,
     },
+    backButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 10,
+      backgroundColor: "#F3F4F6",
+      borderWidth: 1,
+      borderColor: "#E5E7EB",
+    },
+
+    backButtonPressed: {
+      backgroundColor: "#E5E7EB",
+      transform: [{ scale: 0.98 }],
+    },
+
+    backText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#374151",
+    },
     infoTitle: {
       fontSize: FONT_SIZE.md,
       fontWeight: "700",
@@ -883,6 +915,9 @@ const createStyles = (colors: ThemeColors) =>
       lineHeight: 20,
     },
     modalFooter: {
+      display: "flex",
+      flexDirection: "row",
+      justifyContent: "space-between",
       padding: SPACING.lg,
       borderTopWidth: 1,
       borderTopColor: colors.border,

@@ -161,7 +161,7 @@ export default function ProductsScreen() {
     <TouchableOpacity style={styles.row} onPress={() => openEdit(item)}>
       <View style={styles.imgBox}>
         {item.image ? (
-            <Image source={{ uri: item.image }} style={styles.img} />
+          <Image source={{ uri: item.image }} style={styles.img} />
         ) : (
           <View style={styles.noImgBox}>
             <Text style={styles.noImg}>{t("noImage")}</Text>
@@ -341,6 +341,15 @@ export default function ProductsScreen() {
           </ScrollView>
 
           <View style={styles.modalFooter}>
+            <Pressable
+              onPress={closeModal}
+              style={({ pressed }) => [
+                styles.backButton,
+                pressed && styles.backButtonPressed,
+              ]}
+            >
+              <Text style={styles.backText}>{t("back")}</Text>
+            </Pressable>
             <Pressable onPressOut={handleSave} style={styles.save}>
               <Text style={styles.saveText}>{t("save")}</Text>
             </Pressable>
@@ -484,6 +493,22 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: "600",
       color: colors.text,
     },
+    backButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 10,
+      backgroundColor: "#F3F4F6",
+      borderWidth: 1,
+      borderColor: "#E5E7EB",
+    },
+
+    backButtonPressed: {
+      backgroundColor: "#E5E7EB",
+      transform: [{ scale: 0.98 }],
+    },
     headerSpacer: { width: 60 },
     headerDeleteBtn: {
       width: 36,
@@ -496,6 +521,9 @@ const createStyles = (colors: ThemeColors) =>
     modal: { flex: 1 },
     modalBody: { padding: SPACING.lg, paddingBottom: SPACING.xxxl },
     modalFooter: {
+      display: "flex",
+      flexDirection: "row",
+      justifyContent: "space-between",
       padding: SPACING.lg,
       borderTopWidth: 1,
       borderTopColor: colors.border,

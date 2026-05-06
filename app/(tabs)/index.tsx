@@ -12,6 +12,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 
 import {
@@ -30,6 +31,7 @@ export default function RestockScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
   const { products, loadProducts, updateProduct, showToast } =
     useProductsScreenStore();
 
@@ -37,10 +39,23 @@ export default function RestockScreen() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // ← Yangi qo'shildi
 
+  // Initial loading
   useEffect(() => {
-    loadProducts();
+    loadInitialData();
   }, [loadProducts]);
+
+  const loadInitialData = async () => {
+    setIsLoading(true);
+    try {
+      await loadProducts();
+    } catch (error: any) {
+      showToast(error.message || t("error"), "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const openRestockModal = (product: Product) => {
     setSelectedProduct(product);
@@ -59,7 +74,7 @@ export default function RestockScreen() {
 
     const qtyToAdd = parseInt(quantity.replace(/\D/g, ""), 10);
     if (isNaN(qtyToAdd) || qtyToAdd <= 0) {
-      showToast(t("error"), "error");
+      showToast(t("enterValidQuantity"), "error"); // yaxshiroq xabar
       return;
     }
 
@@ -72,7 +87,7 @@ export default function RestockScreen() {
       });
       await loadProducts();
       closeModal();
-      showToast(`${qtyToAdd} ${t("stockAdded")} ${newQuantity}`, "success");
+      showToast(`${qtyToAdd} ${t("stockAdded")} → ${newQuantity}`, "success");
     } catch (error: any) {
       showToast(error.message || t("error"), "error");
     } finally {
@@ -127,14 +142,24 @@ export default function RestockScreen() {
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={products}
-        keyExtractor={(item) => item.localId}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.empty}>{t("noProducts")}</Text>}
-      />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>{t("loading")}</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={products}
+          keyExtractor={(item) => item.localId}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <Text style={styles.empty}>{t("noProducts")}</Text>
+          }
+        />
+      )}
 
+      {/* ==================== RESTOCK MODAL ==================== */}
       <Modal
         visible={showModal}
         animationType="slide"
@@ -190,6 +215,7 @@ export default function RestockScreen() {
                     </View>
                   </View>
                 </View>
+
                 <Text style={styles.label}>{t("howMuchArrived")}</Text>
                 <TextInput
                   style={styles.input}
@@ -197,9 +223,7 @@ export default function RestockScreen() {
                   placeholderTextColor={colors.textTertiary}
                   keyboardType="numeric"
                   value={quantity}
-                  onChangeText={(text) => {
-                    setQuantity(text.replace(/\D/g, ""));
-                  }}
+                  onChangeText={(text) => setQuantity(text.replace(/\D/g, ""))}
                 />
 
                 {quantity && (
@@ -222,7 +246,8 @@ export default function RestockScreen() {
                     <View style={styles.previewRow}>
                       <Text style={styles.previewLabel}>{t("newStock")}</Text>
                       <Text style={[styles.previewValue, styles.totalText]}>
-                        {selectedProduct.quantity + parseInt(quantity, 10)}
+                        {selectedProduct.quantity +
+                          parseInt(quantity || "0", 10)}
                       </Text>
                     </View>
                   </View>
@@ -232,15 +257,14 @@ export default function RestockScreen() {
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <Pressable
+            <TouchableOpacity
               onPress={closeModal}
-              style={({ pressed }) => [
-                styles.backButton,
-                pressed && styles.backButtonPressed,
-              ]}
+              activeOpacity={0.7}
+              style={styles.backButton}
             >
               <Text style={styles.backText}>{t("back")}</Text>
-            </Pressable>
+            </TouchableOpacity>
+
             <Pressable
               style={[
                 styles.saveButton,
@@ -249,9 +273,11 @@ export default function RestockScreen() {
               onPress={handleRestock}
               disabled={!quantity || isSubmitting}
             >
-              <Text style={styles.saveButtonText}>
-                {isSubmitting ? t("addingStock") : t("addStock")}
-              </Text>
+              {isSubmitting ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.saveButtonText}>{t("addStock")}</Text>
+              )}
             </Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -263,44 +289,18 @@ export default function RestockScreen() {
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-    header: {
-      padding: SPACING.lg,
-      backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    headerTitle: {
-      fontSize: FONT_SIZE.xl,
-      fontWeight: "700",
-      color: colors.text,
-    },
-    headerSubtitle: {
-      fontSize: FONT_SIZE.sm,
-      color: colors.textSecondary,
-      marginTop: SPACING.xs,
-    },
-    backButton: {
-      flexDirection: "row",
-      alignItems: "center",
+
+    loadingContainer: {
+      flex: 1,
       justifyContent: "center",
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-      borderRadius: 10,
-      backgroundColor: "#F3F4F6",
-      borderWidth: 1,
-      borderColor: "#E5E7EB",
+      alignItems: "center",
+    },
+    loadingText: {
+      marginTop: SPACING.md,
+      color: colors.textSecondary,
+      fontSize: FONT_SIZE.md,
     },
 
-    backButtonPressed: {
-      backgroundColor: "#E5E7EB",
-      transform: [{ scale: 0.98 }],
-    },
-
-    backText: {
-      fontSize: 14,
-      fontWeight: "600",
-      color: "#374151",
-    },
     list: { padding: SPACING.lg },
     card: {
       flexDirection: "row",
@@ -320,16 +320,10 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: "center",
       overflow: "hidden",
     },
-    img: {
-      width: "100%",
-      height: "100%",
-      borderRadius: BORDER_RADIUS.sm,
-    },
+    img: { width: "100%", height: "100%", borderRadius: BORDER_RADIUS.sm },
     noImgBox: {
       width: "100%",
       height: "100%",
-      borderRadius: BORDER_RADIUS.sm,
-      backgroundColor: colors.surfaceSecondary,
       justifyContent: "center",
       alignItems: "center",
       padding: 4,
@@ -368,6 +362,7 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.textTertiary,
       marginTop: SPACING.xxxl,
     },
+
     modalContainer: { flex: 1, backgroundColor: colors.background },
     modalHeader: {
       flexDirection: "row",
@@ -385,8 +380,10 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.text,
     },
     headerSpacer: { width: 60 },
+
     modalContent: { flex: 1 },
     modalBody: { padding: SPACING.lg, paddingBottom: SPACING.xxxl },
+
     productInfo: {
       backgroundColor: colors.surface,
       borderRadius: BORDER_RADIUS.lg,
@@ -426,13 +423,8 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.text,
       marginBottom: SPACING.sm,
     },
-    productMeta: {
-      flexDirection: "row",
-      gap: SPACING.md,
-    },
-    metaItem: {
-      gap: 2,
-    },
+    productMeta: { flexDirection: "row", gap: SPACING.md },
+    metaItem: { gap: 2 },
     metaLabel: {
       fontSize: FONT_SIZE.xs,
       color: colors.textTertiary,
@@ -442,25 +434,7 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: "600",
       color: colors.text,
     },
-    infoCard: {
-      backgroundColor: "#EFF6FF",
-      borderRadius: BORDER_RADIUS.md,
-      padding: SPACING.md,
-      marginBottom: SPACING.lg,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.primary,
-    },
-    infoTitle: {
-      fontSize: FONT_SIZE.md,
-      fontWeight: "700",
-      color: colors.primary,
-      marginBottom: SPACING.xs,
-    },
-    infoText: {
-      fontSize: FONT_SIZE.sm,
-      color: colors.textSecondary,
-      lineHeight: 20,
-    },
+
     label: {
       fontSize: FONT_SIZE.sm,
       fontWeight: "600",
@@ -478,6 +452,7 @@ const createStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
     },
+
     previewCard: {
       backgroundColor: colors.surface,
       borderRadius: BORDER_RADIUS.md,
@@ -506,8 +481,8 @@ const createStyles = (colors: ThemeColors) =>
     },
     addText: { color: colors.secondary },
     totalText: { color: colors.primary, fontSize: FONT_SIZE.lg },
+
     modalFooter: {
-      display: "flex",
       flexDirection: "row",
       justifyContent: "space-between",
       padding: SPACING.lg,
@@ -515,11 +490,29 @@ const createStyles = (colors: ThemeColors) =>
       borderTopColor: colors.border,
       backgroundColor: colors.surface,
     },
+
+    backButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      borderRadius: 10,
+      backgroundColor: "#F3F4F6",
+      borderWidth: 1,
+      borderColor: "#E5E7EB",
+    },
+    backButtonPressed: {
+      backgroundColor: "#E5E7EB",
+      transform: [{ scale: 0.98 }],
+    },
+
     saveButton: {
       backgroundColor: colors.secondary,
       padding: SPACING.lg,
       borderRadius: BORDER_RADIUS.md,
       alignItems: "center",
+      minWidth: 140,
     },
     saveButtonDisabled: {
       opacity: 0.6,

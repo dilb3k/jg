@@ -25,7 +25,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Theme integration
   const { colors } = useTheme();
   const { t } = useI18n();
@@ -41,15 +41,20 @@ export default function LoginScreen() {
 
     try {
       const result = await apiClient.login(username.trim(), password);
-      
-      // Save token
+
       await secureStorage.setItemAsync(STORAGE_KEYS.USER_TOKEN, result.token);
       apiClient.setToken(result.token);
 
-      // Save user
-      await secureStorage.setItemAsync(STORAGE_KEYS.AUTH_USER, JSON.stringify(result.user));
+      await secureStorage.setItemAsync(
+        STORAGE_KEYS.AUTH_USER,
+        JSON.stringify(result.user),
+      );
 
-      router.replace("/(tabs)");
+      if (result.user?.role === "superAdmin") {
+        router.replace("/(tabs)/users");
+      } else {
+        router.replace("/(tabs)");
+      }
     } catch (err: any) {
       setError(err.message || t("loginError"));
     } finally {
@@ -67,24 +72,49 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="always"
       >
         <View style={styles.logoContainer}>
-          <View style={[styles.logoCircle, { backgroundColor: colors.primary }]}>
+          <View
+            style={[styles.logoCircle, { backgroundColor: colors.primary }]}
+          >
             <Text style={[styles.logoText, { color: colors.white }]}>B</Text>
           </View>
-          <Text style={[styles.title, { color: colors.text }]}>{t("barrelManagement")}</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t("signInToSystem")}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {t("barrelManagement")}
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            {t("signInToSystem")}
+          </Text>
         </View>
 
         <View style={styles.form}>
           {error ? (
-            <View style={[styles.errorContainer, { backgroundColor: colors.danger + "15", borderColor: colors.danger + "40" }]}>
-              <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text>
+            <View
+              style={[
+                styles.errorContainer,
+                {
+                  backgroundColor: colors.danger + "15",
+                  borderColor: colors.danger + "40",
+                },
+              ]}
+            >
+              <Text style={[styles.errorText, { color: colors.danger }]}>
+                {error}
+              </Text>
             </View>
           ) : null}
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>{t("username")}</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              {t("username")}
+            </Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
               placeholder={t("loginPlaceholder")}
               placeholderTextColor={colors.textTertiary}
               value={username}
@@ -95,9 +125,18 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>{t("password")}</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              {t("password")}
+            </Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
               placeholder={t("passwordPlaceholder")}
               placeholderTextColor={colors.textTertiary}
               value={password}
@@ -109,7 +148,11 @@ export default function LoginScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.loginButton, { backgroundColor: colors.primary }, isLoading && styles.loginButtonDisabled]}
+            style={[
+              styles.loginButton,
+              { backgroundColor: colors.primary },
+              isLoading && styles.loginButtonDisabled,
+            ]}
             onPress={handleLogin}
             disabled={isLoading}
             activeOpacity={0.85}
@@ -117,7 +160,9 @@ export default function LoginScreen() {
             {isLoading ? (
               <ActivityIndicator size="small" color={colors.white} />
             ) : (
-              <Text style={[styles.loginButtonText, { color: colors.white }]}>{t("signIn")}</Text>
+              <Text style={[styles.loginButtonText, { color: colors.white }]}>
+                {t("signIn")}
+              </Text>
             )}
           </TouchableOpacity>
         </View>

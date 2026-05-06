@@ -15,12 +15,12 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 
-import { SPACING, FONT_SIZE, BORDER_RADIUS, type ThemeColors } from "../src/theme";
-import { useAuthStore } from "../src/store/selectors";
-import { apiClient } from "../src/api/client";
-import type { AuthUser } from "../src/types";
-import { useTheme } from "../src/store/themeStore";
-import { useI18n } from "../src/i18n";
+import { SPACING, FONT_SIZE, BORDER_RADIUS, type ThemeColors } from "../../src/theme";
+import { useAuthStore } from "../../src/store/selectors";
+import { apiClient } from "../../src/api/client";
+import type { AuthUser } from "../../src/types";
+import { useTheme } from "../../src/store/themeStore";
+import { useI18n } from "../../src/i18n";
 
 export default function AdminsScreen() {
   const { colors } = useTheme();
@@ -35,6 +35,7 @@ export default function AdminsScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     // Only superAdmin can access this page
@@ -86,8 +87,13 @@ export default function AdminsScreen() {
   };
 
   const handleLogout = async () => {
-    await logout();
-    router.replace("/login");
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      router.replace("/login");
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -117,8 +123,16 @@ export default function AdminsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t("usersTitle")}</Text>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>{t("logout")}</Text>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          disabled={isLoggingOut}
+        >
+          {isLoggingOut ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Text style={styles.logoutButtonText}>{t("logout")}</Text>
+          )}
         </TouchableOpacity>
       </View>
 

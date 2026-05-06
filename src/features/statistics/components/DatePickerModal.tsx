@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, Text, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import dayjs from "dayjs";
 
 import { createStatisticsStyles } from "../styles";
@@ -30,6 +30,7 @@ export function DatePickerModal({
   const [currentMonth, setCurrentMonth] = useState(() =>
     dayjs(selectedDate).startOf("month"),
   );
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -124,12 +125,23 @@ export function DatePickerModal({
              <TouchableOpacity style={styles.pickerCancel} onPress={onClose}>
                <Text style={styles.pickerCancelText}>{t("cancel")}</Text>
              </TouchableOpacity>
-             <TouchableOpacity
-               style={styles.pickerSave}
-               onPress={() => onConfirm(draftDate)}
-             >
-               <Text style={styles.pickerSaveText}>{t("save")}</Text>
-             </TouchableOpacity>
+            <TouchableOpacity
+                style={styles.pickerSave}
+                onPress={async () => {
+                  setIsSaving(true);
+                  try {
+                    await onConfirm(draftDate);
+                  } finally {
+                    setIsSaving(false);
+                  }
+                }}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.pickerSaveText}>{t("save")}</Text>
+                )}
+              </TouchableOpacity>
            </View>
         </Pressable>
       </Pressable>

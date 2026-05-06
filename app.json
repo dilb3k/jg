@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "Club Bar",
-    "slug": "club-bar",
+    "slug": "game-club-bar",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "scheme": "club-bar",
+    "icon": "./assets/logo.png",
+    "scheme": "game-club-bar",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -18,7 +18,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#6366f1",
-        "foregroundImage": "./assets/adaptive-icon.png"
+        "foregroundImage": "./assets/logo.png"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.dilbek.mediaapp"

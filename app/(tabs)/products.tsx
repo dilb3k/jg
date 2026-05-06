@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -70,6 +71,8 @@ export default function ProductsScreen() {
   );
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState(EMPTY_ERRORS);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -126,6 +129,7 @@ export default function ProductsScreen() {
       image: form.image || undefined,
     };
 
+    setIsSubmitting(true);
     try {
       if (editingProduct) {
         await updateProduct(editingProduct.localId, payload);
@@ -141,6 +145,8 @@ export default function ProductsScreen() {
       );
     } catch (error: any) {
       showToast(error.message || t("error"), "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -341,17 +347,20 @@ export default function ProductsScreen() {
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <Pressable
+            <TouchableOpacity
               onPress={closeModal}
-              style={({ pressed }) => [
-                styles.backButton,
-                pressed && styles.backButtonPressed,
-              ]}
+              activeOpacity={0.7}
+              style={styles.backButton}
             >
               <Text style={styles.backText}>{t("back")}</Text>
-            </Pressable>
-            <Pressable onPressOut={handleSave} style={styles.save}>
-              <Text style={styles.saveText}>{t("save")}</Text>
+            </TouchableOpacity>
+
+            <Pressable onPressOut={handleSave} style={styles.save} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={styles.saveText}>{t("save")}</Text>
+              )}
             </Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -378,18 +387,28 @@ export default function ProductsScreen() {
                   <Text style={styles.cancelText}>{t("cancel")}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  onPress={async () => {
-                    await deleteProduct(deleteModalProduct.localId);
-                    await loadProducts();
-                    closeModal();
-                    setDeleteModalProduct(null);
-                    showToast(t("productDeleted"), "success");
-                  }}
-                  style={styles.confirm}
-                >
-                  <Text style={styles.confirmText}>{t("delete")}</Text>
-                </TouchableOpacity>
+                 <TouchableOpacity
+                   onPress={async () => {
+                     setIsDeleting(true);
+                     try {
+                       await deleteProduct(deleteModalProduct.localId);
+                       await loadProducts();
+                       closeModal();
+                       setDeleteModalProduct(null);
+                       showToast(t("productDeleted"), "success");
+                     } finally {
+                       setIsDeleting(false);
+                     }
+                   }}
+                   style={styles.confirm}
+                   disabled={isDeleting}
+                 >
+                   {isDeleting ? (
+                     <ActivityIndicator size="small" color={colors.white} />
+                   ) : (
+                     <Text style={styles.confirmText}>{t("delete")}</Text>
+                   )}
+                 </TouchableOpacity>
               </View>
             </Pressable>
           </Pressable>

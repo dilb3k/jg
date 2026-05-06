@@ -51,7 +51,7 @@ export const translations = {
     edit_product_warning: 'Bu yerda mahsulotning real qoldig\'i yuradi. Mahsulot kelsa yoki soni oshsa shu yerdan yangilang, ombor sahifasi ham shunga moslashadi.',
 
     // Restock
-    restock: 'Mahsulot qo\'shish',
+    restock: 'Qo\'shish',
     restockSubtitle: 'Mahsulot kelganda qoldiqni yangilash uchun ro\'yxatdan tanlang',
     howMuchArrived: 'Qancha mahsulot keldi?',
     currentStock: 'Hozirgi qoldiq',

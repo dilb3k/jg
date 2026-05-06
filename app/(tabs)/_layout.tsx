@@ -23,6 +23,7 @@ import {
   Moon,
   Sun,
   Users,
+  Star,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppRefreshStore, useAuthStore } from "../../src/store/selectors";
@@ -53,6 +54,8 @@ const TabIcon = ({
       return <BarChart3 size={size} color={color} />;
     case "users":
       return <Users size={size} color={color} />;
+    case "rating":
+      return <Star size={size} color={color} />;
     default:
       return <Package size={size} color={color} />;
   }
@@ -122,6 +125,7 @@ export default function TabLayout() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const [showSettings, setShowSettings] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const { theme, isDark, setTheme, language, setLanguage, colors } = useTheme();
   const { t } = useI18n();
@@ -131,10 +135,20 @@ export default function TabLayout() {
     { code: "ru", label: t("lang_ru") },
   ];
 
+  const isSuperAdmin = user?.role === "superAdmin";
+
+  // SuperAdmin bo'lsa users tabdan boshlanadi
+  const initialRouteName = isSuperAdmin ? "users" : "index";
+
   const handleLogout = async () => {
-    await logout();
-    setShowSettings(false);
-    router.replace("/login");
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      setShowSettings(false);
+      router.replace("/login");
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   const handleLanguageChange = async (code: "uz" | "ru") => {
@@ -147,14 +161,13 @@ export default function TabLayout() {
     setShowSettings(false);
   };
 
-  const isSuperAdmin = user?.role === "superAdmin";
-
   const getThemeLabel = (key: string) =>
     key === "light" ? t("light") : t("dark");
 
   return (
     <>
       <Tabs
+        initialRouteName={initialRouteName} // ← Bu qator eng muhim!
         screenOptions={{
           headerShown: true,
           freezeOnBlur: true,
@@ -226,6 +239,15 @@ export default function TabLayout() {
             href: isSuperAdmin ? undefined : null,
             tabBarIcon: ({ focused }) => (
               <TabIcon name="users" focused={focused} colors={colors} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="rating"
+          options={{
+            title: t("rating"),
+            tabBarIcon: ({ focused }) => (
+              <TabIcon name="rating" focused={focused} colors={colors} />
             ),
           }}
         />
@@ -406,11 +428,18 @@ export default function TabLayout() {
                     { backgroundColor: "#FEF2F2", borderColor: "#FECACA" },
                   ]}
                   onPress={handleLogout}
+                  disabled={isLoggingOut}
                 >
-                  <LogOut size={18} color={colors.danger} />
-                  <Text style={[styles.logoutText, { color: colors.danger }]}>
-                    {t("logout")}
-                  </Text>
+                  {isLoggingOut ? (
+                    <ActivityIndicator size="small" color={colors.danger} />
+                  ) : (
+                    <>
+                      <LogOut size={18} color={colors.danger} />
+                      <Text style={[styles.logoutText, { color: colors.danger }]}>
+                        {t("logout")}
+                      </Text>
+                    </>
+                  )}
                 </Pressable>
               </View>
             </ScrollView>

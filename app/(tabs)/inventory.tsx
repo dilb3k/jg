@@ -65,6 +65,7 @@ export default function InventoryScreen() {
   const [selectedProductId, setSelectedProductId] = useState("");
   const [currentQty, setCurrentQty] = useState("");
   const [errors, setErrors] = useState<FormErrors>(EMPTY_ERRORS);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDateLoading, setIsDateLoading] = useState(true);
 
   const isReadOnly = isPastDate(selectedDate);
@@ -173,6 +174,7 @@ export default function InventoryScreen() {
 
     const inputCurrent = parseWholeNumber(currentQty);
 
+    setIsSubmitting(true);
     try {
       await setCurrentQuantity(
         selectedEntry.productId,
@@ -188,6 +190,8 @@ export default function InventoryScreen() {
         ...prev,
         general: error.message || t("saveError"),
       }));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -565,17 +569,23 @@ export default function InventoryScreen() {
 
           {!isReadOnly ? (
             <View style={styles.modalFooter}>
-              <Pressable
+              <TouchableOpacity
                 onPress={closeModal}
-                style={({ pressed }) => [
-                  styles.backButton,
-                  pressed && styles.backButtonPressed,
-                ]}
+                activeOpacity={0.7}
+                style={styles.backButton}
               >
                 <Text style={styles.backText}>{t("back")}</Text>
-              </Pressable>
-              <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                <Text style={styles.saveButtonText}>{t("save")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSave}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color={colors.white} />
+                ) : (
+                  <Text style={styles.saveButtonText}>{t("save")}</Text>
+                )}
               </TouchableOpacity>
             </View>
           ) : null}
@@ -797,14 +807,13 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      paddingVertical: 10,
-      paddingHorizontal: 16,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
       borderRadius: 10,
       backgroundColor: "#F3F4F6",
       borderWidth: 1,
       borderColor: "#E5E7EB",
     },
-
     backButtonPressed: {
       backgroundColor: "#E5E7EB",
       transform: [{ scale: 0.98 }],

@@ -50,10 +50,9 @@ export const useStatisticsScreenStore = () =>
   useStore(
     useShallow((state) => ({
       getStatistics: state.getStatistics,
-      loadProducts: state.loadProducts,
-      loadSnapshots: state.loadSnapshots,
       products: state.products,
       snapshots: state.snapshots,
+      currentInventory: state.currentInventory,
     })),
   );
 

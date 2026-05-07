@@ -77,10 +77,6 @@ export default function ProductsScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
-
-  useEffect(() => {
     const timeoutId = setTimeout(() => searchProducts(search), 300);
     return () => clearTimeout(timeoutId);
   }, [search, searchProducts]);
@@ -145,7 +141,6 @@ export default function ProductsScreen() {
         await createProduct(payload);
       }
 
-      await loadProducts();
       closeModal();
       showToast(
         editingProduct ? t("productSaved") : t("productSaved"),
@@ -404,7 +399,6 @@ export default function ProductsScreen() {
                     setIsDeleting(true);
                     try {
                       await deleteProduct(deleteModalProduct.localId);
-                      await loadProducts();
                       closeModal();
                       setDeleteModalProduct(null);
                       showToast(t("productDeleted"), "success");

@@ -25,6 +25,7 @@ import type {
 } from "../types";
 
 let latestInventoryLoadRequest = 0;
+const inflightKeys = new Set<string>();
 
 export const isPastDate = (date: string): boolean => isPastBusinessDate(date);
 export const isToday = (date: string): boolean => isTodayBusinessDate(date);
@@ -224,16 +225,9 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   refreshAppData: async () => {
-    const activeDate = get().selectedDate || getBusinessDate();
-
     try {
       set({ isLoading: true, error: null });
       await get().syncNow();
-      await Promise.all([
-        get().loadProducts(),
-        get().loadSnapshots(),
-        get().loadInventoryByDate(activeDate),
-      ]);
     } catch (error: any) {
       set((state) => ({
         error: error.message || "Yangilashda xatolik yuz berdi",
@@ -246,8 +240,11 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   loadProducts: async () => {
+    const searchQuery = get().searchQuery.trim();
+    const cacheKey = `products:${searchQuery || '__all'}`;
+    if (inflightKeys.has(cacheKey)) return;
+    inflightKeys.add(cacheKey);
     try {
-      const searchQuery = get().searchQuery.trim();
       const products = await apiClient.getProducts(searchQuery || undefined);
 
       set((state) => ({
@@ -259,6 +256,8 @@ export const useStore = create<AppState>((set, get) => ({
         error: error.message || "Mahsulotlar yuklanmadi",
         syncStatus: setOnlineStatus(state.syncStatus, false),
       }));
+    } finally {
+      inflightKeys.delete(cacheKey);
     }
   },
 
@@ -354,6 +353,9 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   loadInventoryByDate: async (date) => {
+    const dateKey = `inv:${date}`;
+    if (inflightKeys.has(dateKey)) return;
+    inflightKeys.add(dateKey);
     try {
       const requestId = ++latestInventoryLoadRequest;
       const inventory = await apiClient.getInventoryWithProducts(date);
@@ -372,6 +374,8 @@ export const useStore = create<AppState>((set, get) => ({
         error: error.message || "Ombor ma'lumotlari yuklanmadi",
         syncStatus: setOnlineStatus(state.syncStatus, false),
       }));
+    } finally {
+      inflightKeys.delete(dateKey);
     }
   },
 
@@ -479,6 +483,9 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   loadSnapshots: async (from, to) => {
+    const cacheKey = `snapshots:${from || '__all'}:${to || '__all'}`;
+    if (inflightKeys.has(cacheKey)) return;
+    inflightKeys.add(cacheKey);
     try {
       const snapshots =
         from && to
@@ -494,6 +501,8 @@ export const useStore = create<AppState>((set, get) => ({
         error: error.message || "Snapshotlar yuklanmadi",
         syncStatus: setOnlineStatus(state.syncStatus, false),
       }));
+    } finally {
+      inflightKeys.delete(cacheKey);
     }
   },
 

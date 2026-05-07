@@ -35,7 +35,7 @@ export default function RatingScreen() {
   const { t } = useI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const { loadProducts, loadSnapshots, snapshots } = useRatingScreenStore();
+  const { snapshots } = useRatingScreenStore();
 
   const [sortBy, setSortBy] = useState<SortType>("profit_total");
   const [filter, setFilter] = useState("");
@@ -44,7 +44,6 @@ export default function RatingScreen() {
     InventoryEntry[]
   >([]);
 
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isInventoryLoading, setIsInventoryLoading] = useState(false);
 
   const sortLabels = useMemo(
@@ -55,22 +54,6 @@ export default function RatingScreen() {
     }),
     [t],
   );
-
-  // Initial load
-  useEffect(() => {
-    const loadInitialData = async () => {
-      setIsInitialLoading(true);
-      try {
-        await Promise.all([loadProducts(), loadSnapshots()]);
-      } catch (error) {
-        console.error("Initial data load error:", error);
-      } finally {
-        setIsInitialLoading(false);
-      }
-    };
-
-    loadInitialData();
-  }, [loadProducts, loadSnapshots]);
 
   // Load inventory for selected date
   useEffect(() => {
@@ -186,15 +169,6 @@ export default function RatingScreen() {
       }
     });
   }, [inventoryForDate, soldByProduct, sortBy, filter]);
-
-  if (isInitialLoading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Yuklanmoqda...</Text>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>

@@ -58,7 +58,6 @@ export default function InventoryScreen() {
   const {
     currentInventory,
     loadInventoryByDate,
-    loadProducts,
     setCurrentQuantity,
     showToast,
   } = useInventoryScreenStore();
@@ -74,11 +73,6 @@ export default function InventoryScreen() {
 
   const isReadOnly = isPastDate(selectedDate);
   const isFutureDate = isFutureBusinessDate(selectedDate);
-
-  // Load products
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
 
   // Load inventory when date changes
   useEffect(() => {
@@ -185,7 +179,6 @@ export default function InventoryScreen() {
         inputCurrent,
       );
 
-      await loadInventoryByDate(selectedDate);
       closeModal();
       showToast(t("inventoryUpdated"), "success");
     } catch (error: any) {

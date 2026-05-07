@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import dayjs from "dayjs";
 
@@ -34,7 +34,7 @@ export default function StatisticsScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
-  const { getStatistics, loadProducts, loadSnapshots, products, snapshots } =
+  const { getStatistics, products, snapshots, currentInventory } =
     useStatisticsScreenStore();
 
   const [period, setPeriod] = useState<PeriodType>("daily");
@@ -44,16 +44,12 @@ export default function StatisticsScreen() {
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
   const [pickerDate, setPickerDate] = useState(() => getBusinessDate());
 
-  useEffect(() => {
-    loadProducts();
-    loadSnapshots();
-  }, [loadProducts, loadSnapshots]);
-
   const { overallRangeLabel, overallTotals, periodStats, topProducts } =
     useStatisticsData({
       getStatistics,
       products,
       snapshots,
+      currentInventory,
       period,
       selectedDate,
       overallStartDate,

@@ -108,16 +108,16 @@ export const getInventoryMetrics = (
     };
   }
 
-  // Fallback hisoblash
+  const p = item.product ?? { sellPrice: 0, buyPrice: 0 };
   const remaining = Math.max(item.currentQuantity, 0);
   const sold = Math.max(item.startQuantity - item.currentQuantity, 0);
-  const revenue = sold * item.product.sellPrice;
+  const revenue = sold * p.sellPrice;
   const realizedProfit =
-    sold * (item.product.sellPrice - item.product.buyPrice);
-  const stockSellValue = remaining * item.product.sellPrice;
-  const stockBuyValue = remaining * item.product.buyPrice;
+    sold * (p.sellPrice - p.buyPrice);
+  const stockSellValue = remaining * p.sellPrice;
+  const stockBuyValue = remaining * p.buyPrice;
   const potentialProfit =
-    remaining * (item.product.sellPrice - item.product.buyPrice);
+    remaining * (p.sellPrice - p.buyPrice);
 
   return {
     remaining,
@@ -128,10 +128,10 @@ export const getInventoryMetrics = (
     stockBuyValue,
     potentialProfit,
     marginPercent:
-      item.product.sellPrice > 0
+      p.sellPrice > 0
         ? Math.round(
-            ((item.product.sellPrice - item.product.buyPrice) /
-              item.product.sellPrice) *
+            ((p.sellPrice - p.buyPrice) /
+              p.sellPrice) *
               100,
           )
         : 0,

@@ -19,6 +19,7 @@ type Params = {
   };
   products: Product[];
   snapshots: DailySnapshot[];
+  currentInventory: InventoryWithProduct[];
   period: PeriodType;
   selectedDate: string;
   overallStartDate: string | null;
@@ -29,26 +30,31 @@ export function useStatisticsData({
   getStatistics,
   products,
   snapshots,
+  currentInventory: storeInventory,
   period,
   selectedDate,
   overallStartDate,
   overallEndDate,
 }: Params) {
-  const [overallInventory, setOverallInventory] = useState<InventoryWithProduct[]>([]);
+  const [fetchedInventory, setFetchedInventory] = useState<InventoryWithProduct[]>([]);
 
   useEffect(() => {
+    if (!overallEndDate) {
+      setFetchedInventory([]);
+      return;
+    }
+
     let isMounted = true;
 
     const loadOverallInventory = async () => {
-      const targetDate = overallEndDate || getBusinessDate();
       try {
-        const inventory = await apiClient.getInventoryWithProducts(targetDate);
+        const inventory = await apiClient.getInventoryWithProducts(overallEndDate);
         if (isMounted) {
-          setOverallInventory(inventory);
+          setFetchedInventory(inventory);
         }
       } catch {
         if (isMounted) {
-          setOverallInventory([]);
+          setFetchedInventory([]);
         }
       }
     };
@@ -58,7 +64,9 @@ export function useStatisticsData({
     return () => {
       isMounted = false;
     };
-  }, [overallEndDate, products.length]);
+  }, [overallEndDate]);
+
+  const overallInventory = overallEndDate ? fetchedInventory : storeInventory;
 
   const periodStats = (period: PeriodType) => getStatistics(period, selectedDate);
 

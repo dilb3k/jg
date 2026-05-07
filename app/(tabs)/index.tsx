@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   FlatList,
   Image,
@@ -32,31 +32,13 @@ export default function RestockScreen() {
   const { t } = useI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const { products, loadProducts, updateProduct, showToast } =
+  const { products, updateProduct, showToast } =
     useProductsScreenStore();
 
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // ← Yangi qo'shildi
-
-  // Initial loading
-  useEffect(() => {
-    loadInitialData();
-  }, [loadProducts]);
-
-  const loadInitialData = async () => {
-    setIsLoading(true);
-    try {
-      await loadProducts();
-    } catch (error: any) {
-      showToast(error.message || t("error"), "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const openRestockModal = (product: Product) => {
     setSelectedProduct(product);
     setQuantity("");
@@ -85,7 +67,6 @@ export default function RestockScreen() {
       await updateProduct(selectedProduct.localId, {
         quantity: newQuantity,
       });
-      await loadProducts();
       closeModal();
       showToast(`${qtyToAdd} ${t("stockAdded")} → ${newQuantity}`, "success");
     } catch (error: any) {
@@ -142,22 +123,15 @@ export default function RestockScreen() {
 
   return (
     <View style={styles.container}>
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>{t("loading")}</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={products}
-          keyExtractor={(item) => item.localId}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <Text style={styles.empty}>{t("noProducts")}</Text>
-          }
-        />
-      )}
+      <FlatList
+        data={products}
+        keyExtractor={(item) => item.localId}
+        renderItem={renderItem}
+        contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          <Text style={styles.empty}>{t("noProducts")}</Text>
+        }
+      />
 
       {/* ==================== RESTOCK MODAL ==================== */}
       <Modal

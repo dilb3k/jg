@@ -1,7 +1,6 @@
 import type {
   InventoryWithProduct,
   InventoryMetrics,
-  Product,
 } from "../types/index";
 
 export interface ProductValidationErrors {
@@ -26,6 +25,20 @@ export const formatWholeNumber = (value: number): string =>
 
 export const formatMoney = (value: number): string =>
   `${value.toLocaleString("uz-UZ")} so'm`;
+
+export const formatInputAmount = (value: string): string => {
+  const cleaned = value.replace(/[^\d]/g, "");
+  if (!cleaned) return "";
+  const num = parseInt(cleaned, 10);
+  if (isNaN(num)) return "";
+  return num.toLocaleString("uz-UZ");
+};
+
+export const parseFormattedAmount = (value: string): number => {
+  const cleaned = value.replace(/[^\d]/g, "");
+  if (!cleaned) return 0;
+  return parseInt(cleaned, 10);
+};
 
 // ==================== VALIDATION ====================
 
@@ -148,6 +161,7 @@ export const getInventoryTotals = (
       revenue: 0,
       profit: 0,
       stockSellValue: 0,
+      stockProfit: 0,
     };
   }
 
@@ -160,6 +174,7 @@ export const getInventoryTotals = (
         revenue: acc.revenue + (item.revenue || 0),
         profit: acc.profit + (item.realizedProfit || 0),
         stockSellValue: acc.stockSellValue + (item.stockSellValue || 0),
+        stockProfit: acc.stockProfit + (item.potentialProfit || 0),
       }),
       {
         start: 0,
@@ -168,6 +183,7 @@ export const getInventoryTotals = (
         revenue: 0,
         profit: 0,
         stockSellValue: 0,
+        stockProfit: 0,
       },
     );
   }
@@ -182,6 +198,7 @@ export const getInventoryTotals = (
         revenue: acc.revenue + m.revenue,
         profit: acc.profit + m.realizedProfit,
         stockSellValue: acc.stockSellValue + m.stockSellValue,
+        stockProfit: acc.stockProfit + m.potentialProfit,
       };
     },
     {
@@ -191,6 +208,7 @@ export const getInventoryTotals = (
       revenue: 0,
       profit: 0,
       stockSellValue: 0,
+      stockProfit: 0,
     },
   );
 };

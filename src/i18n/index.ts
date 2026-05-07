@@ -67,6 +67,7 @@ export const translations = {
     stockInfo: "Qoldiq: {quantity} dona",
     restockInfo:
       "Bu yerda faqat mahsulot miqdorini oshirasiz. Yangi kelgan mahsulot miqdorini kiriting, tizim avtomatik ravishda umumiy qoldiqni yangilaydi.",
+    enterValidQuantity: "To'g'ri miqdorni kiriting",
     result: "Natija",
     buy: "Kelish",
     sell: "Sotish",
@@ -100,6 +101,7 @@ export const translations = {
     readOnlyMode: "Ko'rish rejimi",
     startQtyAuto:
       "Boshlang'ich miqdor avtomatik. Uni ombordan o'zgartirib bo'lmaydi.",
+    autoHint: "Avtomatik hisoblangan",
     todayStart: "Bugungi boshlang'ich",
     currentInventory: "Ombor qoldig'i",
     preSaveCheck: "Saqlashdan oldingi tekshiruv",
@@ -117,6 +119,7 @@ export const translations = {
       "Bu sana hali kelmagan, shuning uchun inventarizatsiya va savdo hisoblari amalga oshirilmaydi.",
     ratingNoData: "Reyting uchun ma'lumot topilmadi",
     addProductsFirst: "Avval mahsulot qo'shing",
+    noProductsFound: "Mahsulotlar topilmadi",
     emptyNoData: "Ma'lumot yo'q",
 
     // Statistics
@@ -177,7 +180,6 @@ export const translations = {
     profitPerUnit: "Birlik foyda",
     totalProfitRating: "Jami foyda",
     leastSold: "Kam sotilgan",
-    profitEarned: "Olingan foyda",
 
     // Users/Admins
     usersTitle: "Adminlar",
@@ -210,6 +212,11 @@ export const translations = {
     logout: "Chiqish",
     userInfo: "Foydalanuvchi ma'lumotlari",
     close: "Yopish",
+    connectionMode: "Ulanish rejimi",
+    onlineMode: "Onlayn rejim",
+    offlineMode: "Oflayn rejim",
+    onlineModeDesc: "Barcha ma'lumotlar serverdan yuklanadi",
+    offlineModeDesc: "Ma'lumotlar lokal saqlashdan o'qiladi",
 
     // Common
     save: "Saqlash",
@@ -297,6 +304,7 @@ export const translations = {
     stockInfo: "Остаток: {quantity} шт",
     restockInfo:
       "Здесь вы можете только увеличить количество товара. Введите количество поступившего товара, система автоматически обновит общий остаток.",
+    enterValidQuantity: "Введите правильное количество",
     result: "Результат",
     buy: "Закупочная",
     sell: "Продажа",
@@ -332,6 +340,7 @@ export const translations = {
     readOnlyMode: "Режим просмотра",
     startQtyAuto:
       "Начальное количество автоматически. Его нельзя изменить на складе.",
+    autoHint: "Автоматически рассчитано",
     todayStart: "Начальное на сегодня",
     currentInventory: "Остаток на складе",
     preSaveCheck: "Проверка перед сохранением",
@@ -341,14 +350,13 @@ export const translations = {
     newSold: "Новые продажи",
     warning_qtyAdjust:
       "На складе можно только уменьшать остаток. При поступлении товара увеличивайте остаток на странице продуктов.",
-    loadingInventory: "Данные об остатках загружаются...",
-    notAvailableYet: "Еще не доступно",
     end: "Конец",
     futureDateNotice: "Будущий день закрыт",
     futureDateNoticeText:
       "Эта дата еще не наступила, поэтому инвентаризация и расчет продаж не производятся.",
     ratingNoData: "Данные для рейтинга не найдены",
     addProductsFirst: "Сначала добавьте продукты",
+    noProductsFound: "Продукты не найдены",
     emptyNoData: "Нет данных",
 
     // Statistics
@@ -409,7 +417,6 @@ export const translations = {
     profitPerUnit: "Прибыль с единицы",
     totalProfitRating: "Общая прибыль",
     leastSold: "Меньше всего продано",
-    profitEarned: "Полученная прибыль",
 
     // Users/Admins
     usersTitle: "Админы",
@@ -442,6 +449,11 @@ export const translations = {
     logout: "Выход",
     userInfo: "Информация о пользователе",
     close: "Закрыть",
+    connectionMode: "Режим подключения",
+    onlineMode: "Онлайн режим",
+    offlineMode: "Офлайн режим",
+    onlineModeDesc: "Все данные загружаются с сервера",
+    offlineModeDesc: "Данные читаются из локального хранилища",
 
     // Common
     save: "Сохранить",

@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme';
+import { View, Text, StyleSheet } from 'react-native';
+import { SPACING, FONT_SIZE } from '../theme';
 import { useTheme } from '../store/themeStore';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
@@ -9,22 +9,14 @@ interface HeaderProps {
 
 export function Header({ title = 'Club Bar' }: HeaderProps) {
   const { colors } = useTheme();
-  const { isOnline, syncStatus } = useNetworkStatus();
+  const { isServerReachable } = useNetworkStatus();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
       <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
       <View style={styles.statusContainer}>
-        <View style={[styles.statusDot, { backgroundColor: isOnline ? colors.secondary : colors.danger }]} />
-        <Text style={[styles.statusText, { color: colors.textSecondary }]}>{isOnline ? 'Online' : 'Offline'}</Text>
-        {syncStatus.pendingCount > 0 && (
-          <View style={[styles.syncBadge, { backgroundColor: colors.warning }]}>
-            <Text style={[styles.syncBadgeText, { color: colors.white }]}>{syncStatus.pendingCount}</Text>
-          </View>
-        )}
-        {syncStatus.isSyncing && (
-          <ActivityIndicator size="small" color={colors.primary} style={styles.syncing} />
-        )}
+        <View style={[styles.statusDot, { backgroundColor: isServerReachable ? colors.secondary : colors.danger }]} />
+        <Text style={[styles.statusText, { color: colors.textSecondary }]}>{isServerReachable ? 'Online' : 'Offline'}</Text>
       </View>
     </View>
   );
@@ -54,18 +46,5 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: FONT_SIZE.sm,
-  },
-  syncBadge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.full,
-  },
-  syncBadgeText: {
-    fontSize: FONT_SIZE.xs,
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  syncing: {
-    marginLeft: SPACING.xs,
   },
 });

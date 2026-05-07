@@ -43,23 +43,23 @@ export const getInventoryWithProduct = async (date: string): Promise<(InventoryE
   const products = allProducts.filter((p) => isProductVisibleOnDate(p, date));
 
   const result: (InventoryEntry & { product: Product })[] = [];
+  const processedProductIds = new Set<string>();
 
-  // Oldingi kunni topish
   const prevDateStr = dayjs(date).subtract(1, 'day').format('YYYY-MM-DD');
   const prevInventory = await getInventoryByDate(prevDateStr);
 
   for (const product of products) {
     const existingInv = allInventory.find(inv => inv.productId === product.localId);
+    processedProductIds.add(product.localId);
+
     if (existingInv) {
       result.push({ ...existingInv, product });
     } else {
-      // Oldingi kun inventory sini tekshirish
       const prevInv = prevInventory.find(inv => inv.productId === product.localId);
       let startQty = product.quantity || 0;
       let currentQty = product.quantity || 0;
 
       if (prevInv && !prevInv.isDeleted) {
-        // Oldingi kun qoldig'i bilan boshlash
         startQty = prevInv.currentQuantity;
         currentQty = prevInv.currentQuantity;
       }
@@ -78,6 +78,24 @@ export const getInventoryWithProduct = async (date: string): Promise<(InventoryE
         createdAt: new Date().toISOString(),
         product,
       });
+    }
+  }
+
+  for (const inv of allInventory) {
+    if (!processedProductIds.has(inv.productId)) {
+      const product: Product = {
+        localId: inv.productId,
+        deviceId: inv.deviceId,
+        entityType: 'product',
+        name: "Noma'lum mahsulot",
+        quantity: inv.currentQuantity,
+        buyPrice: 0,
+        sellPrice: 0,
+        isDeleted: false,
+        createdAt: inv.createdAt,
+        updatedAt: inv.updatedAt,
+      };
+      result.push({ ...inv, product });
     }
   }
 
@@ -173,5 +191,13 @@ export const deleteInventoryByLocalId = async (localId: string): Promise<void> =
 };
 
 export const saveInventoryEntries = async (entries: InventoryEntry[]): Promise<void> => {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  if (entries.length === 0) return;
+  const data = await AsyncStorage.getItem(STORAGE_KEY);
+  const existing: InventoryEntry[] = data ? JSON.parse(data) : [];
+  const existingByLocalId = new Map(existing.map(e => [e.localId, e]));
+  for (const entry of entries) {
+    existingByLocalId.set(entry.localId, entry);
+  }
+  const merged = Array.from(existingByLocalId.values());
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
 };

@@ -498,12 +498,12 @@ const createStyles = (colors: ThemeColors) =>
       paddingVertical: 12,
       paddingHorizontal: 20,
       borderRadius: 10,
-      backgroundColor: "#F3F4F6",
+      backgroundColor: colors.surfaceSecondary,
       borderWidth: 1,
-      borderColor: "#E5E7EB",
+      borderColor: colors.border,
     },
     backButtonPressed: {
-      backgroundColor: "#E5E7EB",
+      backgroundColor: colors.border,
       transform: [{ scale: 0.98 }],
     },
 

@@ -22,6 +22,9 @@ export interface InventoryEntry {
   date: string;
   startQuantity: number;
   currentQuantity: number;
+  sold?: number;
+  revenue?: number;
+  realizedProfit?: number;
   note?: string;
   isDeleted: boolean;
   updatedAt: string;
@@ -76,9 +79,9 @@ export interface DailySnapshot {
 
 export interface SyncQueueItem {
   id: string;
-  entity: 'product' | 'inventory' | 'snapshot';
+  entityType: 'product' | 'inventory' | 'snapshot';
   operation: 'upsert' | 'delete';
-  payload: unknown;
+  data: unknown;
   createdAt: string;
 }
 

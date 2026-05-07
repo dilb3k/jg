@@ -3,8 +3,8 @@ import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import dayjs from "dayjs";
 
-import { apiClient } from "../api/client";
-import { getAppMeta, setAppMeta } from "../db/syncQueue";
+import { apiClient, setConnectionMode } from "../api/client";
+import { getAppMeta, setAppMeta, getSyncQueue, clearSyncQueue, getSyncQueueCount } from "../db/syncQueue";
 import { STORAGE_KEYS } from "../constants";
 import * as secureStorage from "../utils/secureStorage";
 import { hasValidationErrors, validateProductInput } from "../utils/inventory";
@@ -175,7 +175,11 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
-      // Load user from storage
+      const connectionMode = await secureStorage.getItemAsync(STORAGE_KEYS.CONNECTION_MODE);
+      if (connectionMode === "online" || connectionMode === "offline") {
+        setConnectionMode(connectionMode);
+      }
+
       const userJson = await secureStorage.getItemAsync(STORAGE_KEYS.AUTH_USER);
       if (userJson) {
         const user: AuthUser = JSON.parse(userJson);
@@ -190,6 +194,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       const lastSyncAt = await getAppMeta(STORAGE_KEYS.LAST_SYNC);
       const businessDate = getBusinessDate();
+      const pendingCount = await getSyncQueueCount();
 
       set({
         deviceId,
@@ -197,7 +202,7 @@ export const useStore = create<AppState>((set, get) => ({
         syncStatus: {
           isOnline: false,
           lastSyncAt,
-          pendingCount: 0,
+          pendingCount,
           isSyncing: false,
         },
       });
@@ -629,11 +634,19 @@ export const useStore = create<AppState>((set, get) => ({
 
       await setAppMeta(STORAGE_KEYS.LAST_SYNC, now);
 
+      const queue = await getSyncQueue();
+      if (queue.length > 0) {
+        const syncedIds = queue.map((item) => item.id);
+        await clearSyncQueue(syncedIds);
+      }
+
+      const newPendingCount = await getSyncQueueCount();
+
       set((state) => ({
         syncStatus: {
           ...setOnlineStatus(state.syncStatus, true),
           lastSyncAt: now,
-          pendingCount: 0,
+          pendingCount: newPendingCount,
           isSyncing: false,
         },
       }));
@@ -644,10 +657,12 @@ export const useStore = create<AppState>((set, get) => ({
         get().loadInventoryByDate(selectedDate || getBusinessDate()),
       ]);
     } catch (error: any) {
+      const pendingCount = await getSyncQueueCount();
       set((state) => ({
         error: error.message || "Sync bajarilmadi",
         syncStatus: {
           ...setOnlineStatus(state.syncStatus, false),
+          pendingCount,
           isSyncing: false,
         },
       }));

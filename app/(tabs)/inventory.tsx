@@ -644,12 +644,12 @@ const createStyles = (colors: ThemeColors) =>
     readOnlyText: { fontSize: FONT_SIZE.xs, color: colors.text },
     futureBadge: {
       marginTop: 6,
-      backgroundColor: "#FEF3C7",
+      backgroundColor: colors.warning + "20",
       paddingHorizontal: SPACING.sm,
       paddingVertical: 4,
       borderRadius: BORDER_RADIUS.full,
     },
-    futureText: { fontSize: FONT_SIZE.xs, color: "#92400E" },
+    futureText: { fontSize: FONT_SIZE.xs, color: colors.warning },
     totalsSummary: {
       flexDirection: "row",
       justifyContent: "space-around",
@@ -687,20 +687,20 @@ const createStyles = (colors: ThemeColors) =>
 
     futureNotice: {
       margin: SPACING.lg,
-      backgroundColor: "#FFF7ED",
+      backgroundColor: colors.warning + "10",
       borderRadius: BORDER_RADIUS.md,
       padding: SPACING.md,
       borderWidth: 1,
-      borderColor: "#FED7AA",
+      borderColor: colors.warning + "40",
     },
     futureNoticeTitle: {
       fontSize: FONT_SIZE.md,
       fontWeight: "700",
-      color: "#9A3412",
+      color: colors.warning,
     },
     futureNoticeText: {
       fontSize: FONT_SIZE.sm,
-      color: "#9A3412",
+      color: colors.warning,
       lineHeight: 20,
     },
 
@@ -845,6 +845,16 @@ const createStyles = (colors: ThemeColors) =>
     },
     inputError: { borderWidth: 1, borderColor: colors.danger },
     errorText: { color: colors.danger, fontSize: FONT_SIZE.sm, marginTop: 4 },
+    autoHint: { fontSize: FONT_SIZE.xs, color: colors.textTertiary, fontStyle: "italic" },
+    errorBanner: {
+      backgroundColor: colors.danger + "15",
+      borderRadius: BORDER_RADIUS.md,
+      padding: SPACING.sm,
+      marginTop: SPACING.sm,
+      borderWidth: 1,
+      borderColor: colors.danger + "40",
+    },
+    errorBannerText: { color: colors.danger, fontSize: FONT_SIZE.sm },
 
     previewCard: {
       backgroundColor: colors.surface,
@@ -877,11 +887,11 @@ const createStyles = (colors: ThemeColors) =>
     backButton: {
       flex: 1,
       paddingVertical: 14,
-      backgroundColor: "#F3F4F6",
+      backgroundColor: colors.surfaceSecondary,
       borderRadius: BORDER_RADIUS.md,
       alignItems: "center",
     },
-    backText: { fontWeight: "600", color: "#374151" },
+    backText: { fontWeight: "600", color: colors.text },
     saveButton: {
       flex: 1,
       paddingVertical: 14,

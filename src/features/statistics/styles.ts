@@ -138,6 +138,13 @@ export const createStatisticsStyles = (colors: ThemeColors) =>
       fontSize: FONT_SIZE.lg,
       fontWeight: "800",
     },
+    mainKPIContainer: {
+      width: "100%",
+      marginBottom: SPACING.md,
+      paddingBottom: SPACING.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
     mainKPIValue: {
       fontSize: 30,
       fontWeight: "800",

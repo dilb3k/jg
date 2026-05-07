@@ -3,7 +3,6 @@ import { useMemo } from "react";
 
 import { createStatisticsStyles } from "../styles";
 import { useTheme } from "../../../store/themeStore";
-import { useI18n } from "../../../i18n";
 
 type RankingItem = {
   id: string;
@@ -19,7 +18,6 @@ type Props = {
 
 export function RankingCard({ title, items, emptyText }: Props) {
   const { colors } = useTheme();
-  const { t } = useI18n();
   const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
 
   return (

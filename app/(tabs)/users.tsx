@@ -17,6 +17,7 @@ import { useRouter } from "expo-router";
 
 import { SPACING, FONT_SIZE, BORDER_RADIUS, type ThemeColors } from "../../src/theme";
 import { useAuthStore } from "../../src/store/selectors";
+import { useStore } from "../../src/store";
 import { apiClient } from "../../src/api/client";
 import type { AuthUser } from "../../src/types";
 import { useTheme } from "../../src/store/themeStore";
@@ -28,6 +29,7 @@ export default function AdminsScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const { showToast } = useStore();
   const [admins, setAdmins] = useState<AuthUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -384,19 +386,19 @@ const createStyles = (colors: ThemeColors) =>
     paddingBottom: SPACING.xxxl,
   },
   errorContainer: {
-    backgroundColor: "#FEF2F2",
+    backgroundColor: colors.danger + "15",
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.md,
     borderWidth: 1,
-    borderColor: "#FECACA",
+    borderColor: colors.danger + "40",
   },
   errorText: {
     color: colors.danger,
     fontSize: FONT_SIZE.sm,
   },
   infoCard: {
-    backgroundColor: "#EFF6FF",
+    backgroundColor: colors.primary + "10",
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.lg,

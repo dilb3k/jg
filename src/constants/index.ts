@@ -35,6 +35,7 @@ export const STORAGE_KEYS = {
   AUTH_USER: 'auth_user',
   LANGUAGE: 'language',
   THEME: 'theme',
+  CONNECTION_MODE: 'connection_mode',
 };
 
 export const TABLE_NAMES = {

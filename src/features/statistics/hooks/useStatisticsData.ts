@@ -173,7 +173,7 @@ export function useStatisticsData({
     );
     const remainingItems = overallInventoryStats.current;
     const sellableItems = soldItems + remainingItems;
-    const possibleProfit = earnedProfit + overallInventoryStats.stockProfit;
+    const possibleProfit = earnedProfit + (overallInventoryStats.stockProfit ?? 0);
     const sellableValue = earnedRevenue + overallInventoryStats.stockSellValue;
 
     return {

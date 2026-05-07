@@ -1,17 +1,21 @@
 import { create } from 'zustand';
-import { useColorScheme, type ColorSchemeName } from 'react-native';
+import { useColorScheme } from 'react-native';
 import * as secureStorage from '../utils/secureStorage';
 import { STORAGE_KEYS } from '../constants';
 import type { ThemeMode } from '../theme';
-import { lightTheme, getThemeColors } from '../theme';
+import { getThemeColors } from '../theme';
+
+export type ConnectionMode = 'online' | 'offline';
 
 interface ThemeStore {
   theme: ThemeMode;
   language: 'uz' | 'ru';
+  connectionMode: ConnectionMode;
   
   // Actions
   setTheme: (theme: ThemeMode) => Promise<void>;
   setLanguage: (language: 'uz' | 'ru') => Promise<void>;
+  setConnectionMode: (mode: ConnectionMode) => Promise<void>;
   toggleTheme: () => Promise<void>;
   loadPreferences: () => Promise<void>;
 }
@@ -19,6 +23,7 @@ interface ThemeStore {
 export const useThemeStore = create<ThemeStore>((set, get) => ({
   theme: 'light',
   language: 'uz',
+  connectionMode: 'online',
 
   setTheme: async (newTheme: ThemeMode) => {
     set({ theme: newTheme });
@@ -40,6 +45,16 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
     }
   },
 
+  setConnectionMode: async (newMode: ConnectionMode) => {
+    set({ connectionMode: newMode });
+    
+    try {
+      await secureStorage.setItemAsync(STORAGE_KEYS.CONNECTION_MODE, newMode);
+    } catch (error) {
+      console.error('Failed to save connection mode preference:', error);
+    }
+  },
+
   toggleTheme: async () => {
     const { theme } = get();
     const newTheme: ThemeMode = theme === 'light' ? 'dark' : 'light';
@@ -48,9 +63,10 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
 
   loadPreferences: async () => {
     try {
-      const [savedTheme, savedLanguage] = await Promise.all([
+      const [savedTheme, savedLanguage, savedConnectionMode] = await Promise.all([
         secureStorage.getItemAsync(STORAGE_KEYS.THEME),
         secureStorage.getItemAsync(STORAGE_KEYS.LANGUAGE),
+        secureStorage.getItemAsync(STORAGE_KEYS.CONNECTION_MODE),
       ]);
 
       const theme = (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') 
@@ -59,8 +75,11 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
       const language = (savedLanguage === 'uz' || savedLanguage === 'ru') 
         ? savedLanguage 
         : 'uz';
+      const connectionMode = (savedConnectionMode === 'online' || savedConnectionMode === 'offline')
+        ? savedConnectionMode
+        : 'online';
 
-      set({ theme, language });
+      set({ theme, language, connectionMode });
     } catch (error) {
       console.error('Failed to load preferences:', error);
     }
@@ -80,10 +99,12 @@ export const useTheme = () => {
   return {
     theme: store.theme,
     language: store.language,
+    connectionMode: store.connectionMode,
     colors,
     isDark,
     setTheme: store.setTheme,
     setLanguage: store.setLanguage,
+    setConnectionMode: store.setConnectionMode,
     toggleTheme: store.toggleTheme,
   };
 };

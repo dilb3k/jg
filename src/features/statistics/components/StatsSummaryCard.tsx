@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { formatMoney } from "../../../utils/inventory";
 import { createStatisticsStyles } from "../styles";
 import { useTheme } from "../../../store/themeStore";
-import { useI18n } from "../../../i18n";
 
 type Props = {
   title: string;
@@ -19,7 +18,6 @@ type Props = {
 
 export function StatsSummaryCard({ title, items, emptyText }: Props) {
   const { colors } = useTheme();
-  const { t } = useI18n();
   const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
 
   return (

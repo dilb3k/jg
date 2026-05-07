@@ -24,7 +24,7 @@ import {
 import { useRatingScreenStore } from "../../src/store/selectors";
 import { useTheme } from "../../src/store/themeStore";
 import { useI18n } from "../../src/i18n";
-import type { InventoryWithProduct } from "../../src/types";
+import type { InventoryEntry, InventoryWithProduct } from "../../src/types";
 import { getBusinessDate } from "../../src/utils/businessDay";
 import { formatMoney, getInventoryMetrics } from "../../src/utils/inventory";
 
@@ -41,7 +41,7 @@ export default function RatingScreen() {
   const [filter, setFilter] = useState("");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [inventoryForDate, setInventoryForDate] = useState<
-    InventoryWithProduct[]
+    InventoryEntry[]
   >([]);
 
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -82,7 +82,7 @@ export default function RatingScreen() {
         );
 
         // API javobi { success: true, data: { items: [...], summary: {...} } }
-        let items: InventoryWithProduct[] = [];
+        let items: InventoryEntry[] = [];
 
         if (response && typeof response === "object") {
           if (Array.isArray(response)) {
@@ -143,12 +143,19 @@ export default function RatingScreen() {
 
     let list = safeList.map((item) => {
       const metrics = getInventoryMetrics(item as any);
-      const productId = item.productId || item.id;
-      const name = item.name || item.product?.name || "Noma'lum";
+      const productId = item.productId || item.id || "";
+      const product = (item as InventoryWithProduct).product;
+      const name = product?.name || "Noma'lum";
+      const sellPrice = product?.sellPrice ?? 0;
+      const buyPrice = product?.buyPrice ?? 0;
+      const quantity = product?.quantity ?? 0;
 
       return {
         ...item,
         name,
+        sellPrice,
+        buyPrice,
+        quantity,
         sold: soldByProduct[productId]?.sold || 0,
         earnedProfit: soldByProduct[productId]?.profit || 0,
         remaining: metrics.remaining,
@@ -244,7 +251,7 @@ export default function RatingScreen() {
         <View style={styles.inventoryLoading}>
           <ActivityIndicator size="small" color={colors.primary} />
           <Text style={styles.loadingTextSmall}>
-            Ma'lumotlar yangilanmoqda...
+            Ma&apos;lumotlar yangilanmoqda...
           </Text>
         </View>
       )}

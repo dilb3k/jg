@@ -24,6 +24,8 @@ import {
   Sun,
   Users,
   Star,
+  Wifi,
+  WifiOff,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppRefreshStore, useAuthStore } from "../../src/store/selectors";
@@ -64,6 +66,11 @@ const TabIcon = ({
 const THEMES = [
   { code: "light", labelKey: "light", icon: Sun },
   { code: "dark", labelKey: "dark", icon: Moon },
+];
+
+const CONNECTION_MODES: { code: "online" | "offline"; labelKey: "onlineMode" | "offlineMode"; icon: typeof Wifi }[] = [
+  { code: "online", labelKey: "onlineMode", icon: Wifi },
+  { code: "offline", labelKey: "offlineMode", icon: WifiOff },
 ];
 
 function HeaderRefreshButton({ colors, t }: { colors: any; t: any }) {
@@ -127,7 +134,7 @@ export default function TabLayout() {
   const [showSettings, setShowSettings] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const { theme, isDark, setTheme, language, setLanguage, colors } = useTheme();
+  const { theme, isDark, setTheme, language, setLanguage, connectionMode, setConnectionMode, colors } = useTheme();
   const { t } = useI18n();
 
   const LANGUAGES = [
@@ -159,6 +166,10 @@ export default function TabLayout() {
   const handleThemeChange = (code: "light" | "dark") => {
     setTheme(code);
     setShowSettings(false);
+  };
+
+  const handleConnectionModeChange = async (mode: "online" | "offline") => {
+    await setConnectionMode(mode);
   };
 
   const getThemeLabel = (key: string) =>
@@ -420,12 +431,71 @@ export default function TabLayout() {
                 </View>
               </View>
 
+              {/* Connection Mode */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  {connectionMode === "online" ? (
+                    <Wifi size={18} color={colors.success} />
+                  ) : (
+                    <WifiOff size={18} color={colors.textSecondary} />
+                  )}
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {t("connectionMode")}
+                  </Text>
+                </View>
+                <View style={styles.optionsList}>
+                  {CONNECTION_MODES.map((item) => (
+                    <Pressable
+                      key={item.code}
+                      style={[
+                        styles.optionItem,
+                        connectionMode === item.code && [
+                          styles.optionItemActive,
+                          {
+                            borderColor: item.code === "online" ? colors.success : colors.textTertiary,
+                            backgroundColor: (item.code === "online" ? colors.success : colors.textTertiary) + "15",
+                          },
+                        ],
+                        { backgroundColor: colors.background },
+                      ]}
+                      onPress={() => handleConnectionModeChange(item.code)}
+                    >
+                      <item.icon
+                        size={18}
+                        color={
+                          connectionMode === item.code
+                            ? item.code === "online" ? colors.success : colors.textTertiary
+                            : colors.textSecondary
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.optionText,
+                          { color: colors.text },
+                          connectionMode === item.code && {
+                            color: item.code === "online" ? colors.success : colors.textTertiary,
+                            fontWeight: "600",
+                          },
+                        ]}
+                      >
+                        {t(item.labelKey)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
               {/* Logout */}
               <View style={styles.section}>
                 <Pressable
                   style={[
                     styles.logoutButton,
-                    { backgroundColor: "#FEF2F2", borderColor: "#FECACA" },
+                    { backgroundColor: colors.danger + "15", borderColor: colors.danger + "40" },
                   ]}
                   onPress={handleLogout}
                   disabled={isLoggingOut}

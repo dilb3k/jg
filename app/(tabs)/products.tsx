@@ -32,6 +32,8 @@ import {
   hasValidationErrors,
   normalizeDigits,
   validateProductInput,
+  formatInputAmount,
+  parseFormattedAmount,
 } from "../../src/utils/inventory";
 
 const EMPTY_FORM = {
@@ -39,7 +41,7 @@ const EMPTY_FORM = {
   quantity: "",
   buyPrice: "",
   sellPrice: "",
-  image: undefined,
+  image: undefined as string | undefined,
 };
 
 const EMPTY_ERRORS = {
@@ -113,8 +115,8 @@ export default function ProductsScreen() {
     const nextErrors = validateProductInput({
       name: form.name.trim(),
       quantity: Number(form.quantity || 0),
-      buyPrice: Number(form.buyPrice),
-      sellPrice: Number(form.sellPrice),
+      buyPrice: parseFormattedAmount(form.buyPrice),
+      sellPrice: parseFormattedAmount(form.sellPrice),
     });
 
     setErrors(nextErrors);
@@ -127,8 +129,8 @@ export default function ProductsScreen() {
     const payload: any = {
       name: form.name.trim(),
       quantity: Number(form.quantity || 0),
-      buyPrice: Number(form.buyPrice),
-      sellPrice: Number(form.sellPrice),
+      buyPrice: parseFormattedAmount(form.buyPrice),
+      sellPrice: parseFormattedAmount(form.sellPrice),
     };
 
     if (form.image !== undefined && form.image !== editingProduct?.image) {
@@ -162,8 +164,8 @@ export default function ProductsScreen() {
     setForm({
       name: item.name,
       quantity: String(item.quantity ?? ""),
-      buyPrice: String(item.buyPrice ?? ""),
-      sellPrice: String(item.sellPrice ?? ""),
+      buyPrice: item.buyPrice ? formatInputAmount(String(item.buyPrice)) : "",
+      sellPrice: item.sellPrice ? formatInputAmount(String(item.sellPrice)) : "",
       image: item.image,
     });
     setShowModal(true);
@@ -288,7 +290,7 @@ export default function ProductsScreen() {
               onChangeText={(text) => {
                 setForm((prev) => ({
                   ...prev,
-                  buyPrice: normalizeDigits(text),
+                  buyPrice: formatInputAmount(text),
                 }));
                 setErrors((prev) => ({ ...prev, buyPrice: "" }));
               }}
@@ -307,7 +309,7 @@ export default function ProductsScreen() {
               onChangeText={(text) => {
                 setForm((prev) => ({
                   ...prev,
-                  sellPrice: normalizeDigits(text),
+                  sellPrice: formatInputAmount(text),
                 }));
                 setErrors((prev) => ({ ...prev, sellPrice: "" }));
               }}
@@ -529,13 +531,13 @@ const createStyles = (colors: ThemeColors) =>
       paddingVertical: 10,
       paddingHorizontal: 16,
       borderRadius: 10,
-      backgroundColor: "#F3F4F6",
+      backgroundColor: colors.surfaceSecondary,
       borderWidth: 1,
-      borderColor: "#E5E7EB",
+      borderColor: colors.border,
     },
 
     backButtonPressed: {
-      backgroundColor: "#E5E7EB",
+      backgroundColor: colors.border,
       transform: [{ scale: 0.98 }],
     },
     headerSpacer: { width: 60 },
@@ -557,25 +559,6 @@ const createStyles = (colors: ThemeColors) =>
       borderTopWidth: 1,
       borderTopColor: colors.border,
       backgroundColor: colors.surface,
-    },
-    warningCard: {
-      backgroundColor: "#FFF7ED",
-      borderRadius: BORDER_RADIUS.md,
-      padding: SPACING.md,
-      marginBottom: SPACING.lg,
-      borderWidth: 1,
-      borderColor: "#FED7AA",
-      gap: SPACING.xs,
-    },
-    warningTitle: {
-      fontSize: FONT_SIZE.md,
-      fontWeight: "700",
-      color: "#9A3412",
-    },
-    warningText: {
-      fontSize: FONT_SIZE.sm,
-      color: "#9A3412",
-      lineHeight: 20,
     },
     label: {
       fontSize: FONT_SIZE.sm,

@@ -114,11 +114,15 @@ class ApiClient {
       (response) => response,
       (error: AxiosError<{ message?: string }>) => {
         // Handle specific error types
-        if (error.code === 'ECONNABORTED') {
-          return Promise.reject(new Error("So'rov vaqti tugadi. Internet aloqasini tekshiring."));
+        if (error.code === "ECONNABORTED") {
+          return Promise.reject(
+            new Error("So'rov vaqti tugadi. Internet aloqasini tekshiring."),
+          );
         }
-        if (error.code === 'ERR_NETWORK') {
-          return Promise.reject(new Error("Tarmoq xatoligi. Server bilan aloqa yo'q."));
+        if (error.code === "ERR_NETWORK") {
+          return Promise.reject(
+            new Error("Tarmoq xatoligi. Server bilan aloqa yo'q."),
+          );
         }
         const message =
           error.response?.data?.message || error.message || "API xatoligi";
@@ -151,39 +155,38 @@ class ApiClient {
   }
 
   async getProducts(search?: string): Promise<Product[]> {
-    const response = await this.client.get<ApiResponse<Product[]>>("/products", {
-      params: search ? { search } : undefined,
-    });
-    return this.unwrap(response);
-  }
-
-  async getProduct(id: string): Promise<Product> {
-    const response = await this.client.get<ApiResponse<Product>>(`/products/${id}`);
-    return this.unwrap(response);
-  }
-
-  async createProduct(product: Product): Promise<Product> {
-    const response = await this.client.post<ApiResponse<Product>>(
+    const response = await this.client.get<ApiResponse<Product[]>>(
       "/products",
       {
-        deviceId: product.deviceId,
-        name: product.name,
-        quantity: product.quantity,
-        buyPrice: product.buyPrice,
-        sellPrice: product.sellPrice,
-        image: product.image,
-        localId: product.localId,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
+        params: search ? { search } : undefined,
       },
     );
     return this.unwrap(response);
   }
 
-  async updateProduct(
-    id: string,
-    product: Partial<Product>,
-  ): Promise<Product> {
+  async getProduct(id: string): Promise<Product> {
+    const response = await this.client.get<ApiResponse<Product>>(
+      `/products/${id}`,
+    );
+    return this.unwrap(response);
+  }
+
+  async createProduct(product: Product): Promise<Product> {
+    const response = await this.client.post<ApiResponse<Product>>("/products", {
+      deviceId: product.deviceId,
+      name: product.name,
+      quantity: product.quantity,
+      buyPrice: product.buyPrice,
+      sellPrice: product.sellPrice,
+      image: product.image,
+      localId: product.localId,
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+    });
+    return this.unwrap(response);
+  }
+
+  async updateProduct(id: string, product: Partial<Product>): Promise<Product> {
     const {
       deviceId,
       name,
@@ -231,12 +234,36 @@ class ApiClient {
     date: string,
     products?: Product[],
   ): Promise<InventoryWithProduct[]> {
-    const [inventory, resolvedProducts] = await Promise.all([
-      this.getInventory(date),
-      products ? Promise.resolve(products) : this.getProducts(),
-    ]);
+    try {
+      const response = await this.client.get<ApiResponse<any>>("/inventory", {
+        params: { date },
+      });
 
-    return joinInventoryWithProducts(inventory, resolvedProducts);
+      let data = this.unwrap(response);
+
+      if (data && typeof data === "object" && Array.isArray(data.items)) {
+        return data.items as InventoryWithProduct[];
+      }
+
+      if (Array.isArray(data)) {
+        return data as InventoryWithProduct[];
+      }
+      const [inventory, resolvedProducts] = await Promise.all([
+        this.getInventory(date),
+        products ? Promise.resolve(products) : this.getProducts(),
+      ]);
+
+      return joinInventoryWithProducts(inventory, resolvedProducts);
+    } catch (error: any) {
+      console.error("getInventoryWithProducts error:", error.message);
+
+      const [inventory, resolvedProducts] = await Promise.all([
+        this.getInventory(date),
+        products ? Promise.resolve(products) : this.getProducts(),
+      ]);
+
+      return joinInventoryWithProducts(inventory, resolvedProducts);
+    }
   }
 
   async getInventoryRange(from: string, to: string): Promise<InventoryEntry[]> {
@@ -325,11 +352,13 @@ class ApiClient {
   }
 
   // Auth methods
-  async login(username: string, password: string): Promise<{ token: string; user: AuthUser }> {
-    const response = await this.client.post<ApiResponse<{ token: string; user: AuthUser }>>(
-      "/auth/login",
-      { username, password },
-    );
+  async login(
+    username: string,
+    password: string,
+  ): Promise<{ token: string; user: AuthUser }> {
+    const response = await this.client.post<
+      ApiResponse<{ token: string; user: AuthUser }>
+    >("/auth/login", { username, password });
     return this.unwrap(response);
   }
 
@@ -339,15 +368,19 @@ class ApiClient {
   }
 
   async getAdmins(): Promise<AuthUser[]> {
-    const response = await this.client.get<ApiResponse<AuthUser[]>>("/auth/admins");
+    const response =
+      await this.client.get<ApiResponse<AuthUser[]>>("/auth/admins");
     return this.unwrap(response);
   }
 
   async createAdmin(username: string, password: string): Promise<AuthUser> {
-    const response = await this.client.post<ApiResponse<AuthUser>>("/auth/admins", {
-      username,
-      password,
-    });
+    const response = await this.client.post<ApiResponse<AuthUser>>(
+      "/auth/admins",
+      {
+        username,
+        password,
+      },
+    );
     return this.unwrap(response);
   }
 }

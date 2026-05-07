@@ -7,10 +7,7 @@ import { apiClient } from "../api/client";
 import { getAppMeta, setAppMeta } from "../db/syncQueue";
 import { STORAGE_KEYS } from "../constants";
 import * as secureStorage from "../utils/secureStorage";
-import {
-  hasValidationErrors,
-  validateProductInput,
-} from "../utils/inventory";
+import { hasValidationErrors, validateProductInput } from "../utils/inventory";
 import {
   getBusinessDate,
   isPastBusinessDate,
@@ -40,6 +37,18 @@ const setOnlineStatus = (
   isOnline,
 });
 
+const sanitizeProductImage = (
+  image: string | undefined,
+): string | undefined => {
+  if (!image) return undefined;
+  // Only allow data:image/... URLs or remote https://... URLs
+  if (image.startsWith("data:image/") || image.startsWith("https://")) {
+    return image;
+  }
+  // Block file://, content://, ph://, and other local URI schemes
+  return undefined;
+};
+
 const stripInventoryProduct = (
   entry: InventoryEntry | InventoryWithProduct,
 ): InventoryEntry => {
@@ -48,11 +57,21 @@ const stripInventoryProduct = (
   return rest;
 };
 
+const stripUndefined = <T extends Record<string, any>>(obj: T): Partial<T> => {
+  const result: Partial<T> = {};
+  Object.entries(obj).forEach(([key, value]) => {
+    if (value !== undefined) {
+      (result as any)[key] = value;
+    }
+  });
+  return result;
+};
+
 interface AppState {
   // Auth state
   user: AuthUser | null;
   isAuthenticated: boolean;
-  
+
   // App state
   products: Product[];
   currentInventory: InventoryWithProduct[];
@@ -72,7 +91,7 @@ interface AppState {
   // Auth actions
   setUser: (user: AuthUser | null) => void;
   logout: () => Promise<void>;
-  
+
   // App actions
   initialize: () => Promise<void>;
   refreshAppData: () => Promise<void>;
@@ -114,7 +133,7 @@ export const useStore = create<AppState>((set, get) => ({
   // Auth state
   user: null,
   isAuthenticated: false,
-  
+
   // App state
   products: [],
   currentInventory: [],
@@ -138,7 +157,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Auth actions
   setUser: (user) => set({ user, isAuthenticated: !!user }),
-  
+
   logout: async () => {
     apiClient.setToken(null);
     await secureStorage.deleteItemAsync(STORAGE_KEYS.USER_TOKEN);
@@ -263,7 +282,7 @@ export const useStore = create<AppState>((set, get) => ({
       quantity: Number(input.quantity ?? 0),
       buyPrice: Number(input.buyPrice),
       sellPrice: Number(input.sellPrice),
-      image: input.image,
+      image: sanitizeProductImage(input.image),
       isDeleted: false,
       updatedAt: now,
       createdAt: now,
@@ -280,7 +299,9 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   updateProduct: async (localId, input) => {
-    const existing = get().products.find((product) => product.localId === localId);
+    const existing = get().products.find(
+      (product) => product.localId === localId,
+    );
     if (!existing) return;
 
     const validationErrors = validateProductInput({ ...existing, ...input });
@@ -292,7 +313,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     const updatedProduct: Partial<Product> = {
-      ...input,
+      ...stripUndefined(input),
       updatedAt: new Date().toISOString(),
     };
 
@@ -476,10 +497,15 @@ export const useStore = create<AppState>((set, get) => ({
     const targetDate = date || getBusinessDate();
 
     if (period === "daily") {
-      const filtered = snapshots.filter((snapshot) => snapshot.date === targetDate);
+      const filtered = snapshots.filter(
+        (snapshot) => snapshot.date === targetDate,
+      );
       return {
         date: targetDate,
-        totalRevenue: filtered.reduce((sum, item) => sum + item.totalRevenue, 0),
+        totalRevenue: filtered.reduce(
+          (sum, item) => sum + item.totalRevenue,
+          0,
+        ),
         totalProfit: filtered.reduce((sum, item) => sum + item.totalProfit, 0),
         totalSoldItems: filtered.reduce(
           (sum, item) => sum + item.totalSoldItems,
@@ -531,7 +557,8 @@ export const useStore = create<AppState>((set, get) => ({
       get().selectedDate === date
         ? currentInventory
         : await apiClient.getInventoryWithProducts(date);
-    const existing = snapshots.find((snapshot) => snapshot.date === date) || null;
+    const existing =
+      snapshots.find((snapshot) => snapshot.date === date) || null;
 
     const historicalPrices = new Map(
       (existing?.items || []).map((item) => [
@@ -590,7 +617,10 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const { products, currentInventory, snapshots, selectedDate } = get();
       const result = await apiClient.sync({
-        products,
+        products: products.map((p) => ({
+          ...p,
+          image: sanitizeProductImage(p.image),
+        })),
         inventory: currentInventory.map(stripInventoryProduct),
         snapshots,
         lastSyncAt: get().syncStatus.lastSyncAt || undefined,

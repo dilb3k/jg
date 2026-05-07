@@ -39,7 +39,7 @@ const EMPTY_FORM = {
   quantity: "",
   buyPrice: "",
   sellPrice: "",
-  image: "",
+  image: undefined,
 };
 
 const EMPTY_ERRORS = {
@@ -97,11 +97,15 @@ export default function ProductsScreen() {
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
-      quality: 1,
+      base64: true,
+      quality: 0.7,
     });
 
     if (!result.canceled) {
-      setForm((prev) => ({ ...prev, image: result.assets[0].uri }));
+      const file = result.assets[0];
+      const mime = file.mimeType || "image/jpeg";
+      const image = file.base64 ? `data:${mime};base64,${file.base64}` : "";
+      setForm((prev) => ({ ...prev, image }));
     }
   };
 
@@ -111,7 +115,6 @@ export default function ProductsScreen() {
       quantity: Number(form.quantity || 0),
       buyPrice: Number(form.buyPrice),
       sellPrice: Number(form.sellPrice),
-      image: form.image || undefined,
     });
 
     setErrors(nextErrors);
@@ -121,13 +124,16 @@ export default function ProductsScreen() {
   const handleSave = async () => {
     if (!validate()) return;
 
-    const payload = {
+    const payload: any = {
       name: form.name.trim(),
       quantity: Number(form.quantity || 0),
       buyPrice: Number(form.buyPrice),
       sellPrice: Number(form.sellPrice),
-      image: form.image || undefined,
     };
+
+    if (form.image !== undefined && form.image !== editingProduct?.image) {
+      payload.image = form.image;
+    }
 
     setIsSubmitting(true);
     try {
@@ -158,7 +164,7 @@ export default function ProductsScreen() {
       quantity: String(item.quantity ?? ""),
       buyPrice: String(item.buyPrice ?? ""),
       sellPrice: String(item.sellPrice ?? ""),
-      image: item.image ?? "",
+      image: item.image,
     });
     setShowModal(true);
   };
@@ -355,7 +361,11 @@ export default function ProductsScreen() {
               <Text style={styles.backText}>{t("back")}</Text>
             </TouchableOpacity>
 
-            <Pressable onPressOut={handleSave} style={styles.save} disabled={isSubmitting}>
+            <Pressable
+              onPressOut={handleSave}
+              style={styles.save}
+              disabled={isSubmitting}
+            >
               {isSubmitting ? (
                 <ActivityIndicator size="small" color={colors.white} />
               ) : (
@@ -387,28 +397,28 @@ export default function ProductsScreen() {
                   <Text style={styles.cancelText}>{t("cancel")}</Text>
                 </TouchableOpacity>
 
-                 <TouchableOpacity
-                   onPress={async () => {
-                     setIsDeleting(true);
-                     try {
-                       await deleteProduct(deleteModalProduct.localId);
-                       await loadProducts();
-                       closeModal();
-                       setDeleteModalProduct(null);
-                       showToast(t("productDeleted"), "success");
-                     } finally {
-                       setIsDeleting(false);
-                     }
-                   }}
-                   style={styles.confirm}
-                   disabled={isDeleting}
-                 >
-                   {isDeleting ? (
-                     <ActivityIndicator size="small" color={colors.white} />
-                   ) : (
-                     <Text style={styles.confirmText}>{t("delete")}</Text>
-                   )}
-                 </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={async () => {
+                    setIsDeleting(true);
+                    try {
+                      await deleteProduct(deleteModalProduct.localId);
+                      await loadProducts();
+                      closeModal();
+                      setDeleteModalProduct(null);
+                      showToast(t("productDeleted"), "success");
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                  style={styles.confirm}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={styles.confirmText}>{t("delete")}</Text>
+                  )}
+                </TouchableOpacity>
               </View>
             </Pressable>
           </Pressable>

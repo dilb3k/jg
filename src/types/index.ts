@@ -28,6 +28,28 @@ export interface InventoryEntry {
   createdAt: string;
 }
 
+export interface InventoryMetrics {
+  remaining: number;
+  sold: number;
+  revenue: number;
+  realizedProfit: number;
+  stockSellValue: number;
+  stockBuyValue: number;
+  potentialProfit: number;
+  marginPercent: number;
+}
+
+export interface InventoryWithProduct extends InventoryEntry {
+  product: Product;
+  remaining?: number;
+  sold?: number;
+  revenue?: number;
+  realizedProfit?: number;
+  stockSellValue?: number;
+  stockBuyValue?: number;
+  potentialProfit?: number;
+  marginPercent?: number;
+}
 export interface DailySnapshotItem {
   productId: string;
   productName: string;
@@ -68,10 +90,6 @@ export interface AppMeta {
 export type ProductInput = Omit<Product, 'id' | 'localId' | 'deviceId' | 'updatedAt' | 'createdAt' | 'isDeleted'> & { quantity?: number };
 export type InventoryInput = Omit<InventoryEntry, 'id' | 'localId' | 'deviceId' | 'updatedAt' | 'createdAt' | 'isDeleted'>;
 export type SnapshotInput = Omit<DailySnapshot, 'id' | 'localId' | 'deviceId' | 'updatedAt' | 'createdAt' | 'isDeleted'>;
-
-export interface InventoryWithProduct extends InventoryEntry {
-  product: Product;
-}
 
 export interface StatisticsData {
   date: string;

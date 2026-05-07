@@ -1,4 +1,17 @@
-import type { InventoryWithProduct, ProductInput } from "../types";
+import type {
+  InventoryWithProduct,
+  InventoryMetrics,
+  Product,
+} from "../types/index";
+
+export interface ProductValidationErrors {
+  name: string;
+  buyPrice: string;
+  sellPrice: string;
+  quantity: string;
+}
+
+// ==================== FORMAT VA NORMALIZE FUNKSIYALARI ====================
 
 export const normalizeDigits = (value: string): string =>
   value.replace(/[^\d]/g, "");
@@ -14,14 +27,84 @@ export const formatWholeNumber = (value: number): string =>
 export const formatMoney = (value: number): string =>
   `${value.toLocaleString("uz-UZ")} so'm`;
 
-export const getInventoryMetrics = (item: InventoryWithProduct) => {
+// ==================== VALIDATION ====================
+
+export const hasValidationErrors = (
+  errors: ProductValidationErrors,
+): boolean => {
+  return Object.values(errors).some((error) => error !== "");
+};
+
+export const validateProductInput = (input: {
+  name: string;
+  quantity: number;
+  buyPrice: number;
+  sellPrice: number;
+}): ProductValidationErrors => {
+  const errors: ProductValidationErrors = {
+    name: "",
+    buyPrice: "",
+    sellPrice: "",
+    quantity: "",
+  };
+
+  // Mahsulot nomi
+  if (!input.name || input.name.trim().length === 0) {
+    errors.name = "Mahsulot nomi majburiy";
+  } else if (input.name.trim().length < 2) {
+    errors.name = "Mahsulot nomi kamida 2 ta belgidan iborat bo'lishi kerak";
+  }
+
+  // Sotib olish narxi
+  if (!input.buyPrice || input.buyPrice <= 0) {
+    errors.buyPrice = "Sotib olish narxi 0 dan katta bo'lishi kerak";
+  }
+
+  // Sotish narxi
+  if (!input.sellPrice || input.sellPrice <= 0) {
+    errors.sellPrice = "Sotish narxi 0 dan katta bo'lishi kerak";
+  } else if (input.sellPrice < input.buyPrice) {
+    errors.sellPrice =
+      "Sotish narxi sotib olish narxidan kam bo'lmasligi kerak";
+  }
+
+  // Miqdor
+  if (input.quantity < 0) {
+    errors.quantity = "Miqdor manfiy bo'lmasligi kerak";
+  }
+
+  return errors;
+};
+
+// ==================== INVENTORY METRIKALARI ====================
+
+export const getInventoryMetrics = (
+  item: InventoryWithProduct,
+): InventoryMetrics => {
+  // Backend hisoblab bergan bo'lsa
+  if (typeof item.sold === "number" && typeof item.remaining === "number") {
+    return {
+      remaining: item.remaining,
+      sold: item.sold,
+      revenue: item.revenue ?? 0,
+      realizedProfit: item.realizedProfit ?? 0,
+      stockSellValue: item.stockSellValue ?? 0,
+      stockBuyValue: item.stockBuyValue ?? 0,
+      potentialProfit: item.potentialProfit ?? 0,
+      marginPercent: item.marginPercent ?? 0,
+    };
+  }
+
+  // Fallback hisoblash
   const remaining = Math.max(item.currentQuantity, 0);
   const sold = Math.max(item.startQuantity - item.currentQuantity, 0);
   const revenue = sold * item.product.sellPrice;
-  const realizedProfit = sold * (item.product.sellPrice - item.product.buyPrice);
+  const realizedProfit =
+    sold * (item.product.sellPrice - item.product.buyPrice);
   const stockSellValue = remaining * item.product.sellPrice;
   const stockBuyValue = remaining * item.product.buyPrice;
-  const potentialProfit = remaining * (item.product.sellPrice - item.product.buyPrice);
+  const potentialProfit =
+    remaining * (item.product.sellPrice - item.product.buyPrice);
 
   return {
     remaining,
@@ -42,19 +125,63 @@ export const getInventoryMetrics = (item: InventoryWithProduct) => {
   };
 };
 
-export const getInventoryTotals = (items: InventoryWithProduct[]) =>
-  items.reduce(
+export const getInventoryTotals = (
+  items: InventoryWithProduct[],
+  summary?: any,
+) => {
+  if (summary?.totalStart !== undefined) {
+    return {
+      start: summary.totalStart,
+      current: summary.totalCurrent,
+      sold: summary.totalSold,
+      revenue: summary.totalRevenue ?? 0,
+      profit: summary.totalProfit ?? 0,
+      stockSellValue: summary.totalStockSellValue ?? 0,
+    };
+  }
+
+  if (items.length === 0) {
+    return {
+      start: 0,
+      current: 0,
+      sold: 0,
+      revenue: 0,
+      profit: 0,
+      stockSellValue: 0,
+    };
+  }
+
+  if (typeof items[0]?.sold === "number") {
+    return items.reduce(
+      (acc, item) => ({
+        start: acc.start + item.startQuantity,
+        current: acc.current + item.currentQuantity,
+        sold: acc.sold + (item.sold || 0),
+        revenue: acc.revenue + (item.revenue || 0),
+        profit: acc.profit + (item.realizedProfit || 0),
+        stockSellValue: acc.stockSellValue + (item.stockSellValue || 0),
+      }),
+      {
+        start: 0,
+        current: 0,
+        sold: 0,
+        revenue: 0,
+        profit: 0,
+        stockSellValue: 0,
+      },
+    );
+  }
+
+  return items.reduce(
     (acc, item) => {
-      const metrics = getInventoryMetrics(item);
+      const m = getInventoryMetrics(item);
       return {
         start: acc.start + item.startQuantity,
-        current: acc.current + metrics.remaining,
-        sold: acc.sold + metrics.sold,
-        revenue: acc.revenue + metrics.revenue,
-        profit: acc.profit + metrics.realizedProfit,
-        stockSellValue: acc.stockSellValue + metrics.stockSellValue,
-        stockBuyValue: acc.stockBuyValue + metrics.stockBuyValue,
-        stockProfit: acc.stockProfit + metrics.potentialProfit,
+        current: acc.current + m.remaining,
+        sold: acc.sold + m.sold,
+        revenue: acc.revenue + m.revenue,
+        profit: acc.profit + m.realizedProfit,
+        stockSellValue: acc.stockSellValue + m.stockSellValue,
       };
     },
     {
@@ -64,46 +191,6 @@ export const getInventoryTotals = (items: InventoryWithProduct[]) =>
       revenue: 0,
       profit: 0,
       stockSellValue: 0,
-      stockBuyValue: 0,
-      stockProfit: 0,
     },
   );
-
-export const validateProductInput = (
-  input: Partial<ProductInput>,
-): Record<"name" | "buyPrice" | "sellPrice" | "quantity", string> => {
-  const errors = {
-    name: "",
-    buyPrice: "",
-    sellPrice: "",
-    quantity: "",
-  };
-
-  const name = String(input.name ?? "").trim();
-  const buyPrice = Number(input.buyPrice);
-  const sellPrice = Number(input.sellPrice);
-  const quantity = Number(input.quantity ?? 0);
-
-  if (!name) {
-    errors.name = "Mahsulot nomini kiriting";
-  }
-
-  if (!Number.isFinite(buyPrice) || buyPrice <= 0) {
-    errors.buyPrice = "Kelish narxi 0 dan katta bo'lishi kerak";
-  }
-
-  if (!Number.isFinite(sellPrice) || sellPrice <= 0) {
-    errors.sellPrice = "Sotish narxi 0 dan katta bo'lishi kerak";
-  } else if (Number.isFinite(buyPrice) && sellPrice < buyPrice) {
-    errors.sellPrice = "Sotish narxi kelish narxidan past bo'lishi mumkin emas";
-  }
-
-  if (!Number.isInteger(quantity) || quantity < 0) {
-    errors.quantity = "Miqdor manfiy bo'lishi mumkin emas";
-  }
-
-  return errors;
 };
-
-export const hasValidationErrors = (errors: Record<string, string>) =>
-  Object.values(errors).some(Boolean);

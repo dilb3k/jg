@@ -35,8 +35,7 @@ export default function RatingScreen() {
   const { t } = useI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const { loadProducts, loadSnapshots, products, snapshots } =
-    useRatingScreenStore();
+  const { loadProducts, loadSnapshots, snapshots } = useRatingScreenStore();
 
   const [sortBy, setSortBy] = useState<SortType>("profit_total");
   const [filter, setFilter] = useState("");
@@ -45,7 +44,6 @@ export default function RatingScreen() {
     InventoryWithProduct[]
   >([]);
 
-  // ==================== LOADING STATES ====================
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isInventoryLoading, setIsInventoryLoading] = useState(false);
 
@@ -58,7 +56,7 @@ export default function RatingScreen() {
     [t],
   );
 
-  // Load initial data (Products + Snapshots)
+  // Initial load
   useEffect(() => {
     const loadInitialData = async () => {
       setIsInitialLoading(true);
@@ -79,10 +77,24 @@ export default function RatingScreen() {
     const loadInventory = async () => {
       setIsInventoryLoading(true);
       try {
-        const inventory = await apiClient.getInventory(
+        const response = await apiClient.getInventory(
           selectedDate || getBusinessDate(),
         );
-        setInventoryForDate(inventory);
+
+        // API javobi { success: true, data: { items: [...], summary: {...} } }
+        let items: InventoryWithProduct[] = [];
+
+        if (response && typeof response === "object") {
+          if (Array.isArray(response)) {
+            items = response;
+          } else if (Array.isArray((response as any).items)) {
+            items = (response as any).items;
+          } else if (Array.isArray((response as any).data?.items)) {
+            items = (response as any).data.items;
+          }
+        }
+
+        setInventoryForDate(items);
       } catch (error) {
         console.error("Inventory load error:", error);
         setInventoryForDate([]);
@@ -110,43 +122,50 @@ export default function RatingScreen() {
 
   const soldByProduct = useMemo(() => {
     const relevantSnapshots = selectedDate
-      ? snapshots.filter((snapshot) => snapshot.date === selectedDate)
+      ? snapshots.filter((s) => s.date === selectedDate)
       : snapshots;
 
     return relevantSnapshots.reduce<
       Record<string, { sold: number; profit: number }>
     >((acc, snapshot) => {
       snapshot.items.forEach((item) => {
-        const current = acc[item.productId] || { sold: 0, profit: 0 };
-        current.sold += item.sold;
-        current.profit += item.profit;
-        acc[item.productId] = current;
+        const pid = item.productId;
+        if (!acc[pid]) acc[pid] = { sold: 0, profit: 0 };
+        acc[pid].sold += item.sold || 0;
+        acc[pid].profit += item.profit || 0;
       });
       return acc;
     }, {});
   }, [selectedDate, snapshots]);
 
   const rankingRows = useMemo(() => {
-    let list = inventoryForDate
-      .map((item) => {
-        const metrics = getInventoryMetrics(item);
-        return {
-          ...item,
-          sold: soldByProduct[item.productId]?.sold || 0,
-          earnedProfit: soldByProduct[item.productId]?.profit || 0,
-          stockValue: metrics.stockSellValue,
-          remaining: metrics.remaining,
-          marginPercent: metrics.marginPercent,
-          potentialProfit: metrics.potentialProfit,
-        };
-      })
-      .filter((item) =>
-        item.product.name.toLowerCase().includes(filter.trim().toLowerCase()),
-      );
+    const safeList = Array.isArray(inventoryForDate) ? inventoryForDate : [];
 
+    let list = safeList.map((item) => {
+      const metrics = getInventoryMetrics(item as any);
+      const productId = item.productId || item.id;
+      const name = item.name || item.product?.name || "Noma'lum";
+
+      return {
+        ...item,
+        name,
+        sold: soldByProduct[productId]?.sold || 0,
+        earnedProfit: soldByProduct[productId]?.profit || 0,
+        remaining: metrics.remaining,
+        marginPercent: metrics.marginPercent,
+      };
+    });
+
+    // Filter
+    if (filter.trim()) {
+      const term = filter.trim().toLowerCase();
+      list = list.filter((item) => item.name.toLowerCase().includes(term));
+    }
+
+    // Sort
     return [...list].sort((a, b) => {
-      const profitUnitA = a.product.sellPrice - a.product.buyPrice;
-      const profitUnitB = b.product.sellPrice - b.product.buyPrice;
+      const profitUnitA = (a.sellPrice || 0) - (a.buyPrice || 0);
+      const profitUnitB = (b.sellPrice || 0) - (b.buyPrice || 0);
 
       switch (sortBy) {
         case "profit_unit":
@@ -159,27 +178,23 @@ export default function RatingScreen() {
           return 0;
       }
     });
-  }, [filter, inventoryForDate, soldByProduct, sortBy]);
+  }, [inventoryForDate, soldByProduct, sortBy, filter]);
 
-  // ==================== RENDER ====================
   if (isInitialLoading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>
-          {t("loading") || "Yuklanmoqda..."}
-        </Text>
+        <Text style={styles.loadingText}>Yuklanmoqda...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Filter & Date Row */}
       <View style={styles.filterRow}>
         <TextInput
           style={styles.searchInput}
-          placeholder={t("search")}
+          placeholder={t("search") || "Qidirish..."}
           placeholderTextColor={colors.textTertiary}
           value={filter}
           onChangeText={setFilter}
@@ -191,7 +206,7 @@ export default function RatingScreen() {
             <Text style={styles.dateButtonValue}>
               {selectedDate
                 ? dayjs(selectedDate).format("DD MMM YYYY")
-                : t("allTimeRating")}
+                : t("allTimeRating") || "Barcha vaqt"}
             </Text>
           </TouchableOpacity>
 
@@ -206,7 +221,6 @@ export default function RatingScreen() {
         </View>
       </View>
 
-      {/* Sort Tabs */}
       <View style={styles.sortTabs}>
         {(Object.keys(sortLabels) as SortType[]).map((sort) => (
           <TouchableOpacity
@@ -226,7 +240,6 @@ export default function RatingScreen() {
         ))}
       </View>
 
-      {/* Loading indicator for date change */}
       {isInventoryLoading && (
         <View style={styles.inventoryLoading}>
           <ActivityIndicator size="small" color={colors.primary} />
@@ -236,18 +249,21 @@ export default function RatingScreen() {
         </View>
       )}
 
-      {/* Ranking List */}
       <FlatList
         data={rankingRows}
-        keyExtractor={(item) => item.localId}
+        keyExtractor={(item) =>
+          item.localId || item.productId || item.id || Math.random().toString()
+        }
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <Text style={styles.emptyText}>
-            {isInventoryLoading ? "" : t("ratingNoData")}
+            {isInventoryLoading
+              ? ""
+              : t("ratingNoData") || "Ma'lumot topilmadi"}
           </Text>
         }
         renderItem={({ item, index }) => {
-          const profitPerUnit = item.product.sellPrice - item.product.buyPrice;
+          const profitPerUnit = (item.sellPrice || 0) - (item.buyPrice || 0);
 
           const rankColor =
             index === 0
@@ -266,22 +282,23 @@ export default function RatingScreen() {
 
               <View style={styles.cardContent}>
                 <View style={styles.cardTop}>
-                  <Text style={styles.productName} numberOfLines={1}>
-                    {item.product.name}
+                  <Text style={styles.productName} numberOfLines={2}>
+                    {item.name}
                   </Text>
                   <View
                     style={[
                       styles.marginBadge,
-                      item.marginPercent >= 30 && styles.marginBadgeGood,
+                      (item.marginPercent || 0) >= 30 && styles.marginBadgeGood,
                     ]}
                   >
                     <Text
                       style={[
                         styles.marginText,
-                        item.marginPercent >= 30 && styles.marginTextGood,
+                        (item.marginPercent || 0) >= 30 &&
+                          styles.marginTextGood,
                       ]}
                     >
-                      {item.marginPercent}%
+                      {Math.round(item.marginPercent || 0)}%
                     </Text>
                   </View>
                 </View>
@@ -289,13 +306,11 @@ export default function RatingScreen() {
                 <View style={styles.statsRow}>
                   <View style={styles.stat}>
                     <Text style={styles.statLabel}>{t("remaining")}</Text>
-                    <Text
-                      style={[
-                        styles.statValue,
-                        item.remaining <= 5 && styles.loss,
-                      ]}
-                    >
-                      {item.remaining}
+                    <Text style={styles.statValue}>
+                      {item.remaining ??
+                        item.currentQuantity ??
+                        item.quantity ??
+                        0}
                     </Text>
                   </View>
 
@@ -335,12 +350,10 @@ export default function RatingScreen() {
   );
 }
 
-// ==================== STYLES ====================
+// Styles (o'zgartirishsiz)
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-
-    // New loading styles
     centerContainer: {
       flex: 1,
       justifyContent: "center",
@@ -363,7 +376,6 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.textSecondary,
       fontSize: FONT_SIZE.sm,
     },
-
     filterRow: {
       padding: SPACING.lg,
       paddingBottom: SPACING.sm,
@@ -407,7 +419,6 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: "700",
       color: colors.primary,
     },
-
     sortTabs: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -444,7 +455,6 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: "center",
       alignItems: "center",
       marginRight: SPACING.md,
-      flexShrink: 0,
     },
     rankText: {
       color: colors.white,
@@ -456,7 +466,6 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      gap: SPACING.sm,
       marginBottom: SPACING.sm,
     },
     productName: {
@@ -493,9 +502,7 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: FONT_SIZE.sm,
       fontWeight: "700",
       color: colors.text,
-      textAlign: "center",
     },
-
     totalRow: {
       borderTopWidth: 1,
       borderTopColor: colors.border,
@@ -505,10 +512,8 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: FONT_SIZE.sm,
       color: colors.textSecondary,
     },
-
     profit: { color: colors.secondary },
     loss: { color: colors.danger },
-
     emptyText: {
       textAlign: "center",
       color: colors.textTertiary,

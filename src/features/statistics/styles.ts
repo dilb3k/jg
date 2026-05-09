@@ -277,5 +277,30 @@ export const createStatisticsStyles = (colors: ThemeColors) =>
       color: colors.white,
       fontWeight: "700",
     },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      gap: SPACING.md,
+      padding: SPACING.lg,
+    },
+    loadingText: {
+      fontSize: FONT_SIZE.md,
+      color: colors.textSecondary,
+    },
+    offlineBanner: {
+      marginHorizontal: SPACING.lg,
+      marginBottom: SPACING.sm,
+      backgroundColor: colors.warning + "20",
+      borderRadius: BORDER_RADIUS.md,
+      padding: SPACING.sm,
+      borderWidth: 1,
+      borderColor: colors.warning + "50",
+    },
+    offlineBannerText: {
+      fontSize: FONT_SIZE.xs,
+      color: colors.warning,
+      textAlign: "center",
+    },
     profit: { color: colors.secondary },
   });

@@ -18,6 +18,7 @@ import type {
   Product,
   InventoryEntry,
   DailySnapshot,
+  InventorySummary,
   InventoryWithProduct,
   StatisticsData,
   SyncStatus,
@@ -76,6 +77,7 @@ interface AppState {
   // App state
   products: Product[];
   currentInventory: InventoryWithProduct[];
+  inventorySummary: InventorySummary | null;
   snapshots: DailySnapshot[];
   isLoading: boolean;
   error: string | null;
@@ -138,6 +140,7 @@ export const useStore = create<AppState>((set, get) => ({
   // App state
   products: [],
   currentInventory: [],
+  inventorySummary: null,
   snapshots: [],
   isLoading: false,
   error: null,
@@ -210,7 +213,6 @@ export const useStore = create<AppState>((set, get) => ({
 
       await Promise.all([
         get().loadProducts(),
-        get().loadInventoryByDate(businessDate),
         get().loadSnapshots(),
       ]);
     } catch (error: any) {
@@ -358,14 +360,15 @@ export const useStore = create<AppState>((set, get) => ({
     inflightKeys.add(dateKey);
     try {
       const requestId = ++latestInventoryLoadRequest;
-      const inventory = await apiClient.getInventoryWithProducts(date);
+      const result = await apiClient.getInventoryWithProducts({ date });
 
       if (requestId !== latestInventoryLoadRequest) {
         return;
       }
 
       set((state) => ({
-        currentInventory: inventory,
+        currentInventory: result.items,
+        inventorySummary: result.summary ?? null,
         selectedDate: date,
         syncStatus: setOnlineStatus(state.syncStatus, true),
       }));
@@ -473,6 +476,14 @@ export const useStore = create<AppState>((set, get) => ({
       updatedAt: now,
     });
 
+    set((state) => ({
+      currentInventory: state.currentInventory.map((entry) =>
+        entry.productId === productId && entry.date === date
+          ? { ...entry, currentQuantity: safeQuantity, note: note || entry.note, updatedAt: now }
+          : entry,
+      ),
+    }));
+
     await get().buildAndSaveSnapshot(date);
 
     await Promise.all([
@@ -570,7 +581,7 @@ export const useStore = create<AppState>((set, get) => ({
     const inventory =
       get().selectedDate === date
         ? currentInventory
-        : await apiClient.getInventoryWithProducts(date);
+        : (await apiClient.getInventoryWithProducts({ date })).items;
     const existing =
       snapshots.find((snapshot) => snapshot.date === date) || null;
 
@@ -629,14 +640,13 @@ export const useStore = create<AppState>((set, get) => ({
     }));
 
     try {
-      const { products, currentInventory, snapshots, selectedDate } = get();
+      const { products, currentInventory, selectedDate } = get();
       const result = await apiClient.sync({
         products: products.map((p) => ({
           ...p,
           image: sanitizeProductImage(p.image),
         })),
         inventory: currentInventory.map(stripInventoryProduct),
-        snapshots,
         lastSyncAt: get().syncStatus.lastSyncAt || undefined,
       });
       const now = result.serverTime || new Date().toISOString();
@@ -662,7 +672,6 @@ export const useStore = create<AppState>((set, get) => ({
 
       await Promise.all([
         get().loadProducts(),
-        get().loadSnapshots(),
         get().loadInventoryByDate(selectedDate || getBusinessDate()),
       ]);
     } catch (error: any) {

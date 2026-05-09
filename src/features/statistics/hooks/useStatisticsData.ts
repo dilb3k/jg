@@ -3,10 +3,19 @@ import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 
 import { apiClient } from "../../../api/client";
-import type { InventoryWithProduct, Product, DailySnapshot } from "../../../types";
-import { getBusinessDate } from "../../../utils/businessDay";
+import type {
+  InventorySummary,
+  InventoryWithProduct,
+  Product,
+  DailySnapshot,
+} from "../../../types";
 import { formatMoney, getInventoryTotals } from "../../../utils/inventory";
 import type { PeriodType } from "../components/PeriodTabs";
+
+type InventoryRangeResult = {
+  items: InventoryWithProduct[];
+  summary?: InventorySummary;
+};
 
 type Params = {
   getStatistics: (
@@ -19,56 +28,117 @@ type Params = {
   };
   products: Product[];
   snapshots: DailySnapshot[];
-  currentInventory: InventoryWithProduct[];
   period: PeriodType;
   selectedDate: string;
   overallStartDate: string | null;
   overallEndDate: string | null;
 };
 
+const getPeriodRange = (period: PeriodType, selectedDate: string) => {
+  const baseDate = dayjs(selectedDate);
+  switch (period) {
+    case "daily":
+      return { from: selectedDate, to: selectedDate };
+    case "weekly":
+      return {
+        from: baseDate.startOf("week").format("YYYY-MM-DD"),
+        to: baseDate.endOf("week").format("YYYY-MM-DD"),
+      };
+    case "monthly":
+      return {
+        from: baseDate.startOf("month").format("YYYY-MM-DD"),
+        to: baseDate.endOf("month").format("YYYY-MM-DD"),
+      };
+    case "yearly":
+      return {
+        from: baseDate.startOf("year").format("YYYY-MM-DD"),
+        to: baseDate.endOf("year").format("YYYY-MM-DD"),
+      };
+  }
+};
+
 export function useStatisticsData({
   getStatistics,
   products,
   snapshots,
-  currentInventory: storeInventory,
   period,
   selectedDate,
   overallStartDate,
   overallEndDate,
 }: Params) {
-  const [fetchedInventory, setFetchedInventory] = useState<InventoryWithProduct[]>([]);
+  const [overallRange, setOverallRange] = useState<InventoryRangeResult | null>(null);
+  const [overallAttempted, setOverallAttempted] = useState(false);
+  const [periodRange, setPeriodRange] = useState<InventoryRangeResult | null>(null);
+  const [periodAttempted, setPeriodAttempted] = useState(false);
 
   useEffect(() => {
-    if (!overallEndDate) {
-      setFetchedInventory([]);
-      return;
-    }
+    setOverallRange(null);
+    setOverallAttempted(false);
 
     let isMounted = true;
 
-    const loadOverallInventory = async () => {
+    const loadOverall = async () => {
       try {
-        const inventory = await apiClient.getInventoryWithProducts(overallEndDate);
+        const params: { from?: string; to?: string } = {};
+        if (overallStartDate) params.from = overallStartDate;
+        if (overallEndDate) params.to = overallEndDate;
+
+        const result = await apiClient.getInventoryWithProducts(params);
         if (isMounted) {
-          setFetchedInventory(inventory);
+          setOverallRange(result);
         }
       } catch {
         if (isMounted) {
-          setFetchedInventory([]);
+          setOverallRange(null);
+        }
+      } finally {
+        if (isMounted) {
+          setOverallAttempted(true);
         }
       }
     };
 
-    loadOverallInventory();
+    loadOverall();
 
     return () => {
       isMounted = false;
     };
-  }, [overallEndDate]);
+  }, [overallStartDate, overallEndDate]);
 
-  const overallInventory = overallEndDate ? fetchedInventory : storeInventory;
+  const periodDateRange = useMemo(
+    () => getPeriodRange(period, selectedDate),
+    [period, selectedDate],
+  );
 
-  const periodStats = (period: PeriodType) => getStatistics(period, selectedDate);
+  useEffect(() => {
+    setPeriodRange(null);
+    setPeriodAttempted(false);
+
+    let isMounted = true;
+
+    const loadPeriod = async () => {
+      try {
+        const result = await apiClient.getInventoryWithProducts(periodDateRange);
+        if (isMounted) {
+          setPeriodRange(result);
+        }
+      } catch {
+        if (isMounted) {
+          setPeriodRange(null);
+        }
+      } finally {
+        if (isMounted) {
+          setPeriodAttempted(true);
+        }
+      }
+    };
+
+    loadPeriod();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [periodDateRange]);
 
   const overallSnapshots = useMemo(
     () =>
@@ -86,6 +156,18 @@ export function useStatisticsData({
     [overallEndDate, overallStartDate, snapshots],
   );
 
+  const overallSummary = overallRange?.summary;
+
+  const overallInventory = useMemo(
+    () => overallRange?.items ?? [],
+    [overallRange],
+  );
+
+  const overallInventoryStats = useMemo(
+    () => getInventoryTotals(overallInventory, overallSummary),
+    [overallInventory, overallSummary],
+  );
+
   const overallRangeLabel = useMemo(() => {
     if (!overallStartDate && !overallEndDate) {
       return "Boshidan - Hozirgacha";
@@ -93,11 +175,6 @@ export function useStatisticsData({
 
     return `${overallStartDate ? dayjs(overallStartDate).format("DD MMM YYYY") : "Boshidan"} - ${overallEndDate ? dayjs(overallEndDate).format("DD MMM YYYY") : "Hozirgacha"}`;
   }, [overallEndDate, overallStartDate]);
-
-  const overallInventoryStats = useMemo(
-    () => getInventoryTotals(overallInventory),
-    [overallInventory],
-  );
 
   const periodSnapshots = useMemo(() => {
     const baseDate = dayjs(selectedDate);
@@ -130,7 +207,7 @@ export function useStatisticsData({
   const productRanking = useMemo(() => {
     const namesById = new Map<string, string>();
 
-    overallSnapshots.forEach((snapshot) => {
+    periodSnapshots.forEach((snapshot) => {
       snapshot.items.forEach((item) => {
         if (!namesById.has(item.productId)) {
           namesById.set(item.productId, item.productName);
@@ -166,7 +243,33 @@ export function useStatisticsData({
       .sort((a, b) => (b.sold === a.sold ? b.profit - a.profit : b.sold - a.sold));
   }, [periodSnapshots, products]);
 
+  const currentPeriodStats = useMemo(() => {
+    if (periodRange?.summary) {
+      return {
+        totalRevenue: periodRange.summary.totalRevenue,
+        totalProfit: periodRange.summary.totalProfit,
+        totalSoldItems: periodRange.summary.totalSold,
+      };
+    }
+    return getStatistics(period, selectedDate);
+  }, [periodRange, period, selectedDate, getStatistics, snapshots]);
+
   const overallTotals = useMemo(() => {
+    if (overallSummary) {
+      return {
+        earnedRevenue: overallSummary.totalRevenue,
+        earnedProfit: overallSummary.totalProfit,
+        soldItems: overallSummary.totalSold,
+        remainingItems: overallSummary.totalCurrent,
+        sellableItems: overallSummary.totalSold + overallSummary.totalCurrent,
+        sellableValue: overallSummary.totalRevenue + overallSummary.totalStockSellValue,
+        possibleProfit: overallSummary.totalProfit + overallSummary.totalStockProfit,
+        stockValue: overallSummary.totalStockSellValue,
+      };
+    }
+
+    if (!overallAttempted) return null;
+
     const earnedProfit = overallSnapshots.reduce(
       (sum, snapshot) => sum + snapshot.totalProfit,
       0,
@@ -194,7 +297,9 @@ export function useStatisticsData({
       possibleProfit,
       stockValue: overallInventoryStats.stockSellValue,
     };
-  }, [overallInventoryStats, overallSnapshots]);
+  }, [overallAttempted, overallInventoryStats, overallSnapshots, overallSummary]);
+
+  const isLoading = !overallAttempted || !periodAttempted;
 
   const topProducts = useMemo(
     () =>
@@ -209,7 +314,8 @@ export function useStatisticsData({
   return {
     overallRangeLabel,
     overallTotals,
-    periodStats,
+    currentPeriodStats,
     topProducts,
+    isLoading,
   };
 }

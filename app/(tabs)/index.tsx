@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   Image,
@@ -32,13 +32,23 @@ export default function RestockScreen() {
   const { t } = useI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const { products, updateProduct, showToast } =
+  const { products, loadProducts, updateProduct, showToast } =
     useProductsScreenStore();
 
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(products.length === 0);
+
+  useEffect(() => {
+    if (products.length === 0) {
+      setIsLoadingProducts(true);
+      loadProducts().finally(() => setIsLoadingProducts(false));
+    } else {
+      setIsLoadingProducts(false);
+    }
+  }, [loadProducts]);
   const openRestockModal = (product: Product) => {
     setSelectedProduct(product);
     setQuantity("");
@@ -123,15 +133,22 @@ export default function RestockScreen() {
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={products}
-        keyExtractor={(item) => item.localId}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <Text style={styles.empty}>{t("noProducts")}</Text>
-        }
-      />
+      {isLoadingProducts ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>{t("loading")}</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={products}
+          keyExtractor={(item) => item.localId}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <Text style={styles.empty}>{t("noProducts")}</Text>
+          }
+        />
+      )}
 
       {/* ==================== RESTOCK MODAL ==================== */}
       <Modal

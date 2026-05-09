@@ -55,8 +55,15 @@ export const deleteSnapshotByLocalId = async (localId: string): Promise<void> =>
 };
 
 export const saveSnapshots = async (snapshots: DailySnapshot[]): Promise<void> => {
-  const toStore = snapshots.map(s => ({ ...s, items: JSON.stringify(s.items) }));
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+  if (snapshots.length === 0) return;
+  const data = await AsyncStorage.getItem(STORAGE_KEY);
+  const existing: StoredSnapshot[] = data ? JSON.parse(data) : [];
+  const existingByLocalId = new Map(existing.map(s => [s.localId, s]));
+  for (const snapshot of snapshots) {
+    existingByLocalId.set(snapshot.localId, { ...snapshot, items: JSON.stringify(snapshot.items) });
+  }
+  const merged = Array.from(existingByLocalId.values());
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
 };
 
 export const getAllSnapshots = async (): Promise<DailySnapshot[]> => {

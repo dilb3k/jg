@@ -6,6 +6,7 @@ import type {
   AuthUser,
   DailySnapshot,
   InventoryEntry,
+  InventorySummary,
   InventoryWithProduct,
   Product,
 } from "../types";
@@ -42,6 +43,9 @@ type BackendInventoryResponse = {
     totalSold: number;
     totalRevenue: number;
     totalProfit: number;
+    totalStockSellValue: number;
+    totalStockBuyValue: number;
+    totalStockProfit: number;
   };
 };
 
@@ -63,13 +67,23 @@ type BulkCurrentInventoryItem = {
 
 let isOnline = false;
 let connectionMode: "online" | "offline" = "online";
+let wasAutoSetOffline = false;
+let moduleConnectionModeChangeHandler: ((mode: "online" | "offline") => void) | null = null;
 
 NetInfo.addEventListener((state) => {
-  isOnline = state.isConnected ?? false;
+  const connected = state.isConnected ?? false;
+  isOnline = connected;
+
+  if (connected && wasAutoSetOffline) {
+    wasAutoSetOffline = false;
+    connectionMode = "online";
+    moduleConnectionModeChangeHandler?.("online");
+  }
 });
 
 export const setConnectionMode = (mode: "online" | "offline") => {
   connectionMode = mode;
+  wasAutoSetOffline = false;
 };
 
 export const getConnectionMode = (): "online" | "offline" => {
@@ -108,31 +122,44 @@ const parseBackendInventory = (
   data: unknown,
   date: string,
   deviceId: string,
-): { entries: InventoryEntry[]; items: BackendInventoryItem[] } => {
+): { entries: InventoryEntry[]; items: BackendInventoryItem[]; summary?: BackendInventoryResponse["summary"] } => {
   if (!data || typeof data !== "object") {
     return { entries: [], items: [] };
   }
 
   let rawItems: BackendInventoryItem[] = [];
+  let summary: BackendInventoryResponse["summary"] | undefined;
+
+  const extract = (source: any) => {
+    if ("items" in source && Array.isArray(source.items)) {
+      rawItems = source.items;
+    }
+    if ("summary" in source && source.summary) {
+      summary = source.summary;
+    }
+  };
 
   if (Array.isArray(data)) {
     rawItems = data as BackendInventoryItem[];
-  } else if ("items" in data && Array.isArray((data as any).items)) {
-    rawItems = (data as BackendInventoryResponse).items;
   } else if ("data" in data && typeof (data as any).data === "object") {
     const inner = (data as any).data;
     if (Array.isArray(inner.items)) {
       rawItems = inner.items;
+      if (inner.summary) summary = inner.summary;
     } else if (Array.isArray(inner)) {
       rawItems = inner;
+    } else {
+      extract(inner);
     }
+  } else {
+    extract(data);
   }
 
   const entries = rawItems.map((item) =>
     backendItemToEntry(item, date, deviceId),
   );
 
-  return { entries, items: rawItems };
+  return { entries, items: rawItems, summary };
 };
 
 const normalizeDocument = <T>(value: T): T => {
@@ -187,6 +214,8 @@ const joinInventoryWithProducts = (
 class ApiClient {
   private client: AxiosInstance;
   private token: string | null = null;
+  private unauthorizedHandler: (() => void) | null = null;
+  private connectionModeChangeHandler: ((mode: "online" | "offline") => void) | null = null;
 
   constructor() {
     this.client = axios.create({
@@ -212,12 +241,19 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       (error: AxiosError<{ message?: string }>) => {
+        if (error.response?.status === 401) {
+          this.unauthorizedHandler?.();
+          return Promise.reject(new Error("Avtorizatsiya tugagan. Qayta kiring."));
+        }
         if (error.code === "ECONNABORTED") {
           return Promise.reject(
             new Error("So'rov vaqti tugadi. Internet aloqasini tekshiring."),
           );
         }
         if (error.code === "ERR_NETWORK") {
+          wasAutoSetOffline = true;
+          setConnectionMode("offline");
+          this.connectionModeChangeHandler?.("offline");
           return Promise.reject(
             new Error("Tarmoq xatoligi. Server bilan aloqa yo'q."),
           );
@@ -235,6 +271,15 @@ class ApiClient {
 
   getToken(): string | null {
     return this.token;
+  }
+
+  setUnauthorizedHandler(handler: (() => void) | null) {
+    this.unauthorizedHandler = handler;
+  }
+
+  setConnectionModeChangeHandler(handler: ((mode: "online" | "offline") => void) | null) {
+    this.connectionModeChangeHandler = handler;
+    moduleConnectionModeChangeHandler = handler;
   }
 
   private unwrap<T>(response: { data: ApiResponse<T> | T }): T {
@@ -407,78 +452,114 @@ class ApiClient {
     }
   }
 
-  async getInventory(date: string): Promise<InventoryEntry[]> {
+  async getInventory(date?: string, from?: string, to?: string): Promise<{ entries: InventoryEntry[]; summary?: InventorySummary }> {
     if (!canReachServer()) {
-      return dbInventory.getInventoryByDate(date);
+      const result = date ? await dbInventory.getInventoryByDate(date) : [];
+      return { entries: result };
     }
 
     try {
+      const params: Record<string, string> = {};
+      if (date) params.date = date;
+      if (from) params.from = from;
+      if (to) params.to = to;
+
       const response = await this.client.get<ApiResponse<BackendInventoryResponse>>(
         "/inventory",
-        { params: { date } },
+        { params },
       );
       const data = this.unwrap(response);
-      const { entries } = parseBackendInventory(data, date, "");
+      const { entries, summary } = parseBackendInventory(data, date || from || "", "");
       if (entries.length > 0) {
         await dbInventory.saveInventoryEntries(entries);
       }
-      return entries;
+      return { entries, summary: summary as InventorySummary | undefined };
     } catch (error) {
       console.error("API getInventory failed, falling back to local:", error);
-      return dbInventory.getInventoryByDate(date);
+      const result = date ? await dbInventory.getInventoryByDate(date) : [];
+      return { entries: result };
     }
   }
 
   async getInventoryWithProducts(
-    date: string,
-    products?: Product[],
-  ): Promise<InventoryWithProduct[]> {
+    dateOrOptions?: string | { date?: string; from?: string; to?: string; products?: Product[] },
+    productsArg?: Product[],
+  ): Promise<{ items: InventoryWithProduct[]; summary?: InventorySummary }> {
+    let date: string | undefined;
+    let from: string | undefined;
+    let to: string | undefined;
+    let products: Product[] | undefined = productsArg;
+
+    if (typeof dateOrOptions === "object") {
+      date = dateOrOptions.date;
+      from = dateOrOptions.from;
+      to = dateOrOptions.to;
+      products = dateOrOptions.products ?? productsArg;
+    } else {
+      date = dateOrOptions;
+    }
+
+    const effectiveDate = date || from || "";
+
     if (!canReachServer()) {
       const localProducts = products ?? await dbProducts.getAllProducts();
-      const localInventory = await dbInventory.getInventoryWithProduct(date);
-      const joined = localInventory.map((entry) => {
-        const product = localProducts.find((p) => p.localId === entry.productId);
-        return {
-          ...entry,
-          product: product ?? entry.product ?? {
-            localId: entry.productId,
-            deviceId: entry.deviceId,
-            entityType: "product",
-            name: "Noma'lum mahsulot",
-            quantity: entry.currentQuantity,
-            buyPrice: 0,
-            sellPrice: 0,
-            isDeleted: false,
-            createdAt: entry.createdAt,
-            updatedAt: entry.updatedAt,
-          },
-        };
-      });
-      return joined;
+      const allEntries = await dbInventory.getAllInventoryEntries();
+      const localInventory = date
+        ? allEntries.filter((e) => e.date === date)
+        : from || to
+          ? allEntries.filter((e) => (!from || e.date >= from) && (!to || e.date <= to))
+          : allEntries;
+
+      const productsById = new Map(localProducts.map((p) => [p.localId, p]));
+      const joined = localInventory.map((entry) => ({
+        ...entry,
+        product: productsById.get(entry.productId) ?? {
+          localId: entry.productId,
+          deviceId: entry.deviceId,
+          entityType: "product" as const,
+          name: "Noma'lum mahsulot",
+          quantity: entry.currentQuantity,
+          buyPrice: 0,
+          sellPrice: 0,
+          isDeleted: false,
+          createdAt: entry.createdAt,
+          updatedAt: entry.updatedAt,
+        },
+      }));
+      return { items: joined };
     }
 
     try {
+      const params: Record<string, string> = {};
+      if (date) params.date = date;
+      if (from) params.from = from;
+      if (to) params.to = to;
+
       const response = await this.client.get<ApiResponse<BackendInventoryResponse>>("/inventory", {
-        params: { date },
+        params,
       });
 
       const data = this.unwrap(response);
-      const { entries, items } = parseBackendInventory(data, date, "");
+      const { entries, items, summary } = parseBackendInventory(data, effectiveDate, "");
 
       if (entries.length > 0) {
         await dbInventory.saveInventoryEntries(entries);
+      }
+
+      if (summary) {
+        await dbInventory.saveInventorySummary(summary);
       }
 
       const resolvedProducts = products ?? await this.getProducts();
 
       if (items.length > 0) {
-        return items.map((item) => {
+        const joinedItems = items.map((item) => {
           const product = resolvedProducts.find((p) => p.localId === item.productId);
           return {
-            localId: `${date}-${item.productId}`,
+            localId: `${effectiveDate}-${item.productId}`,
             deviceId: product?.deviceId || "",
             productId: item.productId,
-            date,
+            date: effectiveDate,
             startQuantity: item.startQuantity,
             currentQuantity: item.currentQuantity,
             sold: item.sold,
@@ -502,18 +583,19 @@ class ApiClient {
             },
           };
         });
+        return { items: joinedItems, summary: summary as InventorySummary | undefined };
       }
 
-      return joinInventoryWithProducts(entries, resolvedProducts);
+      return { items: joinInventoryWithProducts(entries, resolvedProducts), summary: summary as InventorySummary | undefined };
     } catch (error: any) {
       console.error("getInventoryWithProducts error:", error.message);
 
-      const [inventory, resolvedProducts] = await Promise.all([
-        this.getInventory(date),
+      const [inventoryResult, resolvedProducts] = await Promise.all([
+        this.getInventory(date, from, to),
         products ? Promise.resolve(products) : this.getProducts(),
       ]);
 
-      return joinInventoryWithProducts(inventory, resolvedProducts);
+      return { items: joinInventoryWithProducts(inventoryResult.entries, resolvedProducts), summary: inventoryResult.summary };
     }
   }
 
@@ -714,12 +796,10 @@ class ApiClient {
   async sync(data: {
     products?: Product[];
     inventory?: InventoryEntry[];
-    snapshots?: DailySnapshot[];
     lastSyncAt?: string;
   }): Promise<{
     products: Product[];
     inventory: InventoryEntry[];
-    snapshots: DailySnapshot[];
     serverTime: string;
   }> {
     if (!canReachServer()) {
@@ -730,7 +810,6 @@ class ApiClient {
       ApiResponse<{
         products: Product[];
         inventory: InventoryEntry[];
-        snapshots: DailySnapshot[];
         serverTime: string;
       }>
     >("/sync", data);
@@ -740,7 +819,6 @@ class ApiClient {
     await Promise.all([
       dbProducts.saveProducts(result.products),
       dbInventory.saveInventoryEntries(result.inventory),
-      dbSnapshots.saveSnapshots(result.snapshots),
     ]);
 
     return result;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Tabs, useRouter } from "expo-router";
 import {
   ActivityIndicator,
@@ -28,6 +28,7 @@ import {
   WifiOff,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { apiClient, setConnectionMode as setApiConnectionMode } from "../../src/api/client";
 import { useAppRefreshStore, useAuthStore } from "../../src/store/selectors";
 import { useTheme } from "../../src/store/themeStore";
 import { useI18n } from "../../src/i18n";
@@ -142,6 +143,20 @@ export default function TabLayout() {
     { code: "ru", label: t("lang_ru") },
   ];
 
+  useEffect(() => {
+    apiClient.setUnauthorizedHandler(() => {
+      logout();
+      router.replace("/login");
+    });
+    apiClient.setConnectionModeChangeHandler((mode) => {
+      setConnectionMode(mode);
+    });
+    return () => {
+      apiClient.setUnauthorizedHandler(null);
+      apiClient.setConnectionModeChangeHandler(null);
+    };
+  }, [logout, router, setConnectionMode]);
+
   const isSuperAdmin = user?.role === "superAdmin";
 
   // SuperAdmin bo'lsa users tabdan boshlanadi
@@ -170,6 +185,7 @@ export default function TabLayout() {
 
   const handleConnectionModeChange = async (mode: "online" | "offline") => {
     await setConnectionMode(mode);
+    setApiConnectionMode(mode);
   };
 
   const getThemeLabel = (key: string) =>

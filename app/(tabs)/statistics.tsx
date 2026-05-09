@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import dayjs from "dayjs";
 
 import { DatePickerModal } from "../../src/features/statistics/components/DatePickerModal";
@@ -20,6 +20,7 @@ import { getBusinessDate } from "../../src/utils/businessDay";
 import { formatMoney } from "../../src/utils/inventory";
 import { useTheme } from "../../src/store/themeStore";
 import { useI18n } from "../../src/i18n";
+import { useNetworkStatus } from "../../src/hooks/useNetworkStatus";
 
 type PickerTarget = "period" | "overallStart" | "overallEnd";
 
@@ -34,7 +35,7 @@ export default function StatisticsScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
-  const { getStatistics, products, snapshots, currentInventory } =
+  const { getStatistics, products, snapshots } =
     useStatisticsScreenStore();
 
   const [period, setPeriod] = useState<PeriodType>("daily");
@@ -44,22 +45,16 @@ export default function StatisticsScreen() {
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
   const [pickerDate, setPickerDate] = useState(() => getBusinessDate());
 
-  const { overallRangeLabel, overallTotals, periodStats, topProducts } =
+  const { overallRangeLabel, overallTotals, currentPeriodStats, topProducts, isLoading } =
     useStatisticsData({
       getStatistics,
       products,
       snapshots,
-      currentInventory,
       period,
       selectedDate,
       overallStartDate,
       overallEndDate,
     });
-
-  const currentPeriodStats = useMemo(
-    () => periodStats(period),
-    [period, periodStats],
-  );
 
   const earliestSnapshotDate = useMemo(() => {
     if (!snapshots.length) return null;
@@ -178,6 +173,8 @@ export default function StatisticsScreen() {
     }
   }, [period, selectedDate]);
 
+  const { isServerReachable } = useNetworkStatus();
+
   const marginPercent =
     currentPeriodStats.totalRevenue > 0
       ? Math.round(
@@ -217,73 +214,90 @@ export default function StatisticsScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <StatsSummaryCard
-          title={t("totalRevenueLabel")}
-          items={[
-            {
-              label: "", // label bo'sh
-              value: formatMoney(currentPeriodStats.totalRevenue),
-              highlight: true,
-              isMain: true, // Muhim
-            },
-            {
-              label: t("soldPieces"),
-              value: currentPeriodStats.totalSoldItems,
-            },
-            moneyStat(t("netProfit"), currentPeriodStats.totalProfit, true),
-            {
-              label: t("marginPercent"),
-              value: `${marginPercent}%`,
-              highlight: true,
-            },
-          ]}
-          emptyText={
-            currentPeriodStats.totalSoldItems === 0 ? t("noSalesPeriod") : null
-          }
-        />
+      {!isServerReachable && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineBannerText}>{t("offlineDateWarning")}</Text>
+        </View>
+      )}
 
-        <OverallRangeCard
-          rangeLabel={overallRangeLabel}
-          overallStartDate={overallStartDate}
-          overallEndDate={overallEndDate}
-          onReset={() => {
-            setOverallStartDate(null);
-            setOverallEndDate(null);
-          }}
-          onPickStart={() => openAndroidPicker("overallStart")}
-          onPickEnd={() => openAndroidPicker("overallEnd")}
-          totals={overallTotals}
-        />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>{t("loading")}</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <StatsSummaryCard
+            title={t("totalRevenueLabel")}
+            items={[
+              {
+                label: "",
+                value: formatMoney(currentPeriodStats.totalRevenue),
+                highlight: true,
+                isMain: true,
+              },
+              {
+                label: t("soldPieces"),
+                value: currentPeriodStats.totalSoldItems,
+              },
+              moneyStat(t("netProfit"), currentPeriodStats.totalProfit, true),
+              {
+                label: t("marginPercent"),
+                value: `${marginPercent}%`,
+                highlight: true,
+              },
+            ]}
+            emptyText={
+              currentPeriodStats.totalSoldItems === 0 ? t("noSalesPeriod") : null
+            }
+          />
 
-        <RankingCard
-          title={t("topProductsLabel")}
-          items={topProducts}
-          emptyText={t("noProductsPeriod")}
-        />
+          {overallTotals && (
+            <>
+              <OverallRangeCard
+                rangeLabel={overallRangeLabel}
+                overallStartDate={overallStartDate}
+                overallEndDate={overallEndDate}
+                onReset={() => {
+                  setOverallStartDate(null);
+                  setOverallEndDate(null);
+                }}
+                onPickStart={() => openAndroidPicker("overallStart")}
+                onPickEnd={() => openAndroidPicker("overallEnd")}
+                totals={overallTotals}
+              />
 
-        <StatsSummaryCard
-          title={t("profitInsight")}
-          items={[
-            moneyStat(t("earningsSoFar"), overallTotals.earnedProfit, true),
-            moneyStat(
-              t("remainingPotentialProfit"),
-              Math.max(
-                overallTotals.possibleProfit - overallTotals.earnedProfit,
-                0,
-              ),
-            ),
-            moneyStat(t("totalPotential"), overallTotals.possibleProfit, true),
-            {
-              label: t("progress"),
-              value:
-                overallTotals.possibleProfit > 0
-                  ? `${Math.round((overallTotals.earnedProfit / overallTotals.possibleProfit) * 100)}%`
-                  : "0%",
-            },
-          ]}
-        />
-      </ScrollView>
+              <StatsSummaryCard
+                title={t("profitInsight")}
+                items={[
+                  moneyStat(t("earningsSoFar"), overallTotals.earnedProfit, true),
+                  moneyStat(
+                    t("remainingPotentialProfit"),
+                    Math.max(
+                      overallTotals.possibleProfit - overallTotals.earnedProfit,
+                      0,
+                    ),
+                  ),
+                  moneyStat(t("totalPotential"), overallTotals.possibleProfit, true),
+                  {
+                    label: t("progress"),
+                    value:
+                      overallTotals.possibleProfit > 0
+                        ? `${Math.round((overallTotals.earnedProfit / overallTotals.possibleProfit) * 100)}%`
+                        : "0%",
+                  },
+                ]}
+              />
+            </>
+          )}
+
+          <RankingCard
+            title={t("topProductsLabel")}
+            items={topProducts}
+            emptyText={t("noProductsPeriod")}
+          />
+        </ScrollView>
+      )}
 
       <DatePickerModal
         visible={!!pickerTarget}

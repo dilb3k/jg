@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   StyleSheet,
@@ -8,10 +8,7 @@ import {
   View,
   ActivityIndicator,
 } from "react-native";
-import {
-  DateTimePickerAndroid,
-  type AndroidNativeProps,
-} from "@react-native-community/datetimepicker";
+import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import dayjs from "dayjs";
 
 import { apiClient } from "../../src/api/client";
@@ -21,30 +18,27 @@ import {
   SPACING,
   type ThemeColors,
 } from "../../src/theme";
-import { useRatingScreenStore } from "../../src/store/selectors";
 import { useTheme } from "../../src/store/themeStore";
 import { useI18n } from "../../src/i18n";
-import type { InventoryEntry, InventoryWithProduct } from "../../src/types";
+import type { InventoryWithProduct } from "../../src/types";
 import { getBusinessDate } from "../../src/utils/businessDay";
 import { formatMoney, getInventoryMetrics } from "../../src/utils/inventory";
 
 type SortType = "profit_unit" | "profit_total" | "least_sold";
+
+type PickerTarget = "start" | "end";
 
 export default function RatingScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const { snapshots } = useRatingScreenStore();
-
   const [sortBy, setSortBy] = useState<SortType>("profit_total");
   const [filter, setFilter] = useState("");
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [inventoryForDate, setInventoryForDate] = useState<
-    InventoryEntry[]
-  >([]);
-
-  const [isInventoryLoading, setIsInventoryLoading] = useState(false);
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
+  const [inventoryData, setInventoryData] = useState<InventoryWithProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const sortLabels = useMemo(
     () => ({
@@ -55,107 +49,77 @@ export default function RatingScreen() {
     [t],
   );
 
-  // Load inventory for selected date
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params: { from?: string; to?: string } = {};
+      if (startDate) params.from = startDate;
+      if (endDate) params.to = endDate;
+
+      const result = await apiClient.getInventoryWithProducts(params);
+      setInventoryData(result.items);
+    } catch {
+      setInventoryData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [startDate, endDate]);
+
   useEffect(() => {
-    const loadInventory = async () => {
-      setIsInventoryLoading(true);
-      try {
-        const response = await apiClient.getInventory(
-          selectedDate || getBusinessDate(),
-        );
+    loadData();
+  }, [loadData]);
 
-        // API javobi { success: true, data: { items: [...], summary: {...} } }
-        let items: InventoryEntry[] = [];
+  const openPicker = (target: PickerTarget) => {
+    const initialValue = target === "start"
+      ? dayjs(startDate || getBusinessDate()).toDate()
+      : dayjs(endDate || getBusinessDate()).toDate();
 
-        if (response && typeof response === "object") {
-          if (Array.isArray(response)) {
-            items = response;
-          } else if (Array.isArray((response as any).items)) {
-            items = (response as any).items;
-          } else if (Array.isArray((response as any).data?.items)) {
-            items = (response as any).data.items;
-          }
-        }
-
-        setInventoryForDate(items);
-      } catch (error) {
-        console.error("Inventory load error:", error);
-        setInventoryForDate([]);
-      } finally {
-        setIsInventoryLoading(false);
-      }
-    };
-
-    loadInventory();
-  }, [selectedDate]);
-
-  const openDatePicker = () => {
-    const params: AndroidNativeProps = {
-      value: dayjs(selectedDate || getBusinessDate()).toDate(),
+    DateTimePickerAndroid.open({
+      value: initialValue,
       mode: "date",
       display: "default",
       onChange: (event, date) => {
         if (event.type !== "set" || !date) return;
-        setSelectedDate(dayjs(date).format("YYYY-MM-DD"));
+        const formatted = dayjs(date).format("YYYY-MM-DD");
+        if (target === "start") {
+          setStartDate(endDate && formatted > endDate ? endDate : formatted);
+          if (endDate && formatted > endDate) {
+            setEndDate(formatted);
+          }
+        } else {
+          setEndDate(startDate && formatted < startDate ? startDate : formatted);
+          if (startDate && formatted < startDate) {
+            setStartDate(formatted);
+          }
+        }
       },
-    };
-
-    DateTimePickerAndroid.open(params);
+    });
   };
 
-  const soldByProduct = useMemo(() => {
-    const relevantSnapshots = selectedDate
-      ? snapshots.filter((s) => s.date === selectedDate)
-      : snapshots;
-
-    return relevantSnapshots.reduce<
-      Record<string, { sold: number; profit: number }>
-    >((acc, snapshot) => {
-      snapshot.items.forEach((item) => {
-        const pid = item.productId;
-        if (!acc[pid]) acc[pid] = { sold: 0, profit: 0 };
-        acc[pid].sold += item.sold || 0;
-        acc[pid].profit += item.profit || 0;
-      });
-      return acc;
-    }, {});
-  }, [selectedDate, snapshots]);
-
   const rankingRows = useMemo(() => {
-    const safeList = Array.isArray(inventoryForDate) ? inventoryForDate : [];
-
-    let list = safeList.map((item) => {
-      const metrics = getInventoryMetrics(item as any);
-      const productId = item.productId || item.id || "";
-      const product = (item as InventoryWithProduct).product;
-      const name = product?.name || "Noma'lum";
-      const sellPrice = product?.sellPrice ?? 0;
-      const buyPrice = product?.buyPrice ?? 0;
-      const quantity = product?.quantity ?? 0;
-
+    let list = inventoryData.map((item) => {
+      const metrics = getInventoryMetrics(item);
       return {
-        ...item,
-        name,
-        sellPrice,
-        buyPrice,
-        quantity,
-        sold: soldByProduct[productId]?.sold || 0,
-        earnedProfit: soldByProduct[productId]?.profit || 0,
+        localId: item.localId,
+        productId: item.productId,
+        name: item.product?.name || "Noma'lum",
+        sellPrice: item.product?.sellPrice ?? 0,
+        buyPrice: item.product?.buyPrice ?? 0,
+        sold: metrics.sold,
+        earnedProfit: metrics.realizedProfit,
         remaining: metrics.remaining,
         marginPercent: metrics.marginPercent,
       };
     });
 
-    // Filter
     if (filter.trim()) {
       const term = filter.trim().toLowerCase();
       list = list.filter((item) => item.name.toLowerCase().includes(term));
     }
 
-    // Sort
     return [...list].sort((a, b) => {
-      const profitUnitA = (a.sellPrice || 0) - (a.buyPrice || 0);
-      const profitUnitB = (b.sellPrice || 0) - (b.buyPrice || 0);
+      const profitUnitA = a.sellPrice - a.buyPrice;
+      const profitUnitB = b.sellPrice - b.buyPrice;
 
       switch (sortBy) {
         case "profit_unit":
@@ -168,7 +132,9 @@ export default function RatingScreen() {
           return 0;
       }
     });
-  }, [inventoryForDate, soldByProduct, sortBy, filter]);
+  }, [inventoryData, sortBy, filter]);
+
+  const hasFilter = startDate || endDate;
 
   return (
     <View style={styles.container}>
@@ -182,19 +148,37 @@ export default function RatingScreen() {
         />
 
         <View style={styles.dateRow}>
-          <TouchableOpacity style={styles.dateButton} onPress={openDatePicker}>
-            <Text style={styles.dateButtonLabel}>{t("date")}</Text>
+          <TouchableOpacity
+            style={styles.dateButton}
+            onPress={() => openPicker("start")}
+          >
+            <Text style={styles.dateButtonLabel}>{t("start")}</Text>
             <Text style={styles.dateButtonValue}>
-              {selectedDate
-                ? dayjs(selectedDate).format("DD MMM YYYY")
-                : t("allTimeRating") || "Barcha vaqt"}
+              {startDate
+                ? dayjs(startDate).format("DD MMM YYYY")
+                : t("from_beginning")}
             </Text>
           </TouchableOpacity>
 
-          {selectedDate && (
+          <TouchableOpacity
+            style={styles.dateButton}
+            onPress={() => openPicker("end")}
+          >
+            <Text style={styles.dateButtonLabel}>{t("end")}</Text>
+            <Text style={styles.dateButtonValue}>
+              {endDate
+                ? dayjs(endDate).format("DD MMM YYYY")
+                : t("until_now")}
+            </Text>
+          </TouchableOpacity>
+
+          {hasFilter && (
             <TouchableOpacity
               style={styles.resetButton}
-              onPress={() => setSelectedDate(null)}
+              onPress={() => {
+                setStartDate(null);
+                setEndDate(null);
+              }}
             >
               <Text style={styles.resetButtonText}>{t("all_data")}</Text>
             </TouchableOpacity>
@@ -221,7 +205,7 @@ export default function RatingScreen() {
         ))}
       </View>
 
-      {isInventoryLoading && (
+      {isLoading && (
         <View style={styles.inventoryLoading}>
           <ActivityIndicator size="small" color={colors.primary} />
           <Text style={styles.loadingTextSmall}>
@@ -232,19 +216,15 @@ export default function RatingScreen() {
 
       <FlatList
         data={rankingRows}
-        keyExtractor={(item) =>
-          item.localId || item.productId || item.id || Math.random().toString()
-        }
+        keyExtractor={(item) => item.localId || item.productId || Math.random().toString()}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <Text style={styles.emptyText}>
-            {isInventoryLoading
-              ? ""
-              : t("ratingNoData") || "Ma'lumot topilmadi"}
+            {isLoading ? "" : t("ratingNoData") || "Ma'lumot topilmadi"}
           </Text>
         }
         renderItem={({ item, index }) => {
-          const profitPerUnit = (item.sellPrice || 0) - (item.buyPrice || 0);
+          const profitPerUnit = item.sellPrice - item.buyPrice;
 
           const rankColor =
             index === 0
@@ -269,17 +249,16 @@ export default function RatingScreen() {
                   <View
                     style={[
                       styles.marginBadge,
-                      (item.marginPercent || 0) >= 30 && styles.marginBadgeGood,
+                      item.marginPercent >= 30 && styles.marginBadgeGood,
                     ]}
                   >
                     <Text
                       style={[
                         styles.marginText,
-                        (item.marginPercent || 0) >= 30 &&
-                          styles.marginTextGood,
+                        item.marginPercent >= 30 && styles.marginTextGood,
                       ]}
                     >
-                      {Math.round(item.marginPercent || 0)}%
+                      {Math.round(item.marginPercent)}%
                     </Text>
                   </View>
                 </View>
@@ -287,12 +266,7 @@ export default function RatingScreen() {
                 <View style={styles.statsRow}>
                   <View style={styles.stat}>
                     <Text style={styles.statLabel}>{t("remaining")}</Text>
-                    <Text style={styles.statValue}>
-                      {item.remaining ??
-                        item.currentQuantity ??
-                        item.quantity ??
-                        0}
-                    </Text>
+                    <Text style={styles.statValue}>{item.remaining}</Text>
                   </View>
 
                   <View style={styles.stat}>
@@ -331,7 +305,6 @@ export default function RatingScreen() {
   );
 }
 
-// Styles (o'zgartirishsiz)
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },

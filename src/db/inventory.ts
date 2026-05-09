@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import dayjs from 'dayjs';
-import type { InventoryEntry, Product } from '../types';
+import type { InventoryEntry, InventorySummary, Product } from '../types';
 import { getBusinessDate } from '../utils/businessDay';
+
+const SUMMARY_STORAGE_KEY = 'clubbar_inventory_summary';
 
 const STORAGE_KEY = 'clubbar_inventory';
 
@@ -192,12 +194,23 @@ export const deleteInventoryByLocalId = async (localId: string): Promise<void> =
 
 export const saveInventoryEntries = async (entries: InventoryEntry[]): Promise<void> => {
   if (entries.length === 0) return;
+  const validEntries = entries.filter(e => e.date && e.localId);
+  if (validEntries.length === 0) return;
   const data = await AsyncStorage.getItem(STORAGE_KEY);
   const existing: InventoryEntry[] = data ? JSON.parse(data) : [];
   const existingByLocalId = new Map(existing.map(e => [e.localId, e]));
-  for (const entry of entries) {
+  for (const entry of validEntries) {
     existingByLocalId.set(entry.localId, entry);
   }
   const merged = Array.from(existingByLocalId.values());
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+};
+
+export const saveInventorySummary = async (summary: InventorySummary): Promise<void> => {
+  await AsyncStorage.setItem(SUMMARY_STORAGE_KEY, JSON.stringify(summary));
+};
+
+export const getInventorySummary = async (): Promise<InventorySummary | null> => {
+  const data = await AsyncStorage.getItem(SUMMARY_STORAGE_KEY);
+  return data ? JSON.parse(data) : null;
 };

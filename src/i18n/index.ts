@@ -122,6 +122,8 @@ export const translations = {
     noProductsFound: "Mahsulotlar topilmadi",
     emptyNoData: "Ma'lumot yo'q",
 
+    offlineDateWarning: "Internet yo'q. Faqat mahalliy ma'lumotlar ko'rsatilmoqda.",
+    
     // Statistics
     daily: "Kun",
     weekly: "Hafta",
@@ -359,6 +361,8 @@ export const translations = {
     noProductsFound: "Продукты не найдены",
     emptyNoData: "Нет данных",
 
+    offlineDateWarning: "Нет интернета. Показываются только локальные данные.",
+    
     // Statistics
     daily: "День",
     weekly: "Неделя",

@@ -1,4 +1,5 @@
 import type {
+  InventorySummary,
   InventoryWithProduct,
   InventoryMetrics,
 } from "../types/index";
@@ -140,7 +141,7 @@ export const getInventoryMetrics = (
 
 export const getInventoryTotals = (
   items: InventoryWithProduct[],
-  summary?: any,
+  summary?: InventorySummary | null,
 ) => {
   if (summary?.totalStart !== undefined) {
     return {
@@ -150,6 +151,8 @@ export const getInventoryTotals = (
       revenue: summary.totalRevenue ?? 0,
       profit: summary.totalProfit ?? 0,
       stockSellValue: summary.totalStockSellValue ?? 0,
+      stockBuyValue: summary.totalStockBuyValue ?? 0,
+      stockProfit: summary.totalStockProfit ?? 0,
     };
   }
 
@@ -161,6 +164,7 @@ export const getInventoryTotals = (
       revenue: 0,
       profit: 0,
       stockSellValue: 0,
+      stockBuyValue: 0,
       stockProfit: 0,
     };
   }
@@ -174,6 +178,7 @@ export const getInventoryTotals = (
         revenue: acc.revenue + (item.revenue || 0),
         profit: acc.profit + (item.realizedProfit || 0),
         stockSellValue: acc.stockSellValue + (item.stockSellValue || 0),
+        stockBuyValue: acc.stockBuyValue + (item.stockBuyValue || 0),
         stockProfit: acc.stockProfit + (item.potentialProfit || 0),
       }),
       {
@@ -183,6 +188,7 @@ export const getInventoryTotals = (
         revenue: 0,
         profit: 0,
         stockSellValue: 0,
+        stockBuyValue: 0,
         stockProfit: 0,
       },
     );
@@ -198,6 +204,7 @@ export const getInventoryTotals = (
         revenue: acc.revenue + m.revenue,
         profit: acc.profit + m.realizedProfit,
         stockSellValue: acc.stockSellValue + m.stockSellValue,
+        stockBuyValue: acc.stockBuyValue + m.stockBuyValue,
         stockProfit: acc.stockProfit + m.potentialProfit,
       };
     },
@@ -208,6 +215,7 @@ export const getInventoryTotals = (
       revenue: 0,
       profit: 0,
       stockSellValue: 0,
+      stockBuyValue: 0,
       stockProfit: 0,
     },
   );

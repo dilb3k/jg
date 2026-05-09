@@ -19,6 +19,7 @@ export const useInventoryScreenStore = () =>
   useStore(
     useShallow((state) => ({
       currentInventory: state.currentInventory,
+      inventorySummary: state.inventorySummary,
       loadInventoryByDate: state.loadInventoryByDate,
       loadProducts: state.loadProducts,
       setCurrentQuantity: state.setCurrentQuantity,
@@ -52,7 +53,7 @@ export const useStatisticsScreenStore = () =>
       getStatistics: state.getStatistics,
       products: state.products,
       snapshots: state.snapshots,
-      currentInventory: state.currentInventory,
+      inventorySummary: state.inventorySummary,
     })),
   );
 

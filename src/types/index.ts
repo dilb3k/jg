@@ -77,6 +77,17 @@ export interface DailySnapshot {
   createdAt: string;
 }
 
+export interface InventorySummary {
+  totalStart: number;
+  totalCurrent: number;
+  totalSold: number;
+  totalRevenue: number;
+  totalProfit: number;
+  totalStockSellValue: number;
+  totalStockBuyValue: number;
+  totalStockProfit: number;
+}
+
 export interface SyncQueueItem {
   id: string;
   entityType: 'product' | 'inventory' | 'snapshot';

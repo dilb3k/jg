@@ -57,6 +57,7 @@ export default function InventoryScreen() {
 
   const {
     currentInventory,
+    inventorySummary,
     loadInventoryByDate,
     setCurrentQuantity,
     showToast,
@@ -99,10 +100,10 @@ export default function InventoryScreen() {
   const inventoryData = useMemo(() => currentInventory, [currentInventory]);
   const displayedData = isFutureDate ? [] : inventoryData;
 
-  // Backend hisoblagan ma'lumotlardan foydalanadi
+  // Backend hisoblagan summary ma'lumotlardan foydalanadi
   const totals = useMemo(
-    () => getInventoryTotals(inventoryData),
-    [inventoryData],
+    () => getInventoryTotals(inventoryData, inventorySummary),
+    [inventoryData, inventorySummary],
   );
 
   const selectedEntry = useMemo(

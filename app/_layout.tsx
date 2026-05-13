@@ -40,32 +40,56 @@ export default function RootLayoutNav() {
         await initDatabase();
         console.log("DB initialized");
 
-        // Check auth status
         const token = await secureStorage.getItemAsync(STORAGE_KEYS.USER_TOKEN);
-        const userJson = await secureStorage.getItemAsync(
-          STORAGE_KEYS.AUTH_USER,
-        );
-
         let isAuthenticatedUser = false;
+        let freshUser: AuthUser | null = null;
 
         if (token) {
           apiClient.setToken(token);
+          const userJson = await secureStorage.getItemAsync(STORAGE_KEYS.AUTH_USER);
+          let localUser: AuthUser | null = null;
           try {
-            // Verify token is still valid
-            const user: AuthUser = JSON.parse(userJson || "null");
-            if (user) {
+            localUser = JSON.parse(userJson || "null");
+          } catch {}
+
+          try {
+            console.log("Fetching /api/auth/me to verify token and get latest data...");
+            freshUser = await apiClient.getMe();
+            console.log("Fetched user from server:", freshUser.username, "isPayed:", freshUser.isPayed);
+
+            const userForStorage: AuthUser = {
+              userId: freshUser.userId,
+              username: freshUser.username,
+              role: freshUser.role,
+              isPayed: freshUser.role === "superAdmin" ? true : (freshUser.isPayed ?? false)
+            };
+
+            await secureStorage.setItemAsync(
+              STORAGE_KEYS.AUTH_USER,
+              JSON.stringify(userForStorage)
+            );
+            isAuthenticatedUser = true;
+          } catch (meError: any) {
+            const errorMsg = meError.message || "";
+            const isAuthError = errorMsg.includes("Avtorizatsiya") || errorMsg.includes("401") || errorMsg.includes("Unauthorized");
+
+            if (isAuthError) {
+              console.error("Auth failed, clearing token:", errorMsg);
+              await secureStorage.deleteItemAsync(STORAGE_KEYS.USER_TOKEN);
+              await secureStorage.deleteItemAsync(STORAGE_KEYS.AUTH_USER);
+              apiClient.setToken(null);
+            } else if (localUser) {
+              console.log("Network error, using locally stored user:", localUser.username);
               isAuthenticatedUser = true;
+            } else {
+              console.error("Network error and no local user:", errorMsg);
             }
-          } catch {
-            // Invalid user data, will show login
           }
         }
 
-        // Only initialize store data if authenticated
         if (isAuthenticatedUser) {
           console.log("Initializing store...");
           try {
-            // Add timeout to prevent infinite loading
             const initPromise = initialize();
             const timeoutPromise = new Promise((_, reject) =>
               setTimeout(() => reject(new Error("Tizim javob bermadi. Internetni tekshiring.")), 30000)
@@ -74,7 +98,6 @@ export default function RootLayoutNav() {
             console.log("Store initialized");
           } catch (initError: any) {
             console.error("Store initialization failed:", initError);
-            // If store initialization fails, clear invalid auth state
             await secureStorage.deleteItemAsync(STORAGE_KEYS.USER_TOKEN);
             await secureStorage.deleteItemAsync(STORAGE_KEYS.AUTH_USER);
             apiClient.setToken(null);

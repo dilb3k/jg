@@ -272,32 +272,45 @@ class ApiClient {
       (error) => Promise.reject(error),
     );
 
-    this.client.interceptors.response.use(
-      (response) => response,
-      (error: AxiosError<{ message?: string }>) => {
-        if (error.response?.status === 401) {
-          this.unauthorizedHandler?.();
-          return Promise.reject(new Error("Avtorizatsiya tugagan. Qayta kiring."));
-        }
-        if (error.code === "ECONNABORTED") {
-          return Promise.reject(
-            new Error("So'rov vaqti tugadi. Internet aloqasini tekshiring."),
-          );
-        }
-        if (error.code === "ERR_NETWORK") {
-          wasAutoSetOffline = true;
-          connectionMode = "offline";
-          moduleConnectionModeChangeHandler?.("offline");
-          this.connectionModeChangeHandler?.("offline");
-          return Promise.reject(
-            new Error("Tarmoq xatoligi. Server bilan aloqa yo'q."),
-          );
-        }
-        const message =
-          error.response?.data?.message || error.message || "API xatoligi";
-        return Promise.reject(new Error(message));
-      },
-    );
+     this.client.interceptors.response.use(
+       (response) => response,
+       (error: AxiosError<{ success?: boolean; error?: { message?: string; details?: unknown }; message?: string }>) => {
+         if (error.response?.status === 401) {
+           this.unauthorizedHandler?.();
+           return Promise.reject(new Error("Avtorizatsiya tugagan. Qayta kiring."));
+         }
+         if (error.code === "ECONNABORTED") {
+           return Promise.reject(
+             new Error("So'rov vaqti tugadi. Internet aloqasini tekshiring."),
+           );
+         }
+         if (error.code === "ERR_NETWORK") {
+           wasAutoSetOffline = true;
+           connectionMode = "offline";
+           moduleConnectionModeChangeHandler?.("offline");
+           this.connectionModeChangeHandler?.("offline");
+           return Promise.reject(
+             new Error("Tarmoq xatoligi. Server bilan aloqa yo'q."),
+           );
+         }
+
+         const data = error.response?.data;
+         let message: string;
+         if (data && typeof data === "object") {
+           if ("error" in data && data.error && typeof data.error === "object" && "message" in data.error && typeof data.error.message === "string") {
+             message = data.error.message;
+           } else if ("message" in data && typeof data.message === "string") {
+             message = data.message;
+           } else {
+             message = error.message || "API xatoligi";
+           }
+         } else {
+           message = error.message || "API xatoligi";
+         }
+
+         return Promise.reject(new Error(message));
+       },
+     );
   }
 
   setToken(token: string | null) {

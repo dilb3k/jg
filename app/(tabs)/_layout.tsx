@@ -232,13 +232,13 @@ export default function TabLayout() {
               />
             </View>
           ),
-          tabBarStyle: isSuperAdmin ? { display: "none" } : {
-            backgroundColor: colors.surface,
-            borderTopColor: colors.border,
-            height: 70 + insets.bottom,
-            paddingBottom: Math.max(insets.bottom, 8),
-            paddingTop: 8,
-          },
+           tabBarStyle: {
+             backgroundColor: colors.surface,
+             borderTopColor: colors.border,
+             height: 70 + insets.bottom,
+             paddingBottom: Math.max(insets.bottom, 8),
+             paddingTop: 8,
+           },
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textTertiary,
           tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },

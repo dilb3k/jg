@@ -27,12 +27,29 @@ type MongoDocument = {
 };
 
 type BackendInventoryItem = {
+  [key: string]: unknown;
   productId: string;
   startQuantity: number;
   currentQuantity: number;
   sold?: number;
   revenue?: number;
   realizedProfit?: number;
+  remaining?: number;
+  stockSellValue?: number;
+  stockBuyValue?: number;
+  potentialProfit?: number;
+  marginPercent?: number;
+  note?: string;
+  localId?: string;
+  deviceId?: string;
+  date?: string;
+  name?: string;
+  buyPrice?: number;
+  sellPrice?: number;
+  image?: string;
+  product?: Record<string, unknown>;
+  updatedAt?: string;
+  createdAt?: string;
 };
 
 type BackendInventoryResponse = {
@@ -86,6 +103,10 @@ export const setConnectionMode = (mode: "online" | "offline") => {
   wasAutoSetOffline = false;
 };
 
+const notifyConnectionModeChange = (mode: "online" | "offline") => {
+  moduleConnectionModeChangeHandler?.(mode);
+};
+
 export const getConnectionMode = (): "online" | "offline" => {
   return connectionMode;
 };
@@ -103,19 +124,19 @@ const backendItemToEntry = (
   date: string,
   deviceId: string,
 ): InventoryEntry => ({
-  localId: `${date}-${item.productId}`,
-  deviceId,
+  localId: item.localId || `${date}-${item.productId}`,
+  deviceId: item.deviceId || deviceId,
   productId: item.productId,
-  date,
+  date: item.date || date,
   startQuantity: item.startQuantity,
   currentQuantity: item.currentQuantity,
   sold: item.sold,
   revenue: item.revenue,
   realizedProfit: item.realizedProfit,
-  note: "",
+  note: item.note || "",
   isDeleted: false,
-  updatedAt: new Date().toISOString(),
-  createdAt: new Date().toISOString(),
+  updatedAt: item.updatedAt || new Date().toISOString(),
+  createdAt: item.createdAt || new Date().toISOString(),
 });
 
 const parseBackendInventory = (
@@ -160,6 +181,19 @@ const parseBackendInventory = (
   );
 
   return { entries, items: rawItems, summary };
+};
+
+const IMAGE_HASH_REGEX = /^[a-f0-9]{64}$/;
+
+const resolveImageUrl = (image?: string): string | undefined => {
+  if (!image) return undefined;
+  if (image.startsWith("data:image/") || image.startsWith("https://") || image.startsWith("http://")) {
+    return image;
+  }
+  if (IMAGE_HASH_REGEX.test(image)) {
+    return `${API_BASE_URL}/products/image/${image}`;
+  }
+  return undefined;
 };
 
 const normalizeDocument = <T>(value: T): T => {
@@ -252,7 +286,8 @@ class ApiClient {
         }
         if (error.code === "ERR_NETWORK") {
           wasAutoSetOffline = true;
-          setConnectionMode("offline");
+          connectionMode = "offline";
+          moduleConnectionModeChangeHandler?.("offline");
           this.connectionModeChangeHandler?.("offline");
           return Promise.reject(
             new Error("Tarmoq xatoligi. Server bilan aloqa yo'q."),
@@ -313,7 +348,10 @@ class ApiClient {
       );
       const products = this.unwrap(response);
       await dbProducts.saveProducts(products);
-      return products.filter((p) => !p.isDeleted);
+      return products.map((p: Product) => ({
+        ...p,
+        image: resolveImageUrl(p.image),
+      })).filter((p) => !p.isDeleted);
     } catch (error) {
       console.error("API getProducts failed, falling back to local:", error);
       const products = await dbProducts.getAllProducts();
@@ -332,7 +370,8 @@ class ApiClient {
       const response = await this.client.get<ApiResponse<Product>>(
         `/products/${id}`,
       );
-      return this.unwrap(response);
+      const product = this.unwrap(response);
+      return { ...product, image: resolveImageUrl(product.image) };
     } catch (error) {
       const product = await dbProducts.getProductByLocalId(id);
       if (product) return product;
@@ -366,7 +405,8 @@ class ApiClient {
         createdAt: product.createdAt,
         updatedAt: product.updatedAt,
       });
-      return this.unwrap(response);
+      const created = this.unwrap(response);
+      return { ...created, image: resolveImageUrl(created.image) };
     } catch (error) {
       await dbSyncQueue.addToSyncQueue({
         id: product.localId,
@@ -381,47 +421,40 @@ class ApiClient {
 
   async updateProduct(id: string, product: Partial<Product>): Promise<Product> {
     const existing = await dbProducts.getProductByLocalId(id);
-    if (existing) {
-      const updated = { ...existing, ...product, updatedAt: new Date().toISOString() };
-      await dbProducts.updateProduct(updated);
+    if (!existing) {
+      return product as Product;
     }
+
+    const updated = { ...existing, ...product, updatedAt: new Date().toISOString() };
+    await dbProducts.updateProduct(updated);
 
     if (!canReachServer()) {
       await dbSyncQueue.addToSyncQueue({
         id,
         entityType: "product",
         operation: "upsert",
-        data: product,
+        data: updated,
         createdAt: new Date().toISOString(),
       });
-      return { ...existing, ...product } as Product;
+      return updated;
     }
 
     try {
       const response = await this.client.put<ApiResponse<Product>>(
         `/products/${id}`,
-        {
-          deviceId: product.deviceId,
-          name: product.name,
-          quantity: product.quantity,
-          buyPrice: product.buyPrice,
-          sellPrice: product.sellPrice,
-          image: product.image,
-          localId: product.localId,
-          createdAt: product.createdAt,
-          updatedAt: product.updatedAt,
-        },
+        updated,
       );
-      return this.unwrap(response);
+      const apiUpdated = this.unwrap(response);
+      return { ...apiUpdated, image: resolveImageUrl(apiUpdated.image) };
     } catch (error) {
       await dbSyncQueue.addToSyncQueue({
         id,
         entityType: "product",
         operation: "upsert",
-        data: product,
+        data: updated,
         createdAt: new Date().toISOString(),
       });
-      return { ...existing, ...product } as Product;
+      return updated;
     }
   }
 
@@ -460,16 +493,20 @@ class ApiClient {
 
     try {
       const params: Record<string, string> = {};
-      if (date) params.date = date;
       if (from) params.from = from;
       if (to) params.to = to;
+      if (date && !from && !to) {
+        params.from = date;
+        params.to = date;
+      }
 
       const response = await this.client.get<ApiResponse<BackendInventoryResponse>>(
         "/inventory",
         { params },
       );
       const data = this.unwrap(response);
-      const { entries, summary } = parseBackendInventory(data, date || from || "", "");
+      const effectiveDate = date || from || "";
+      const { entries, summary } = parseBackendInventory(data, effectiveDate, "");
       if (entries.length > 0) {
         await dbInventory.saveInventoryEntries(entries);
       }
@@ -502,13 +539,16 @@ class ApiClient {
     const effectiveDate = date || from || "";
 
     if (!canReachServer()) {
+      if (date) {
+        const derived = await dbInventory.getInventoryWithProduct(date);
+        return { items: derived };
+      }
+
       const localProducts = products ?? await dbProducts.getAllProducts();
       const allEntries = await dbInventory.getAllInventoryEntries();
-      const localInventory = date
-        ? allEntries.filter((e) => e.date === date)
-        : from || to
-          ? allEntries.filter((e) => (!from || e.date >= from) && (!to || e.date <= to))
-          : allEntries;
+      const localInventory = from || to
+        ? allEntries.filter((e) => (!from || e.date >= from) && (!to || e.date <= to))
+        : allEntries;
 
       const productsById = new Map(localProducts.map((p) => [p.localId, p]));
       const joined = localInventory.map((entry) => ({
@@ -531,18 +571,37 @@ class ApiClient {
 
     try {
       const params: Record<string, string> = {};
-      if (date) params.date = date;
       if (from) params.from = from;
       if (to) params.to = to;
+      if (date && !from && !to) {
+        params.from = date;
+        params.to = date;
+      }
 
       const response = await this.client.get<ApiResponse<BackendInventoryResponse>>("/inventory", {
         params,
       });
 
       const data = this.unwrap(response);
-      const { entries, items, summary } = parseBackendInventory(data, effectiveDate, "");
+      const rawItems = (data as any)?.items ?? [];
+      const summary = (data as any)?.summary;
 
-      if (entries.length > 0) {
+      if (rawItems.length > 0) {
+        const entries: InventoryEntry[] = rawItems.map((item: any) => ({
+          localId: item.localId || `${effectiveDate}-${item.productId}`,
+          deviceId: item.deviceId || "",
+          productId: item.productId,
+          date: item.date || effectiveDate,
+          startQuantity: item.startQuantity,
+          currentQuantity: item.currentQuantity,
+          sold: item.sold,
+          revenue: item.revenue,
+          realizedProfit: item.realizedProfit,
+          note: item.note || "",
+          isDeleted: false,
+          updatedAt: item.updatedAt || new Date().toISOString(),
+          createdAt: item.createdAt || new Date().toISOString(),
+        }));
         await dbInventory.saveInventoryEntries(entries);
       }
 
@@ -550,45 +609,55 @@ class ApiClient {
         await dbInventory.saveInventorySummary(summary);
       }
 
-      const resolvedProducts = products ?? await this.getProducts();
+      const resolveProductImage = (p: any) => ({
+        ...p,
+        image: resolveImageUrl(p.image),
+      });
 
-      if (items.length > 0) {
-        const joinedItems = items.map((item) => {
-          const product = resolvedProducts.find((p) => p.localId === item.productId);
-          return {
-            localId: `${effectiveDate}-${item.productId}`,
-            deviceId: product?.deviceId || "",
-            productId: item.productId,
-            date: effectiveDate,
-            startQuantity: item.startQuantity,
-            currentQuantity: item.currentQuantity,
-            sold: item.sold,
-            revenue: item.revenue,
-            realizedProfit: item.realizedProfit,
-            note: "",
-            isDeleted: false,
-            updatedAt: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-            product: product ?? {
+      const joinedItems: InventoryWithProduct[] = rawItems.map((item: any) => ({
+        localId: item.localId || `${effectiveDate}-${item.productId}`,
+        deviceId: item.deviceId || "",
+        productId: item.productId,
+        date: item.date || effectiveDate,
+        startQuantity: item.startQuantity,
+        currentQuantity: item.currentQuantity,
+        sold: item.sold,
+        revenue: item.revenue,
+        realizedProfit: item.realizedProfit,
+        note: item.note || "",
+        remaining: item.remaining,
+        stockSellValue: item.stockSellValue,
+        stockBuyValue: item.stockBuyValue,
+        potentialProfit: item.potentialProfit,
+        marginPercent: item.marginPercent,
+        isDeleted: false,
+        updatedAt: item.updatedAt || new Date().toISOString(),
+        createdAt: item.createdAt || new Date().toISOString(),
+        product: item.product
+          ? resolveProductImage(item.product)
+          : resolveProductImage({
               localId: item.productId,
-              deviceId: "",
+              deviceId: item.deviceId || "",
               entityType: "product" as const,
-              name: "Noma'lum mahsulot",
+              name: item.name || "Noma'lum mahsulot",
               quantity: item.currentQuantity,
-              buyPrice: 0,
-              sellPrice: 0,
+              buyPrice: item.buyPrice || 0,
+              sellPrice: item.sellPrice || 0,
+              image: item.image || "",
               isDeleted: false,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            },
-          };
-        });
-        return { items: joinedItems, summary: summary as InventorySummary | undefined };
-      }
+              createdAt: item.createdAt || new Date().toISOString(),
+              updatedAt: item.updatedAt || new Date().toISOString(),
+            }),
+      }));
 
-      return { items: joinInventoryWithProducts(entries, resolvedProducts), summary: summary as InventorySummary | undefined };
+      return { items: joinedItems, summary: summary as InventorySummary | undefined };
     } catch (error: any) {
       console.error("getInventoryWithProducts error:", error.message);
+
+      if (date) {
+        const derived = await dbInventory.getInventoryWithProduct(date);
+        return { items: derived };
+      }
 
       const [inventoryResult, resolvedProducts] = await Promise.all([
         this.getInventory(date, from, to),
@@ -814,14 +883,84 @@ class ApiClient {
       }>
     >("/sync", data);
 
-    const result = this.unwrap(response);
+    const result = this.unwrap(response) as {
+      products: Product[];
+      inventory: InventoryEntry[];
+      serverTime: string;
+    };
 
+    const serverProducts = result.products || [];
     await Promise.all([
-      dbProducts.saveProducts(result.products),
-      dbInventory.saveInventoryEntries(result.inventory),
+      dbProducts.saveProducts(serverProducts),
+      dbInventory.saveInventoryEntries(result.inventory || []),
     ]);
 
-    return result;
+    const resolvedProducts = serverProducts.map((p) => ({
+      ...p,
+      image: resolveImageUrl(p.image),
+    }));
+
+    return { ...result, products: resolvedProducts };
+  }
+
+  async processSyncQueue(): Promise<void> {
+    const queue = await dbSyncQueue.getSyncQueue();
+    if (queue.length === 0 || !canReachServer()) return;
+
+    const upsertItems = queue.filter((item) => item.operation === "upsert");
+    const deleteItems = queue.filter((item) => item.operation === "delete");
+
+    const upsertResults = await Promise.allSettled(
+      upsertItems.map(async (item) => {
+        if (item.entityType === "product") {
+          const data = item.data as Product;
+          await this.client.put(`/products/${item.id}`, data);
+        } else if (item.entityType === "inventory") {
+          const data = item.data as { deviceId: string; items: StartDayInventoryItem[]; date: string };
+          if (data.items?.length > 0) {
+            await this.client.post("/inventory/start-day", data);
+          }
+        } else if (item.entityType === "snapshot") {
+          const data = item.data as DailySnapshot;
+          await this.client.post("/snapshots/daily", data);
+        }
+      })
+    );
+
+    const deleteResults = await Promise.allSettled(
+      deleteItems.map(async (item) => {
+        if (item.entityType === "product") {
+          await this.client.delete(`/products/${item.id}`);
+        }
+      })
+    );
+
+    const syncedIds: string[] = [];
+    const allItems = [...upsertItems, ...deleteItems];
+    const allResults = [...upsertResults, ...deleteResults];
+
+    allResults.forEach((result, index) => {
+      if (result.status === "fulfilled" && index < allItems.length) {
+        syncedIds.push(allItems[index].id);
+      }
+    });
+
+    if (syncedIds.length > 0) {
+      await dbSyncQueue.clearSyncQueue(syncedIds);
+    }
+  }
+
+  async register(
+    username: string,
+    password: string,
+  ): Promise<{ token: string; user: AuthUser }> {
+    if (!canReachServer()) {
+      throw new Error("Ro'yxatdan o'tish uchun server kerak");
+    }
+    const response = await this.client.post<
+      ApiResponse<{ token: string; user: AuthUser }>
+    >("/auth/register", { username, password });
+    return this.unwrap(response);
   }
 
   async login(
@@ -848,15 +987,37 @@ class ApiClient {
     return this.unwrap(response);
   }
 
-  async createAdmin(username: string, password: string): Promise<AuthUser> {
+  async createAdmin(username: string, password: string, isPayed?: boolean): Promise<AuthUser> {
     if (!canReachServer()) {
       throw new Error("Admin yaratish uchun server kerak");
     }
+    const payload: Record<string, any> = { username, password };
+    if (isPayed !== undefined) {
+      payload.isPayed = isPayed;
+    }
     const response = await this.client.post<ApiResponse<AuthUser>>(
       "/auth/admins",
-      { username, password },
+      payload,
     );
     return this.unwrap(response);
+  }
+
+  async updateAdmin(id: string, data: { username?: string; password?: string; isPayed?: boolean }): Promise<AuthUser> {
+    if (!canReachServer()) {
+      throw new Error("Admin tahrirlash uchun server kerak");
+    }
+    const response = await this.client.put<ApiResponse<AuthUser>>(
+      `/auth/admins/${id}`,
+      data,
+    );
+    return this.unwrap(response);
+  }
+
+  async deleteAdmin(id: string): Promise<void> {
+    if (!canReachServer()) {
+      throw new Error("Admin o'chirish uchun server kerak");
+    }
+    await this.client.delete(`/auth/admins/${id}`);
   }
 }
 

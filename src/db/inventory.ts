@@ -214,3 +214,8 @@ export const getInventorySummary = async (): Promise<InventorySummary | null> =>
   const data = await AsyncStorage.getItem(SUMMARY_STORAGE_KEY);
   return data ? JSON.parse(data) : null;
 };
+
+export const clearAllInventory = async (): Promise<void> => {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+  await AsyncStorage.removeItem(SUMMARY_STORAGE_KEY);
+};

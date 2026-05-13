@@ -66,6 +66,10 @@ export const saveSnapshots = async (snapshots: DailySnapshot[]): Promise<void> =
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
 };
 
+export const clearAllSnapshots = async (): Promise<void> => {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+};
+
 export const getAllSnapshots = async (): Promise<DailySnapshot[]> => {
   const data = await AsyncStorage.getItem(STORAGE_KEY);
   const snapshots: StoredSnapshot[] = data ? JSON.parse(data) : [];

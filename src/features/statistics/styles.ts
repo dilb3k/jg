@@ -303,4 +303,29 @@ export const createStatisticsStyles = (colors: ThemeColors) =>
       textAlign: "center",
     },
     profit: { color: colors.secondary },
+    lockedContainer: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: SPACING.xl,
+    },
+    lockedIconContainer: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: SPACING.lg,
+    },
+    lockedTitle: {
+      fontSize: FONT_SIZE.xl,
+      fontWeight: "700",
+      marginBottom: SPACING.md,
+      textAlign: "center",
+    },
+    lockedMessage: {
+      fontSize: FONT_SIZE.md,
+      textAlign: "center",
+      lineHeight: 24,
+    },
   });

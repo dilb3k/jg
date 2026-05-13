@@ -8,6 +8,7 @@ export interface Product {
   buyPrice: number;
   sellPrice: number;
   image?: string;
+  displayIndex?: number;
   isDeleted: boolean;
   updatedAt: string;
   createdAt: string;
@@ -22,6 +23,8 @@ export interface InventoryEntry {
   date: string;
   startQuantity: number;
   currentQuantity: number;
+  buyPrice?: number;
+  sellPrice?: number;
   sold?: number;
   revenue?: number;
   realizedProfit?: number;
@@ -131,6 +134,7 @@ export interface AuthUser {
   role: UserRole;
   createdBy: string | null;
   isActive: boolean;
+  isPayed: boolean;
   createdAt: string;
   updatedAt: string;
 }

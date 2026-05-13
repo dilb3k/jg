@@ -8,6 +8,7 @@ import {
   View,
   ActivityIndicator,
 } from "react-native";
+import { Lock } from "lucide-react-native";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import dayjs from "dayjs";
 
@@ -20,7 +21,8 @@ import {
 } from "../../src/theme";
 import { useTheme } from "../../src/store/themeStore";
 import { useI18n } from "../../src/i18n";
-import type { InventoryWithProduct } from "../../src/types";
+import { useAuthStore } from "../../src/store/selectors";
+import type { InventoryWithProduct, Product } from "../../src/types";
 import { getBusinessDate } from "../../src/utils/businessDay";
 import { formatMoney, getInventoryMetrics } from "../../src/utils/inventory";
 
@@ -28,15 +30,22 @@ type SortType = "profit_unit" | "profit_total" | "least_sold";
 
 type PickerTarget = "start" | "end";
 
+
+
 export default function RatingScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
+  const { user } = useAuthStore();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const isSuperAdmin = user?.role?.toLowerCase() === "superadmin";
+  const isPayed = isSuperAdmin || (user?.isPayed ?? false);
 
   const [sortBy, setSortBy] = useState<SortType>("profit_total");
   const [filter, setFilter] = useState("");
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [inventoryData, setInventoryData] = useState<InventoryWithProduct[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -56,9 +65,15 @@ export default function RatingScreen() {
       if (startDate) params.from = startDate;
       if (endDate) params.to = endDate;
 
-      const result = await apiClient.getInventoryWithProducts(params);
+      const [result, products] = await Promise.all([
+        apiClient.getInventoryWithProducts(params),
+        apiClient.getProducts(),
+      ]);
+
+      setAllProducts(products.filter((p) => !p.isDeleted));
       setInventoryData(result.items);
     } catch {
+      setAllProducts([]);
       setInventoryData([]);
     } finally {
       setIsLoading(false);
@@ -66,8 +81,10 @@ export default function RatingScreen() {
   }, [startDate, endDate]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (isPayed) {
+      loadData();
+    }
+  }, [loadData, isPayed]);
 
   const openPicker = (target: PickerTarget) => {
     const initialValue = target === "start"
@@ -97,18 +114,40 @@ export default function RatingScreen() {
   };
 
   const rankingRows = useMemo(() => {
-    let list = inventoryData.map((item) => {
-      const metrics = getInventoryMetrics(item);
+    const inventoryByProduct = new Map(
+      inventoryData.map((item) => [item.productId, item]),
+    );
+
+    let list = allProducts.map((product) => {
+      const inv = inventoryByProduct.get(product.localId);
+      if (inv) {
+        const metrics = getInventoryMetrics(inv);
+        return {
+          localId: inv.localId,
+          productId: inv.productId,
+          name: inv.product?.name || product.name || "Noma'lum",
+          sellPrice: inv.product?.sellPrice ?? product.sellPrice,
+          buyPrice: inv.product?.buyPrice ?? product.buyPrice,
+          sold: metrics.sold,
+          earnedProfit: metrics.realizedProfit,
+          remaining: metrics.remaining,
+          marginPercent: metrics.marginPercent,
+        };
+      }
+      const margin =
+        product.sellPrice > 0
+          ? Math.round(((product.sellPrice - product.buyPrice) / product.sellPrice) * 100)
+          : 0;
       return {
-        localId: item.localId,
-        productId: item.productId,
-        name: item.product?.name || "Noma'lum",
-        sellPrice: item.product?.sellPrice ?? 0,
-        buyPrice: item.product?.buyPrice ?? 0,
-        sold: metrics.sold,
-        earnedProfit: metrics.realizedProfit,
-        remaining: metrics.remaining,
-        marginPercent: metrics.marginPercent,
+        localId: product.localId,
+        productId: product.localId,
+        name: product.name || "Noma'lum",
+        sellPrice: product.sellPrice,
+        buyPrice: product.buyPrice,
+        sold: 0,
+        earnedProfit: 0,
+        remaining: product.quantity,
+        marginPercent: margin,
       };
     });
 
@@ -132,9 +171,27 @@ export default function RatingScreen() {
           return 0;
       }
     });
-  }, [inventoryData, sortBy, filter]);
+  }, [allProducts, inventoryData, sortBy, filter]);
 
   const hasFilter = startDate || endDate;
+
+  if (!isPayed) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.lockedContainer}>
+          <View style={[styles.lockedIconContainer, { backgroundColor: colors.primary + "15" }]}>
+            <Lock size={48} color={colors.primary} />
+          </View>
+          <Text style={[styles.lockedTitle, { color: colors.text }]}>
+            {t("paymentRequired")}
+          </Text>
+          <Text style={[styles.lockedMessage, { color: colors.textSecondary }]}>
+            {t("paymentRequiredMessage")}
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -313,6 +370,31 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: "center",
       alignItems: "center",
       backgroundColor: colors.background,
+    },
+    lockedContainer: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: SPACING.xl,
+    },
+    lockedIconContainer: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: SPACING.lg,
+    },
+    lockedTitle: {
+      fontSize: FONT_SIZE.xl,
+      fontWeight: "700",
+      marginBottom: SPACING.md,
+      textAlign: "center",
+    },
+    lockedMessage: {
+      fontSize: FONT_SIZE.md,
+      textAlign: "center",
+      lineHeight: 24,
     },
     inventoryLoading: {
       flexDirection: "row",

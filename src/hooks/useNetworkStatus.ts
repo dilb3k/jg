@@ -7,6 +7,7 @@ import { canReachServer } from '../api/client';
 export const useNetworkStatus = () => {
   const [isOnline, setIsOnline] = useState(false);
   const syncNow = useStore((state) => state.syncNow);
+  const isAuthenticated = useStore((state) => state.isAuthenticated);
   const connectionMode = useThemeStore((state) => state.connectionMode);
   const isSyncingRef = useRef(false);
 
@@ -15,7 +16,7 @@ export const useNetworkStatus = () => {
       const connected = state.isConnected ?? false;
       setIsOnline(connected);
 
-      if (connected && !isSyncingRef.current && connectionMode === 'online') {
+      if (connected && !isSyncingRef.current && connectionMode === 'online' && isAuthenticated) {
         isSyncingRef.current = true;
         syncNow()
           .catch(() => {})
@@ -26,7 +27,7 @@ export const useNetworkStatus = () => {
     });
 
     return () => unsubscribe();
-  }, [syncNow, connectionMode]);
+  }, [syncNow, connectionMode, isAuthenticated]);
 
   useEffect(() => {
     NetInfo.fetch().then((state) => {

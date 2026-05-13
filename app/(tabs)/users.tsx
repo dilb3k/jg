@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -8,12 +9,14 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { Pencil, Trash2, Lock, Unlock } from "lucide-react-native";
 
 import { SPACING, FONT_SIZE, BORDER_RADIUS, type ThemeColors } from "../../src/theme";
 import { useAuthStore } from "../../src/store/selectors";
@@ -32,16 +35,25 @@ export default function AdminsScreen() {
   const { showToast } = useStore();
   const [admins, setAdmins] = useState<AuthUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createUsername, setCreateUsername] = useState("");
+  const [createPassword, setCreatePassword] = useState("");
+  const [createIsPayed, setCreateIsPayed] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+
+  const [editingAdmin, setEditingAdmin] = useState<AuthUser | null>(null);
+  const [editUsername, setEditUsername] = useState("");
+  const [editPassword, setEditPassword] = useState("");
+  const [editIsPayed, setEditIsPayed] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
-    // Only superAdmin can access this page
-    if (user?.role !== "superAdmin") {
+    if (user?.role?.toLowerCase() !== "superadmin") {
       router.replace("/(tabs)");
       return;
     }
@@ -54,38 +66,117 @@ export default function AdminsScreen() {
       const data = await apiClient.getAdmins();
       setAdmins(data);
     } catch (err: any) {
-      setError(err.message || t("errorLoadingAdmins"));
+      showToast(err.message || t("errorLoadingAdmins"), "error");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCreateAdmin = async () => {
-    if (!username.trim() || !password.trim()) {
-      setError(t("enterLoginPassword"));
+    if (!createUsername.trim() || !createPassword.trim()) {
+      setCreateError(t("enterLoginPassword"));
       return;
     }
 
-    if (password.length < 6) {
-      setError(t("passwordLength"));
+    if (createPassword.length < 6) {
+      setCreateError(t("passwordLength"));
       return;
     }
 
-      setIsCreating(true);
-      setError(null);
+    setIsCreating(true);
+    setCreateError(null);
 
-      try {
-        await apiClient.createAdmin(username.trim(), password);
-        setShowModal(false);
-        setUsername("");
-        setPassword("");
-        loadAdmins();
-        showToast(t("userCreated"), "success");
-      } catch (err: any) {
-        setError(err.message || t("createUserError"));
-      } finally {
-        setIsCreating(false);
-      }
+    try {
+      await apiClient.createAdmin(createUsername.trim(), createPassword, createIsPayed);
+      setShowCreateModal(false);
+      setCreateUsername("");
+      setCreatePassword("");
+      setCreateIsPayed(false);
+      loadAdmins();
+      showToast(t("userCreated"), "success");
+    } catch (err: any) {
+      setCreateError(err.message || t("createUserError"));
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const openEditModal = (admin: AuthUser) => {
+    setEditingAdmin(admin);
+    setEditUsername(admin.username);
+    setEditPassword("");
+    setEditIsPayed(admin.isPayed ?? false);
+    setEditError(null);
+  };
+
+  const handleEditAdmin = async () => {
+    if (!editingAdmin) return;
+
+    if (!editUsername.trim()) {
+      setEditError(t("enterLoginPassword"));
+      return;
+    }
+
+    if (editPassword && editPassword.length < 6) {
+      setEditError(t("passwordLength"));
+      return;
+    }
+
+    setIsEditing(true);
+    setEditError(null);
+
+    try {
+      const data: { username?: string; password?: string; isPayed?: boolean } = {
+        username: editUsername.trim(),
+        isPayed: editIsPayed,
+      };
+      if (editPassword) data.password = editPassword;
+
+      await apiClient.updateAdmin(editingAdmin.id, data);
+      setEditingAdmin(null);
+      setEditUsername("");
+      setEditPassword("");
+      setEditIsPayed(false);
+      loadAdmins();
+      showToast(t("userUpdated"), "success");
+    } catch (err: any) {
+      setEditError(err.message || t("editUserError"));
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const handleDeleteAdmin = (admin: AuthUser) => {
+    Alert.alert(
+      t("deleteUserTitle"),
+      t("deleteUserConfirm").replace("{username}", admin.username),
+      [
+        { text: t("cancel"), style: "cancel" },
+        {
+          text: t("delete"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await apiClient.deleteAdmin(admin.id);
+              loadAdmins();
+              showToast(t("userDeleted"), "success");
+            } catch (err: any) {
+              showToast(err.message || t("deleteUserError"), "error");
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleTogglePayed = async (admin: AuthUser) => {
+    try {
+      await apiClient.updateAdmin(admin.id, { isPayed: !admin.isPayed });
+      loadAdmins();
+      showToast(admin.isPayed ? t("userUnpayed") : t("userPayed"), "success");
+    } catch (err: any) {
+      showToast(err.message || t("editUserError"), "error");
+    }
   };
 
   const handleLogout = async () => {
@@ -107,8 +198,8 @@ export default function AdminsScreen() {
   };
 
   const getRoleLabel = (role: string) => {
-    switch (role) {
-      case "superAdmin":
+    switch (role.toLowerCase()) {
+      case "superadmin":
         return t("superAdmin");
       case "admin":
         return t("admin");
@@ -117,7 +208,7 @@ export default function AdminsScreen() {
     }
   };
 
-  if (user?.role !== "superAdmin") {
+  if (user?.role?.toLowerCase() !== "superadmin") {
     return null;
   }
 
@@ -151,13 +242,53 @@ export default function AdminsScreen() {
             renderItem={({ item }) => (
               <View style={styles.adminCard}>
                 <View style={styles.adminInfo}>
-                  <Text style={styles.adminName}>{item.username}</Text>
-                  <View style={styles.roleBadge}>
-                    <Text style={styles.roleText}>{getRoleLabel(item.role)}</Text>
+                  <View style={styles.adminHeaderRow}>
+                    <Text style={styles.adminName}>{item.username}</Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.paidBadge,
+                        item.isPayed ? styles.paidBadgeActive : styles.paidBadgeInactive,
+                        { backgroundColor: item.isPayed ? colors.success + "20" : colors.danger + "20" },
+                      ]}
+                      onPress={() => handleTogglePayed(item)}
+                    >
+                      {item.isPayed ? (
+                        <Unlock size={12} color={colors.success} />
+                      ) : (
+                        <Lock size={12} color={colors.danger} />
+                      )}
+                      <Text
+                        style={[
+                          styles.paidBadgeText,
+                          { color: item.isPayed ? colors.success : colors.danger },
+                        ]}
+                      >
+                        {item.isPayed ? t("premium") : t("locked")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.roleRow}>
+                    <View style={styles.roleBadge}>
+                      <Text style={styles.roleText}>{getRoleLabel(item.role)}</Text>
+                    </View>
                   </View>
                   <Text style={styles.adminDate}>
                     {t("createdAt")}: {formatDate(item.createdAt)}
                   </Text>
+                </View>
+                <View style={styles.adminActions}>
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: colors.primary + "15" }]}
+                    onPress={() => openEditModal(item)}
+                  >
+                    <Pencil size={16} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: colors.danger + "15" }]}
+                    onPress={() => handleDeleteAdmin(item)}
+                  >
+                    <Trash2 size={16} color={colors.danger} />
+                  </TouchableOpacity>
                 </View>
               </View>
             )}
@@ -168,10 +299,11 @@ export default function AdminsScreen() {
             <Pressable
               style={styles.addButton}
               onPressOut={() => {
-                setShowModal(true);
-                setError(null);
-                setUsername("");
-                setPassword("");
+                setShowCreateModal(true);
+                setCreateError(null);
+                setCreateUsername("");
+                setCreatePassword("");
+                setCreateIsPayed(false);
               }}
             >
               <Text style={styles.addButtonText}>+ {t("createUser")}</Text>
@@ -180,76 +312,163 @@ export default function AdminsScreen() {
         </>
       )}
 
+      {/* Create Modal */}
       <Modal
-        visible={showModal}
+        visible={showCreateModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowModal(false)}
+        onRequestClose={() => setShowCreateModal(false)}
       >
         <KeyboardAvoidingView
           style={styles.modalContainer}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-             <View style={styles.modalHeader}>
-               <TouchableOpacity onPress={() => setShowModal(false)}>
-                 <Text style={styles.backText}>{t("back")}</Text>
-               </TouchableOpacity>
-               <Text style={styles.modalTitle}>{t("createAdmin")}</Text>
-               <View style={styles.headerSpacer} />
-             </View>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowCreateModal(false)}>
+              <Text style={styles.backText}>{t("back")}</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>{t("createAdmin")}</Text>
+            <View style={styles.headerSpacer} />
+          </View>
 
-           <ScrollView
-             style={styles.modalContent}
-             contentContainerStyle={styles.modalBody}
-             keyboardShouldPersistTaps="always"
-           >
-             {error ? (
-               <View style={styles.errorContainer}>
-                 <Text style={styles.errorText}>{error}</Text>
-               </View>
-             ) : null}
+          <ScrollView
+            style={styles.modalContent}
+            contentContainerStyle={styles.modalBody}
+            keyboardShouldPersistTaps="always"
+          >
+            {createError ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{createError}</Text>
+              </View>
+            ) : null}
 
-             <View style={styles.infoCard}>
-               <Text style={styles.infoTitle}>{t("importantInfo")}</Text>
-               <Text style={styles.infoText}>
-                 {t("adminInfo")}
-               </Text>
-             </View>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoTitle}>{t("importantInfo")}</Text>
+              <Text style={styles.infoText}>{t("adminInfo")}</Text>
+            </View>
 
-             <Text style={styles.label}>{t("username")}</Text>
-             <TextInput
-               style={styles.input}
-               placeholder={t("loginPlaceholder_Admin")}
-               placeholderTextColor={colors.textTertiary}
-               value={username}
-               onChangeText={setUsername}
-               autoCapitalize="none"
-               autoCorrect={false}
-             />
+            <Text style={styles.label}>{t("username")}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder={t("loginPlaceholder_Admin")}
+              placeholderTextColor={colors.textTertiary}
+              value={createUsername}
+              onChangeText={setCreateUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
 
-             <Text style={styles.label}>{t("password")}</Text>
-             <TextInput
-               style={styles.input}
-               placeholder={t("passwordPlaceholder_Admin")}
-               placeholderTextColor={colors.textTertiary}
-               value={password}
-               onChangeText={setPassword}
-               secureTextEntry
-               autoCapitalize="none"
-               autoCorrect={false}
-             />
+            <Text style={styles.label}>{t("password")}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder={t("passwordPlaceholder_Admin")}
+              placeholderTextColor={colors.textTertiary}
+              value={createPassword}
+              onChangeText={setCreatePassword}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
 
-             <TouchableOpacity
-               style={[styles.createButton, isCreating && styles.createButtonDisabled]}
-               onPress={handleCreateAdmin}
-               disabled={isCreating}
-             >
-               {isCreating ? (
-                 <ActivityIndicator size="small" color={colors.white} />
-               ) : (
-                 <Text style={styles.createButtonText}>{t("confirmCreate")}</Text>
-               )}
-             </TouchableOpacity>
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>{t("activatePremium")}</Text>
+              <Switch
+                value={createIsPayed}
+                onValueChange={setCreateIsPayed}
+                trackColor={{ false: colors.border, true: colors.success + "80" }}
+                thumbColor={createIsPayed ? colors.success : colors.white}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.createButton, isCreating && styles.createButtonDisabled]}
+              onPress={handleCreateAdmin}
+              disabled={isCreating}
+            >
+              {isCreating ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={styles.createButtonText}>{t("confirmCreate")}</Text>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        visible={!!editingAdmin}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setEditingAdmin(null)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setEditingAdmin(null)}>
+              <Text style={styles.backText}>{t("back")}</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>{t("editAdmin")}</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+
+          <ScrollView
+            style={styles.modalContent}
+            contentContainerStyle={styles.modalBody}
+            keyboardShouldPersistTaps="always"
+          >
+            {editError ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{editError}</Text>
+              </View>
+            ) : null}
+
+            <Text style={styles.label}>{t("username")}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder={t("loginPlaceholder_Admin")}
+              placeholderTextColor={colors.textTertiary}
+              value={editUsername}
+              onChangeText={setEditUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <Text style={styles.label}>{t("passwordNew")}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder={t("passwordPlaceholder_Admin")}
+              placeholderTextColor={colors.textTertiary}
+              value={editPassword}
+              onChangeText={setEditPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>{t("activatePremium")}</Text>
+              <Switch
+                value={editIsPayed}
+                onValueChange={setEditIsPayed}
+                trackColor={{ false: colors.border, true: colors.success + "80" }}
+                thumbColor={editIsPayed ? colors.success : colors.white}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.createButton, isEditing && styles.createButtonDisabled]}
+              onPress={handleEditAdmin}
+              disabled={isEditing}
+            >
+              {isEditing ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={styles.createButtonText}>{t("confirmSave")}</Text>
+              )}
+            </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
@@ -307,14 +526,44 @@ const createStyles = (colors: ThemeColors) =>
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
+    flexDirection: "row",
+    alignItems: "center",
   },
   adminInfo: {
+    flex: 1,
     gap: SPACING.xs,
+  },
+  adminHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   adminName: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "700",
     color: colors.text,
+  },
+  paidBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.full,
+  },
+  paidBadgeActive: {
+    borderWidth: 1,
+  },
+  paidBadgeInactive: {
+    borderWidth: 1,
+  },
+  paidBadgeText: {
+    fontSize: FONT_SIZE.xs,
+    fontWeight: "700",
+  },
+  roleRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   roleBadge: {
     alignSelf: "flex-start",
@@ -331,6 +580,18 @@ const createStyles = (colors: ThemeColors) =>
   adminDate: {
     fontSize: FONT_SIZE.xs,
     color: colors.textTertiary,
+  },
+  adminActions: {
+    flexDirection: "row",
+    gap: SPACING.sm,
+    marginLeft: SPACING.sm,
+  },
+  actionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: BORDER_RADIUS.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
   footer: {
     position: "absolute",
@@ -432,6 +693,22 @@ const createStyles = (colors: ThemeColors) =>
     borderWidth: 1,
     borderColor: colors.border,
   },
+  switchRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  switchLabel: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: "600",
+    color: colors.text,
+  },
   createButton: {
     backgroundColor: colors.secondary,
     padding: SPACING.lg,
@@ -447,4 +724,4 @@ const createStyles = (colors: ThemeColors) =>
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
   },
-  });
+});

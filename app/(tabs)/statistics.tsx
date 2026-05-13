@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Lock } from "lucide-react-native";
 import dayjs from "dayjs";
 
 import { DatePickerModal } from "../../src/features/statistics/components/DatePickerModal";
@@ -15,7 +16,7 @@ import {
 import { RankingCard } from "../../src/features/statistics/components/RankingCard";
 import { useStatisticsData } from "../../src/features/statistics/hooks/useStatisticsData";
 import { createStatisticsStyles } from "../../src/features/statistics/styles";
-import { useStatisticsScreenStore } from "../../src/store/selectors";
+import { useStatisticsScreenStore, useAuthStore } from "../../src/store/selectors";
 import { getBusinessDate } from "../../src/utils/businessDay";
 import { formatMoney } from "../../src/utils/inventory";
 import { useTheme } from "../../src/store/themeStore";
@@ -31,12 +32,18 @@ const PERIOD_UNIT: Record<PeriodType, dayjs.ManipulateType> = {
   yearly: "year",
 };
 
+
+
 export default function StatisticsScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
+  const { user } = useAuthStore();
   const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
   const { getStatistics, products, snapshots } =
     useStatisticsScreenStore();
+
+  const isSuperAdmin = user?.role?.toLowerCase() === "superadmin";
+  const isPayed = isSuperAdmin || (user?.isPayed ?? false);
 
   const [period, setPeriod] = useState<PeriodType>("daily");
   const [selectedDate, setSelectedDate] = useState(() => getBusinessDate());
@@ -182,6 +189,27 @@ export default function StatisticsScreen() {
             100,
         )
       : 0;
+
+  if (!isPayed) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <PeriodTabs period={period} onChange={setPeriod} />
+        </View>
+        <View style={styles.lockedContainer}>
+          <View style={[styles.lockedIconContainer, { backgroundColor: colors.primary + "15" }]}>
+            <Lock size={48} color={colors.primary} />
+          </View>
+          <Text style={[styles.lockedTitle, { color: colors.text }]}>
+            {t("paymentRequired")}
+          </Text>
+          <Text style={[styles.lockedMessage, { color: colors.textSecondary }]}>
+            {t("paymentRequiredMessage")}
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

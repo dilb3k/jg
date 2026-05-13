@@ -47,3 +47,7 @@ export const deleteProductByLocalId = async (localId: string): Promise<void> => 
 export const saveProducts = async (products: Product[]): Promise<void> => {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(products));
 };
+
+export const clearAllProducts = async (): Promise<void> => {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+};

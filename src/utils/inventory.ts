@@ -11,8 +11,6 @@ export interface ProductValidationErrors {
   quantity: string;
 }
 
-// ==================== FORMAT VA NORMALIZE FUNKSIYALARI ====================
-
 export const normalizeDigits = (value: string): string =>
   value.replace(/[^\d]/g, "");
 
@@ -41,8 +39,6 @@ export const parseFormattedAmount = (value: string): number => {
   return parseInt(cleaned, 10);
 };
 
-// ==================== VALIDATION ====================
-
 export const hasValidationErrors = (
   errors: ProductValidationErrors,
 ): boolean => {
@@ -62,19 +58,16 @@ export const validateProductInput = (input: {
     quantity: "",
   };
 
-  // Mahsulot nomi
   if (!input.name || input.name.trim().length === 0) {
     errors.name = "Mahsulot nomi majburiy";
   } else if (input.name.trim().length < 2) {
     errors.name = "Mahsulot nomi kamida 2 ta belgidan iborat bo'lishi kerak";
   }
 
-  // Sotib olish narxi
   if (!input.buyPrice || input.buyPrice <= 0) {
     errors.buyPrice = "Sotib olish narxi 0 dan katta bo'lishi kerak";
   }
 
-  // Sotish narxi
   if (!input.sellPrice || input.sellPrice <= 0) {
     errors.sellPrice = "Sotish narxi 0 dan katta bo'lishi kerak";
   } else if (input.sellPrice < input.buyPrice) {
@@ -82,7 +75,6 @@ export const validateProductInput = (input: {
       "Sotish narxi sotib olish narxidan kam bo'lmasligi kerak";
   }
 
-  // Miqdor
   if (input.quantity < 0) {
     errors.quantity = "Miqdor manfiy bo'lmasligi kerak";
   }
@@ -90,12 +82,9 @@ export const validateProductInput = (input: {
   return errors;
 };
 
-// ==================== INVENTORY METRIKALARI ====================
-
 export const getInventoryMetrics = (
   item: InventoryWithProduct,
 ): InventoryMetrics => {
-  // Backend hisoblab bergan bo'lsa
   if (typeof item.sold === "number" && typeof item.remaining === "number") {
     return {
       remaining: item.remaining,
@@ -109,16 +98,24 @@ export const getInventoryMetrics = (
     };
   }
 
+  const storedBuyPrice = typeof item.buyPrice === "number" && item.buyPrice > 0
+    ? item.buyPrice
+    : undefined;
+  const storedSellPrice = typeof item.sellPrice === "number" && item.sellPrice > 0
+    ? item.sellPrice
+    : undefined;
+
   const p = item.product ?? { sellPrice: 0, buyPrice: 0 };
+  const buyPrice = storedBuyPrice ?? p.buyPrice;
+  const sellPrice = storedSellPrice ?? p.sellPrice;
+
   const remaining = Math.max(item.currentQuantity, 0);
   const sold = Math.max(item.startQuantity - item.currentQuantity, 0);
-  const revenue = sold * p.sellPrice;
-  const realizedProfit =
-    sold * (p.sellPrice - p.buyPrice);
-  const stockSellValue = remaining * p.sellPrice;
-  const stockBuyValue = remaining * p.buyPrice;
-  const potentialProfit =
-    remaining * (p.sellPrice - p.buyPrice);
+  const revenue = sold * sellPrice;
+  const realizedProfit = sold * (sellPrice - buyPrice);
+  const stockSellValue = remaining * sellPrice;
+  const stockBuyValue = remaining * buyPrice;
+  const potentialProfit = remaining * (sellPrice - buyPrice);
 
   return {
     remaining,
@@ -129,13 +126,151 @@ export const getInventoryMetrics = (
     stockBuyValue,
     potentialProfit,
     marginPercent:
-      p.sellPrice > 0
-        ? Math.round(
-            ((p.sellPrice - p.buyPrice) /
-              p.sellPrice) *
-              100,
-          )
+      sellPrice > 0
+        ? Math.round(((sellPrice - buyPrice) / sellPrice) * 100)
         : 0,
+  };
+};
+
+const getItemProductId = (item: InventoryWithProduct): string | undefined => {
+  if (item.product) {
+    return item.product.localId ?? item.product.id;
+  }
+  return item.productId;
+};
+
+const isItemNewerThan = (existing: InventoryWithProduct, item: InventoryWithProduct): boolean => {
+  const existingDate = existing.date;
+  const itemDate = item.date;
+
+  if (itemDate && existingDate) {
+    if (itemDate.localeCompare(existingDate) > 0) {
+      return true;
+    }
+    if (itemDate.localeCompare(existingDate) === 0) {
+      const existingUpdatedAt = existing.updatedAt ?? existing.createdAt;
+      const itemUpdatedAt = item.updatedAt ?? item.createdAt;
+      if (itemUpdatedAt && existingUpdatedAt) {
+        return new Date(itemUpdatedAt).getTime() > new Date(existingUpdatedAt).getTime();
+      }
+    }
+    return false;
+  }
+
+  const existingUpdatedAt = existing.updatedAt ?? existing.createdAt;
+  const itemUpdatedAt = item.updatedAt ?? item.createdAt;
+
+  if (itemUpdatedAt && existingUpdatedAt) {
+    return new Date(itemUpdatedAt).getTime() > new Date(existingUpdatedAt).getTime();
+  }
+
+  return false;
+};
+
+const aggregateItemsByProduct = (
+  items: InventoryWithProduct[],
+): {
+  start: number;
+  current: number;
+  sold: number;
+  revenue: number;
+  profit: number;
+  stockSellValue: number;
+  stockBuyValue: number;
+  stockProfit: number;
+} => {
+  const uniqueByProductAndDate = new Map<string, InventoryWithProduct>();
+
+  for (const item of items) {
+    const productId = getItemProductId(item);
+    if (!productId) continue;
+
+    const date = item.date ?? "unknown";
+    const key = `${productId}|||${date}`;
+
+    const existing = uniqueByProductAndDate.get(key);
+    if (!existing) {
+      uniqueByProductAndDate.set(key, item);
+      continue;
+    }
+
+    if (isItemNewerThan(existing, item)) {
+      uniqueByProductAndDate.set(key, item);
+    }
+  }
+
+  const deduplicatedItems = Array.from(uniqueByProductAndDate.values());
+
+  const productLatestEntry = new Map<string, InventoryWithProduct>();
+  const productTotalSold = new Map<string, number>();
+  const productTotalRevenue = new Map<string, number>();
+  const productTotalProfit = new Map<string, number>();
+
+  for (const item of deduplicatedItems) {
+    const productId = getItemProductId(item);
+    if (!productId) continue;
+
+    const metrics = getInventoryMetrics(item);
+
+    productTotalSold.set(
+      productId,
+      (productTotalSold.get(productId) ?? 0) + metrics.sold
+    );
+    productTotalRevenue.set(
+      productId,
+      (productTotalRevenue.get(productId) ?? 0) + metrics.revenue
+    );
+    productTotalProfit.set(
+      productId,
+      (productTotalProfit.get(productId) ?? 0) + metrics.realizedProfit
+    );
+
+    const existing = productLatestEntry.get(productId);
+
+    if (!existing) {
+      productLatestEntry.set(productId, item);
+      continue;
+    }
+
+    if (isItemNewerThan(existing, item)) {
+      productLatestEntry.set(productId, item);
+    }
+  }
+
+  let totalCurrent = 0;
+  let totalSold = 0;
+  let totalRevenue = 0;
+  let totalProfit = 0;
+  let totalStockSellValue = 0;
+  let totalStockBuyValue = 0;
+  let totalStockProfit = 0;
+
+  for (const [productId, latestEntry] of productLatestEntry) {
+    const latestMetrics = getInventoryMetrics(latestEntry);
+    const sold = productTotalSold.get(productId) ?? 0;
+    const revenue = productTotalRevenue.get(productId) ?? 0;
+    const profit = productTotalProfit.get(productId) ?? 0;
+
+    totalCurrent += latestMetrics.remaining;
+    totalStockSellValue += latestMetrics.stockSellValue;
+    totalStockBuyValue += latestMetrics.stockBuyValue;
+    totalStockProfit += latestMetrics.potentialProfit;
+    totalSold += sold;
+    totalRevenue += revenue;
+    totalProfit += profit;
+  }
+
+  const totalStart = totalCurrent + totalSold;
+
+  return {
+    start: totalStart,
+    current: totalCurrent,
+    sold: totalSold,
+    revenue: totalRevenue,
+    profit: totalProfit,
+    stockSellValue: totalStockSellValue,
+    stockBuyValue: totalStockBuyValue,
+    stockProfit: totalStockProfit,
   };
 };
 
@@ -169,54 +304,5 @@ export const getInventoryTotals = (
     };
   }
 
-  if (typeof items[0]?.sold === "number") {
-    return items.reduce(
-      (acc, item) => ({
-        start: acc.start + item.startQuantity,
-        current: acc.current + item.currentQuantity,
-        sold: acc.sold + (item.sold || 0),
-        revenue: acc.revenue + (item.revenue || 0),
-        profit: acc.profit + (item.realizedProfit || 0),
-        stockSellValue: acc.stockSellValue + (item.stockSellValue || 0),
-        stockBuyValue: acc.stockBuyValue + (item.stockBuyValue || 0),
-        stockProfit: acc.stockProfit + (item.potentialProfit || 0),
-      }),
-      {
-        start: 0,
-        current: 0,
-        sold: 0,
-        revenue: 0,
-        profit: 0,
-        stockSellValue: 0,
-        stockBuyValue: 0,
-        stockProfit: 0,
-      },
-    );
-  }
-
-  return items.reduce(
-    (acc, item) => {
-      const m = getInventoryMetrics(item);
-      return {
-        start: acc.start + item.startQuantity,
-        current: acc.current + m.remaining,
-        sold: acc.sold + m.sold,
-        revenue: acc.revenue + m.revenue,
-        profit: acc.profit + m.realizedProfit,
-        stockSellValue: acc.stockSellValue + m.stockSellValue,
-        stockBuyValue: acc.stockBuyValue + m.stockBuyValue,
-        stockProfit: acc.stockProfit + m.potentialProfit,
-      };
-    },
-    {
-      start: 0,
-      current: 0,
-      sold: 0,
-      revenue: 0,
-      profit: 0,
-      stockSellValue: 0,
-      stockBuyValue: 0,
-      stockProfit: 0,
-    },
-  );
+  return aggregateItemsByProduct(items);
 };

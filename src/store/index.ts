@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import dayjs from "dayjs";
 
-import { apiClient, setConnectionMode } from "../api/client";
+import { apiClient, setConnectionMode, getConnectionMode } from "../api/client";
 import { getAppMeta, setAppMeta, getSyncQueue, clearSyncQueue, getSyncQueueCount } from "../db/syncQueue";
 import { STORAGE_KEYS } from "../constants";
 import * as secureStorage from "../utils/secureStorage";
@@ -39,15 +39,15 @@ const setOnlineStatus = (
   isOnline,
 });
 
+const IMAGE_HASH_REGEX = /^[a-f0-9]{64}$/;
+
 const sanitizeProductImage = (
   image: string | undefined,
 ): string | undefined => {
   if (!image) return undefined;
-  // Only allow data:image/... URLs or remote https://... URLs
-  if (image.startsWith("data:image/") || image.startsWith("https://")) {
+  if (image.startsWith("data:image/") || image.startsWith("https://") || image.startsWith("http://") || IMAGE_HASH_REGEX.test(image)) {
     return image;
   }
-  // Block file://, content://, ph://, and other local URI schemes
   return undefined;
 };
 
@@ -57,6 +57,19 @@ const stripInventoryProduct = (
   const { product: _product, ...rest } = entry as InventoryWithProduct &
     InventoryEntry;
   return rest;
+};
+
+const syncInventoryProductRefs = (
+  inventory: InventoryWithProduct[],
+  productId: string,
+  updates: Partial<Product>,
+): InventoryWithProduct[] => {
+  if (!inventory.length) return inventory;
+  return inventory.map((entry) =>
+    entry.productId === productId
+      ? { ...entry, product: { ...entry.product, ...updates } }
+      : entry,
+  );
 };
 
 const stripUndefined = <T extends Record<string, any>>(obj: T): Partial<T> => {
@@ -166,6 +179,16 @@ export const useStore = create<AppState>((set, get) => ({
     apiClient.setToken(null);
     await secureStorage.deleteItemAsync(STORAGE_KEYS.USER_TOKEN);
     await secureStorage.deleteItemAsync(STORAGE_KEYS.AUTH_USER);
+    const { clearAllProducts } = await import("../db/products");
+    const { clearAllInventory } = await import("../db/inventory");
+    const { clearAllSnapshots } = await import("../db/snapshots");
+    const { clearAllSyncQueue } = await import("../db/syncQueue");
+    await Promise.all([
+      clearAllProducts(),
+      clearAllInventory(),
+      clearAllSnapshots(),
+      clearAllSyncQueue(),
+    ]);
     set({
       user: null,
       isAuthenticated: false,
@@ -179,9 +202,9 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
-      const connectionMode = await secureStorage.getItemAsync(STORAGE_KEYS.CONNECTION_MODE);
-      if (connectionMode === "online" || connectionMode === "offline") {
-        setConnectionMode(connectionMode);
+      const savedConnectionMode = await secureStorage.getItemAsync(STORAGE_KEYS.CONNECTION_MODE);
+      if (savedConnectionMode === "online" || savedConnectionMode === "offline") {
+        setConnectionMode(savedConnectionMode);
       }
 
       const userJson = await secureStorage.getItemAsync(STORAGE_KEYS.AUTH_USER);
@@ -325,20 +348,35 @@ export const useStore = create<AppState>((set, get) => ({
 
     await apiClient.updateProduct(localId, updatedProduct);
 
+    set((state) => ({
+      currentInventory: syncInventoryProductRefs(
+        state.currentInventory,
+        localId,
+        updatedProduct,
+      ),
+    }));
+
     await Promise.all([
       get().loadProducts(),
       get().loadInventoryByDate(get().selectedDate || getBusinessDate()),
-      get().loadSnapshots(),
     ]);
   },
 
   deleteProduct: async (localId) => {
     try {
       await apiClient.deleteProduct(localId);
+
+      set((state) => ({
+        currentInventory: syncInventoryProductRefs(
+          state.currentInventory,
+          localId,
+          { isDeleted: true } as Partial<Product>,
+        ),
+      }));
+
       await Promise.all([
         get().loadProducts(),
         get().loadInventoryByDate(get().selectedDate || getBusinessDate()),
-        get().loadSnapshots(),
       ]);
     } catch (error: any) {
       set((state) => ({
@@ -432,9 +470,27 @@ export const useStore = create<AppState>((set, get) => ({
       ],
       entry.date,
     );
-    await get().loadInventoryByDate(date);
+
+    set((state) => ({
+      currentInventory: state.currentInventory.map((e) =>
+        e.productId === productId && e.date === date
+          ? {
+              ...e,
+              startQuantity: quantity,
+              currentQuantity: quantity - soldSoFar,
+              updatedAt: now,
+              product: { ...e.product, quantity: quantity, updatedAt: now },
+            }
+          : e,
+      ),
+    }));
+
+    await Promise.all([
+      get().loadProducts(),
+      get().loadInventoryByDate(date),
+    ]);
+
     await get().buildAndSaveSnapshot(date);
-    await get().loadSnapshots();
   },
 
   setCurrentQuantity: async (productId, date, quantity, note) => {
@@ -449,7 +505,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const safeQuantity = Math.min(
       Math.max(quantity, 0),
-      existing.currentQuantity,
+      existing.startQuantity,
     );
     const now = new Date().toISOString();
 
@@ -471,6 +527,7 @@ export const useStore = create<AppState>((set, get) => ({
       ],
       updatedEntry.date,
     );
+
     await apiClient.updateProduct(existing.productId, {
       quantity: safeQuantity,
       updatedAt: now,
@@ -479,18 +536,28 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => ({
       currentInventory: state.currentInventory.map((entry) =>
         entry.productId === productId && entry.date === date
-          ? { ...entry, currentQuantity: safeQuantity, note: note || entry.note, updatedAt: now }
+          ? {
+              ...entry,
+              currentQuantity: safeQuantity,
+              note: note || entry.note,
+              updatedAt: now,
+              product: { ...entry.product, quantity: safeQuantity, updatedAt: now },
+            }
           : entry,
+      ),
+      products: state.products.map((p) =>
+        p.localId === productId
+          ? { ...p, quantity: safeQuantity, updatedAt: now }
+          : p,
       ),
     }));
 
-    await get().buildAndSaveSnapshot(date);
-
     await Promise.all([
-      get().loadInventoryByDate(date),
       get().loadProducts(),
-      get().loadSnapshots(),
+      get().loadInventoryByDate(date),
     ]);
+
+    await get().buildAndSaveSnapshot(date);
   },
 
   loadSnapshots: async (from, to) => {
@@ -498,10 +565,12 @@ export const useStore = create<AppState>((set, get) => ({
     if (inflightKeys.has(cacheKey)) return;
     inflightKeys.add(cacheKey);
     try {
-      const snapshots =
-        from && to
-          ? await apiClient.getSnapshotsRange(from, to)
-          : await apiClient.getSnapshotsRange("1970-01-01", getBusinessDate());
+      const effectiveFrom = from;
+      const effectiveTo = to || get().selectedDate || getBusinessDate();
+
+      const snapshots = effectiveFrom
+        ? await apiClient.getSnapshotsRange(effectiveFrom, effectiveTo)
+        : await apiClient.getSnapshotsRange("1970-01-01", effectiveTo);
 
       set((state) => ({
         snapshots,
@@ -629,7 +698,20 @@ export const useStore = create<AppState>((set, get) => ({
       createdAt: existing?.createdAt || now,
     };
 
-    await apiClient.createDailySnapshot(snapshot);
+    const savedSnapshot = await apiClient.createDailySnapshot(snapshot);
+
+    set((state) => {
+      const existingIndex = state.snapshots.findIndex(
+        (s) => s.date === date,
+      );
+      const newSnapshots = [...state.snapshots];
+      if (existingIndex >= 0) {
+        newSnapshots[existingIndex] = savedSnapshot;
+      } else {
+        newSnapshots.push(savedSnapshot);
+      }
+      return { snapshots: newSnapshots };
+    });
   },
 
   syncNow: async () => {
@@ -640,24 +722,25 @@ export const useStore = create<AppState>((set, get) => ({
     }));
 
     try {
-      const { products, currentInventory, selectedDate } = get();
+      const { selectedDate } = get();
+      const { getAllProducts } = await import("../db/products");
+      const { getAllInventoryEntries } = await import("../db/inventory");
+      const allProducts = await getAllProducts();
+      const allInventory = await getAllInventoryEntries();
+
+      await apiClient.processSyncQueue();
+
       const result = await apiClient.sync({
-        products: products.map((p) => ({
+        products: allProducts.map((p) => ({
           ...p,
           image: sanitizeProductImage(p.image),
         })),
-        inventory: currentInventory.map(stripInventoryProduct),
+        inventory: allInventory.map(stripInventoryProduct),
         lastSyncAt: get().syncStatus.lastSyncAt || undefined,
       });
       const now = result.serverTime || new Date().toISOString();
 
       await setAppMeta(STORAGE_KEYS.LAST_SYNC, now);
-
-      const queue = await getSyncQueue();
-      if (queue.length > 0) {
-        const syncedIds = queue.map((item) => item.id);
-        await clearSyncQueue(syncedIds);
-      }
 
       const newPendingCount = await getSyncQueueCount();
 
@@ -673,6 +756,7 @@ export const useStore = create<AppState>((set, get) => ({
       await Promise.all([
         get().loadProducts(),
         get().loadInventoryByDate(selectedDate || getBusinessDate()),
+        get().loadSnapshots(),
       ]);
     } catch (error: any) {
       const pendingCount = await getSyncQueueCount();

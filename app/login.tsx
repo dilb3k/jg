@@ -21,26 +21,43 @@ import { SPACING, FONT_SIZE, BORDER_RADIUS } from "../src/theme";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const [isLoginMode, setIsLoginMode] = useState(true);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Theme integration
   const { colors } = useTheme();
   const { t } = useI18n();
 
-  const handleLogin = async () => {
+  const handleAuth = async () => {
     if (!username.trim() || !password.trim()) {
       setError(t("enterLoginPassword"));
       return;
+    }
+
+    if (!isLoginMode) {
+      if (password !== confirmPassword) {
+        setError(t("passwordsDoNotMatch"));
+        return;
+      }
+      if (password.length < 6) {
+        setError(t("passwordTooShort"));
+        return;
+      }
     }
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const result = await apiClient.login(username.trim(), password);
+      let result;
+      if (isLoginMode) {
+        result = await apiClient.login(username.trim(), password);
+      } else {
+        result = await apiClient.register(username.trim(), password);
+      }
 
       await secureStorage.setItemAsync(STORAGE_KEYS.USER_TOKEN, result.token);
       apiClient.setToken(result.token);
@@ -56,7 +73,7 @@ export default function LoginScreen() {
         router.replace("/(tabs)");
       }
     } catch (err: any) {
-      setError(err.message || t("loginError"));
+      setError(err.message || (isLoginMode ? t("loginError") : t("registerError")));
     } finally {
       setIsLoading(false);
     }
@@ -81,8 +98,53 @@ export default function LoginScreen() {
             {t("barrelManagement")}
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {t("signInToSystem")}
+            {isLoginMode ? t("signInToSystem") : t("createAccount")}
           </Text>
+        </View>
+
+        <View style={styles.modeSwitch}>
+          <TouchableOpacity
+            style={[
+              styles.modeButton,
+              isLoginMode && [styles.modeButtonActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
+              { borderColor: colors.border },
+            ]}
+            onPress={() => {
+              setIsLoginMode(true);
+              setError(null);
+            }}
+          >
+            <Text
+              style={[
+                styles.modeButtonText,
+                isLoginMode && { color: colors.white, fontWeight: "700" },
+                { color: isLoginMode ? colors.white : colors.text },
+              ]}
+            >
+              {t("signIn")}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.modeButton,
+              !isLoginMode && [styles.modeButtonActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
+              { borderColor: colors.border },
+            ]}
+            onPress={() => {
+              setIsLoginMode(false);
+              setError(null);
+            }}
+          >
+            <Text
+              style={[
+                styles.modeButtonText,
+                !isLoginMode && { color: colors.white, fontWeight: "700" },
+                { color: !isLoginMode ? colors.white : colors.text },
+              ]}
+            >
+              {t("signUp")}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.form}>
@@ -147,13 +209,38 @@ export default function LoginScreen() {
             />
           </View>
 
+          {!isLoginMode && (
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                {t("confirmPassword")}
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                placeholder={t("confirmPasswordPlaceholder")}
+                placeholderTextColor={colors.textTertiary}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          )}
+
           <TouchableOpacity
             style={[
               styles.loginButton,
               { backgroundColor: colors.primary },
               isLoading && styles.loginButtonDisabled,
             ]}
-            onPress={handleLogin}
+            onPress={handleAuth}
             disabled={isLoading}
             activeOpacity={0.85}
           >
@@ -161,7 +248,7 @@ export default function LoginScreen() {
               <ActivityIndicator size="small" color={colors.white} />
             ) : (
               <Text style={[styles.loginButtonText, { color: colors.white }]}>
-                {t("signIn")}
+                {isLoginMode ? t("signIn") : t("signUp")}
               </Text>
             )}
           </TouchableOpacity>
@@ -169,8 +256,18 @@ export default function LoginScreen() {
 
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-            {t("noAccount")}
+            {isLoginMode ? t("noAccountSwitch") : t("haveAccountSwitch")}
           </Text>
+          <TouchableOpacity
+            onPress={() => {
+              setIsLoginMode(!isLoginMode);
+              setError(null);
+            }}
+          >
+            <Text style={[styles.footerLink, { color: colors.primary }]}>
+              {isLoginMode ? t("signUpHere") : t("signInHere")}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -209,6 +306,26 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: FONT_SIZE.md,
+  },
+  modeSwitch: {
+    flexDirection: "row",
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  modeButtonActive: {
+    borderWidth: 1,
+  },
+  modeButtonText: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: "600",
   },
   form: {
     gap: SPACING.md,
@@ -251,9 +368,14 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: SPACING.xl,
     alignItems: "center",
+    gap: SPACING.xs,
   },
   footerText: {
     fontSize: FONT_SIZE.sm,
     textAlign: "center",
+  },
+  footerLink: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: "700",
   },
 });

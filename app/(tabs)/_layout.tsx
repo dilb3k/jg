@@ -26,6 +26,7 @@ import {
   Star,
   Wifi,
   WifiOff,
+  Lock,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { apiClient, setConnectionMode as setApiConnectionMode } from "../../src/api/client";
@@ -38,30 +39,50 @@ const TabIcon = ({
   name,
   focused,
   colors,
+  isLocked = false,
 }: {
   name: string;
   focused: boolean;
   colors: any;
+  isLocked?: boolean;
 }) => {
-  const color = focused ? colors.primary : colors.textTertiary;
+  const color = isLocked ? colors.textTertiary : (focused ? colors.primary : colors.textTertiary);
   const size = 22;
 
+  let IconComponent;
   switch (name) {
     case "index":
-      return <Home size={size} color={color} />;
+      IconComponent = Home;
+      break;
     case "products":
-      return <Package size={size} color={color} />;
+      IconComponent = Package;
+      break;
     case "inventory":
-      return <ClipboardList size={size} color={color} />;
+      IconComponent = ClipboardList;
+      break;
     case "statistics":
-      return <BarChart3 size={size} color={color} />;
+      IconComponent = BarChart3;
+      break;
     case "users":
-      return <Users size={size} color={color} />;
+      IconComponent = Users;
+      break;
     case "rating":
-      return <Star size={size} color={color} />;
+      IconComponent = Star;
+      break;
     default:
-      return <Package size={size} color={color} />;
+      IconComponent = Package;
   }
+
+  return (
+    <View style={styles.iconContainer}>
+      <IconComponent size={size} color={color} />
+      {isLocked && (
+        <View style={[styles.lockBadge, { backgroundColor: colors.surface }]}>
+          <Lock size={10} color={colors.textTertiary} />
+        </View>
+      )}
+    </View>
+  );
 };
 
 const THEMES = [
@@ -133,6 +154,7 @@ export default function TabLayout() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const [showSettings, setShowSettings] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const { theme, isDark, setTheme, language, setLanguage, connectionMode, setConnectionMode, colors } = useTheme();
@@ -157,9 +179,9 @@ export default function TabLayout() {
     };
   }, [logout, router, setConnectionMode]);
 
-  const isSuperAdmin = user?.role === "superAdmin";
+  const isSuperAdmin = user?.role?.toLowerCase() === "superadmin";
+  const isPayed = isSuperAdmin || (user?.isPayed ?? false);
 
-  // SuperAdmin bo'lsa users tabdan boshlanadi
   const initialRouteName = isSuperAdmin ? "users" : "index";
 
   const handleLogout = async () => {
@@ -194,7 +216,7 @@ export default function TabLayout() {
   return (
     <>
       <Tabs
-        initialRouteName={initialRouteName} // ← Bu qator eng muhim!
+        initialRouteName={initialRouteName}
         screenOptions={{
           headerShown: true,
           freezeOnBlur: true,
@@ -210,7 +232,7 @@ export default function TabLayout() {
               />
             </View>
           ),
-          tabBarStyle: {
+          tabBarStyle: isSuperAdmin ? { display: "none" } : {
             backgroundColor: colors.surface,
             borderTopColor: colors.border,
             height: 70 + insets.bottom,
@@ -227,6 +249,7 @@ export default function TabLayout() {
           name="index"
           options={{
             title: t("restock"),
+            href: isSuperAdmin ? null : undefined,
             tabBarIcon: ({ focused }) => (
               <TabIcon name="index" focused={focused} colors={colors} />
             ),
@@ -236,6 +259,7 @@ export default function TabLayout() {
           name="products"
           options={{
             title: t("products"),
+            href: isSuperAdmin ? null : undefined,
             tabBarIcon: ({ focused }) => (
               <TabIcon name="products" focused={focused} colors={colors} />
             ),
@@ -245,6 +269,7 @@ export default function TabLayout() {
           name="inventory"
           options={{
             title: t("inventory"),
+            href: isSuperAdmin ? null : undefined,
             tabBarIcon: ({ focused }) => (
               <TabIcon name="inventory" focused={focused} colors={colors} />
             ),
@@ -254,8 +279,9 @@ export default function TabLayout() {
           name="statistics"
           options={{
             title: t("statistics"),
+            href: isSuperAdmin ? null : undefined,
             tabBarIcon: ({ focused }) => (
-              <TabIcon name="statistics" focused={focused} colors={colors} />
+              <TabIcon name="statistics" focused={focused} colors={colors} isLocked={!isPayed} />
             ),
           }}
         />
@@ -273,8 +299,9 @@ export default function TabLayout() {
           name="rating"
           options={{
             title: t("rating"),
+            href: isSuperAdmin ? null : undefined,
             tabBarIcon: ({ focused }) => (
-              <TabIcon name="rating" focused={focused} colors={colors} />
+              <TabIcon name="rating" focused={focused} colors={colors} isLocked={!isPayed} />
             ),
           }}
         />
@@ -322,16 +349,33 @@ export default function TabLayout() {
                       <Text style={[styles.userName, { color: colors.text }]}>
                         {user.username}
                       </Text>
-                      <Text
-                        style={[
-                          styles.userRole,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {user.role === "superAdmin"
-                          ? t("superAdmin")
-                          : t("admin")}
-                      </Text>
+                      <View style={styles.userRoleContainer}>
+                        <Text
+                          style={[
+                            styles.userRole,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {user.role?.toLowerCase() === "superadmin"
+                            ? t("superAdmin")
+                            : t("admin")}
+                        </Text>
+                        {!isPayed && (
+                          <View style={[styles.paymentBadge, { backgroundColor: colors.danger + "20" }]}>
+                            <Lock size={10} color={colors.danger} />
+                            <Text style={[styles.paymentBadgeText, { color: colors.danger }]}>
+                              {t("locked")}
+                            </Text>
+                          </View>
+                        )}
+                        {isPayed && (
+                          <View style={[styles.paymentBadge, { backgroundColor: colors.success + "20" }]}>
+                            <Text style={[styles.paymentBadgeText, { color: colors.success }]}>
+                              Premium
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </View>
                 </View>
@@ -555,6 +599,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
   },
+  iconContainer: {
+    position: "relative",
+  },
+  lockBadge: {
+    position: "absolute",
+    top: -6,
+    right: -8,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.1)",
+  },
   modalOverlay: { flex: 1, justifyContent: "flex-end" },
   modalContent: {
     borderTopLeftRadius: 24,
@@ -593,7 +652,24 @@ const styles = StyleSheet.create({
   },
   userInfoText: { flex: 1 },
   userName: { fontSize: FONT_SIZE.lg, fontWeight: "700" },
+  userRoleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+  },
   userRole: { fontSize: FONT_SIZE.sm },
+  paymentBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  paymentBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+  },
   optionsList: { gap: SPACING.xs },
   optionItem: {
     flexDirection: "row",

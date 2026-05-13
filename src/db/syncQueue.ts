@@ -42,6 +42,10 @@ export const setAppMeta = async (key: string, value: string): Promise<void> => {
   await AsyncStorage.setItem(APP_META_KEY, JSON.stringify(meta));
 };
 
+export const clearAllSyncQueue = async (): Promise<void> => {
+  await AsyncStorage.removeItem(SYNC_QUEUE_KEY);
+};
+
 export const getAppMetaAll = async (): Promise<AppMeta[]> => {
   const data = await AsyncStorage.getItem(APP_META_KEY);
   const meta: Record<string, string> = data ? JSON.parse(data) : {};

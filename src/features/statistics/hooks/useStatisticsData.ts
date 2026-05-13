@@ -103,7 +103,7 @@ export function useStatisticsData({
     return () => {
       isMounted = false;
     };
-  }, [overallStartDate, overallEndDate]);
+  }, [overallStartDate, overallEndDate, snapshots, products]);
 
   const periodDateRange = useMemo(
     () => getPeriodRange(period, selectedDate),
@@ -138,7 +138,7 @@ export function useStatisticsData({
     return () => {
       isMounted = false;
     };
-  }, [periodDateRange]);
+  }, [periodDateRange, snapshots, products]);
 
   const overallSnapshots = useMemo(
     () =>

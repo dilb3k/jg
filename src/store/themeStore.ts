@@ -4,6 +4,7 @@ import * as secureStorage from '../utils/secureStorage';
 import { STORAGE_KEYS } from '../constants';
 import type { ThemeMode } from '../theme';
 import { getThemeColors } from '../theme';
+import { setConnectionMode as setApiConnectionMode } from '../api/client';
 
 export type ConnectionMode = 'online' | 'offline';
 
@@ -47,6 +48,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
 
   setConnectionMode: async (newMode: ConnectionMode) => {
     set({ connectionMode: newMode });
+    setApiConnectionMode(newMode);
     
     try {
       await secureStorage.setItemAsync(STORAGE_KEYS.CONNECTION_MODE, newMode);

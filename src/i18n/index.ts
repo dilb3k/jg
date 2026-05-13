@@ -30,6 +30,7 @@ export const translations = {
     // Payment & Premium
     paymentRequired: "To'lov talab qilinadi",
     paymentRequiredMessage: "Statistika va Reyting funktsiyalaridan foydalanish uchun administrator orqali to'lov qiling. To'lov qilingandan so'ng bu funksiyalar ochiladi.",
+    paymentContact: "Telegram: @dilbek7011",
     premiumFeaturesLocked: "Premium funktsiyalar yopilgan",
     locked: "Yopilgan",
 
@@ -299,6 +300,7 @@ export const translations = {
     // Payment & Premium
     paymentRequired: "Требуется оплата",
     paymentRequiredMessage: "Для использования функций Статистика и Рейтинг оплатите через администратора. После оплаты эти функции будут разблокированы.",
+    paymentContact: "Telegram: @dilbek7011",
     premiumFeaturesLocked: "Премиум функции заблокированы",
     locked: "Заблокировано",
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
+  Linking,
   StyleSheet,
   Text,
   TextInput,
@@ -8,7 +9,7 @@ import {
   View,
   ActivityIndicator,
 } from "react-native";
-import { Lock } from "lucide-react-native";
+import { Lock, MessageCircle } from "lucide-react-native";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import dayjs from "dayjs";
 
@@ -188,6 +189,13 @@ export default function RatingScreen() {
           <Text style={[styles.lockedMessage, { color: colors.textSecondary }]}>
             {t("paymentRequiredMessage")}
           </Text>
+          <TouchableOpacity
+            style={[styles.telegramButton, { backgroundColor: "#0088cc" }]}
+            onPress={() => Linking.openURL("https://t.me/dilbek7011")}
+          >
+            <MessageCircle size={20} color="#ffffff" />
+            <Text style={styles.telegramButtonText}>Telegram: @dilbek7011</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -395,6 +403,21 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: FONT_SIZE.md,
       textAlign: "center",
       lineHeight: 24,
+    },
+    telegramButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: SPACING.sm,
+      marginTop: SPACING.lg,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.md,
+      borderRadius: BORDER_RADIUS.full,
+    },
+    telegramButtonText: {
+      color: "#ffffff",
+      fontSize: FONT_SIZE.md,
+      fontWeight: "700",
     },
     inventoryLoading: {
       flexDirection: "row",

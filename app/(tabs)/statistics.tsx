@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { Lock } from "lucide-react-native";
+import { ActivityIndicator, Linking, Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Lock, MessageCircle } from "lucide-react-native";
 import dayjs from "dayjs";
 
 import { DatePickerModal } from "../../src/features/statistics/components/DatePickerModal";
@@ -206,6 +206,13 @@ export default function StatisticsScreen() {
           <Text style={[styles.lockedMessage, { color: colors.textSecondary }]}>
             {t("paymentRequiredMessage")}
           </Text>
+          <TouchableOpacity
+            style={[styles.telegramButton, { backgroundColor: "#0088cc" }]}
+            onPress={() => Linking.openURL("https://t.me/dilbek7011")}
+          >
+            <MessageCircle size={20} color="#ffffff" />
+            <Text style={styles.telegramButtonText}>Telegram: @dilbek7011</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );

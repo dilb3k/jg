@@ -328,4 +328,19 @@ export const createStatisticsStyles = (colors: ThemeColors) =>
       textAlign: "center",
       lineHeight: 24,
     },
+    telegramButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: SPACING.sm,
+      marginTop: SPACING.lg,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.md,
+      borderRadius: BORDER_RADIUS.full,
+    },
+    telegramButtonText: {
+      color: "#ffffff",
+      fontSize: FONT_SIZE.md,
+      fontWeight: "700",
+    },
   });

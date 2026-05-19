@@ -44,9 +44,9 @@ export interface ThemeColors {
 
 export const lightTheme: ThemeColors = {
   // Primary colors
-  primary: "#6366f1",
-  primaryDark: "#4f46e5",
-  primaryLight: "#818cf8",
+  primary: "#7C3AED",
+  primaryDark: "#6D28D9",
+  primaryLight: "#8B5CF6",
   
   // Secondary colors
   secondary: "#10b981",
@@ -84,9 +84,9 @@ export const lightTheme: ThemeColors = {
 
 export const darkTheme: ThemeColors = {
   // Primary colors
-  primary: "#818cf8",
-  primaryDark: "#6366f1",
-  primaryLight: "#a5b4fc",
+  primary: "#8B5CF6",
+  primaryDark: "#7C3AED",
+  primaryLight: "#A78BFA",
   
   // Secondary colors
   secondary: "#34d399",
@@ -154,6 +154,14 @@ export const getThemeColors = (mode: ThemeMode, systemColorScheme: 'light' | 'da
     return systemColorScheme === 'dark' ? darkTheme : lightTheme;
   }
   return mode === 'dark' ? darkTheme : lightTheme;
+};
+
+// Font family constants
+export const FONT_FAMILY = {
+  regular: 'Inter_400Regular',
+  medium: 'Inter_500Medium',
+  semiBold: 'Inter_600SemiBold',
+  bold: 'Inter_700Bold',
 };
 
 // Spacing constants

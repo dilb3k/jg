@@ -62,6 +62,18 @@ export const useAuthStore = () =>
     useShallow((state) => ({
       user: state.user,
       isAuthenticated: state.isAuthenticated,
+      setUser: state.setUser,
       logout: state.logout,
+    })),
+  );
+
+export const useSalesScreenStore = () =>
+  useStore(
+    useShallow((state) => ({
+      currentInventory: state.currentInventory,
+      loadInventoryByDate: state.loadInventoryByDate,
+      applySales: state.applySales,
+      showToast: state.showToast,
+      isLoading: state.isLoading,
     })),
   );

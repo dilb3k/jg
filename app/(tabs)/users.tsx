@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Pencil, Trash2, Lock, Unlock } from "lucide-react-native";
 
@@ -29,6 +30,7 @@ import { useI18n } from "../../src/i18n";
 export default function AdminsScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { user, logout } = useAuthStore();
@@ -320,7 +322,7 @@ export default function AdminsScreen() {
         onRequestClose={() => setShowCreateModal(false)}
       >
         <KeyboardAvoidingView
-          style={styles.modalContainer}
+          style={[styles.modalContainer, { paddingTop: insets.top }]}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           <View style={styles.modalHeader}>
@@ -403,7 +405,7 @@ export default function AdminsScreen() {
         onRequestClose={() => setEditingAdmin(null)}
       >
         <KeyboardAvoidingView
-          style={styles.modalContainer}
+          style={[styles.modalContainer, { paddingTop: insets.top }]}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           <View style={styles.modalHeader}>

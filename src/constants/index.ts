@@ -1,11 +1,11 @@
-// Re-export theme constants for backward compatibility
-export { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../theme';
+﻿// Re-export theme constants for backward compatibility
+export { SPACING, FONT_SIZE, FONT_FAMILY, BORDER_RADIUS, SHADOWS } from '../theme';
 
 // Light theme colors as default for backward compatibility
 export const COLORS = {
-  primary: "#6366f1",
-  primaryDark: "#4f46e5",
-  primaryLight: "#818cf8",
+  primary: "#7C3AED",
+  primaryDark: "#6D28D9",
+  primaryLight: "#8B5CF6",
   secondary: "#10b981",
   secondaryDark: "#059669",
   secondaryLight: "#34d399",
@@ -27,6 +27,8 @@ export const COLORS = {
 };
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://comp-bar-server-1.onrender.com/api';
+// IMPORTANT: Must match BUSINESS_DAY_START_HOUR in bar-backend/backend/src/config/env.ts (default 2)
+export const BUSINESS_DAY_START_HOUR = Number(process.env.EXPO_PUBLIC_BUSINESS_DAY_START_HOUR) || 7;
 
 export const STORAGE_KEYS = {
   DEVICE_ID: 'device_id',
@@ -36,6 +38,9 @@ export const STORAGE_KEYS = {
   LANGUAGE: 'language',
   THEME: 'theme',
   CONNECTION_MODE: 'connection_mode',
+  BUSINESS_DAY_START_HOUR: 'business_day_start_hour',
+  PENDING_BUSINESS_DAY_HOUR: 'pending_business_day_hour',
+  BUSINESS_DAY_EFFECTIVE_FROM: 'business_day_effective_from',
 };
 
 export const TABLE_NAMES = {
@@ -56,3 +61,4 @@ export const OPERATION_TYPES = {
   UPSERT: 'upsert',
   DELETE: 'delete',
 } as const;
+

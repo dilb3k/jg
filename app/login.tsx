@@ -18,6 +18,7 @@ import { STORAGE_KEYS } from "../src/constants";
 import { useTheme } from "../src/store/themeStore";
 import { useI18n } from "../src/i18n";
 import { SPACING, FONT_SIZE, BORDER_RADIUS } from "../src/theme";
+import { useStore } from "../src/store";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -30,6 +31,7 @@ export default function LoginScreen() {
 
   const { colors } = useTheme();
   const { t } = useI18n();
+  const setUser = useStore((state) => state.setUser);
 
   const handleAuth = async () => {
     if (!username.trim() || !password.trim()) {
@@ -62,16 +64,18 @@ export default function LoginScreen() {
       await secureStorage.setItemAsync(STORAGE_KEYS.USER_TOKEN, result.token);
       apiClient.setToken(result.token);
 
-      await secureStorage.setItemAsync(
-        STORAGE_KEYS.AUTH_USER,
-        JSON.stringify(result.user),
-      );
+       await secureStorage.setItemAsync(
+         STORAGE_KEYS.AUTH_USER,
+         JSON.stringify(result.user),
+       );
 
-      if (result.user?.role === "superAdmin") {
-        router.replace("/(tabs)/users");
-      } else {
-        router.replace("/(tabs)");
-      }
+       setUser(result.user as any);
+
+       if (result.user?.role === "superAdmin") {
+         router.replace("/(tabs)/users");
+       } else {
+         router.replace("/(tabs)");
+       }
     } catch (err: any) {
       setError(err.message || (isLoginMode ? t("loginError") : t("registerError")));
     } finally {

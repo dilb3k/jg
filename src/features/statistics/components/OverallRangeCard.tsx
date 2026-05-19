@@ -1,5 +1,4 @@
-import dayjs from "dayjs";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Text, View } from "react-native";
 import { useMemo } from "react";
 
 import { formatMoney } from "../../../utils/inventory";
@@ -9,11 +8,6 @@ import { useI18n } from "../../../i18n";
 
 type Props = {
   rangeLabel: string;
-  overallStartDate: string | null;
-  overallEndDate: string | null;
-  onReset: () => void;
-  onPickStart: () => void;
-  onPickEnd: () => void;
   totals: {
     sellableItems: number;
     soldItems: number;
@@ -26,15 +20,7 @@ type Props = {
   };
 };
 
-export function OverallRangeCard({
-  rangeLabel,
-  overallStartDate,
-  overallEndDate,
-  onReset,
-  onPickStart,
-  onPickEnd,
-  totals,
-}: Props) {
+export function OverallRangeCard({ rangeLabel, totals }: Props) {
   const { colors } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
@@ -63,42 +49,13 @@ export function OverallRangeCard({
           <Text style={styles.cardTitle}>{t("ranging_overall")}</Text>
           <Text style={styles.rangeLabel}>{rangeLabel}</Text>
         </View>
-        {overallStartDate || overallEndDate ? (
-          <TouchableOpacity onPress={onReset} style={styles.resetButton}>
-            <Text style={styles.resetButtonText}>{t("all_data")}</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      <View style={styles.rangeActions}>
-        <TouchableOpacity style={styles.rangeButton} onPress={onPickStart}>
-          <Text style={styles.rangeButtonLabel}>{t("start")}</Text>
-          <Text style={styles.rangeButtonValue}>
-            {overallStartDate
-              ? dayjs(overallStartDate).format("DD MMM YYYY")
-              : t("from_beginning")}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.rangeButton} onPress={onPickEnd}>
-          <Text style={styles.rangeButtonLabel}>{t("end")}</Text>
-          <Text style={styles.rangeButtonValue}>
-            {overallEndDate ? dayjs(overallEndDate).format("DD MMM YYYY") : t("until_now")}
-          </Text>
-        </TouchableOpacity>
       </View>
 
       <View style={styles.statsGrid}>
         <RangeStat label={t("totalSellablePieces")} value={totals.sellableItems} />
         <RangeStat label={t("soldPieces")} value={totals.soldItems} />
-        <RangeStat
-          label={t("totalSellValue")}
-          value={formatMoney(totals.sellableValue)}
-        />
-        <RangeStat
-          label={t("soldValue")}
-          value={formatMoney(totals.earnedRevenue)}
-        />
+        <RangeStat label={t("totalSellValue")} value={formatMoney(totals.sellableValue)} />
+        <RangeStat label={t("soldValue")} value={formatMoney(totals.earnedRevenue)} />
         <RangeStat
           label={t("potentialProfit")}
           value={formatMoney(totals.possibleProfit)}

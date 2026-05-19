@@ -1,7 +1,8 @@
-import type {
+﻿import type {
   InventorySummary,
   InventoryWithProduct,
   InventoryMetrics,
+  Product,
 } from "../types/index";
 
 export interface ProductValidationErrors {
@@ -25,19 +26,9 @@ export const formatWholeNumber = (value: number): string =>
 export const formatMoney = (value: number): string =>
   `${value.toLocaleString("uz-UZ")} so'm`;
 
-export const formatInputAmount = (value: string): string => {
-  const cleaned = value.replace(/[^\d]/g, "");
-  if (!cleaned) return "";
-  const num = parseInt(cleaned, 10);
-  if (isNaN(num)) return "";
-  return num.toLocaleString("uz-UZ");
-};
-
-export const parseFormattedAmount = (value: string): number => {
-  const cleaned = value.replace(/[^\d]/g, "");
-  if (!cleaned) return 0;
-  return parseInt(cleaned, 10);
-};
+import { formatInputAmount as _f, parseFormattedAmount as _p } from "./formatters";
+export const formatInputAmount = _f;
+export const parseFormattedAmount = _p;
 
 export const hasValidationErrors = (
   errors: ProductValidationErrors,
@@ -306,3 +297,134 @@ export const getInventoryTotals = (
 
   return aggregateItemsByProduct(items);
 };
+
+export type ProductStatisticsRow = {
+  productId: string;
+  name: string;
+  buyPrice: number;
+  sellPrice: number;
+  jami: number;
+  qoldi: number;
+  sotildi: number;
+  olinganNarxiSold: number;
+  sotilganNarx: number;
+  tozaFoyda: number;
+  abarot: number;
+  olinganNarxJami: number;
+  foyda: number;
+};
+
+function getItemPrices(item: InventoryWithProduct) {
+  const p = item.product;
+  const buyPrice =
+    typeof item.buyPrice === "number" && item.buyPrice > 0
+      ? item.buyPrice
+      : (p?.buyPrice ?? 0);
+  const sellPrice =
+    typeof item.sellPrice === "number" && item.sellPrice > 0
+      ? item.sellPrice
+      : (p?.sellPrice ?? 0);
+  return { buyPrice, sellPrice };
+}
+
+export function buildProductStatisticsRows(
+  items: InventoryWithProduct[],
+  catalog: Product[] = [],
+): ProductStatisticsRow[] {
+  const uniqueByProductAndDate = new Map<string, InventoryWithProduct>();
+
+  for (const item of items) {
+    const productId = getItemProductId(item);
+    if (!productId) continue;
+
+    const date = item.date ?? "unknown";
+    const key = `${productId}|||${date}`;
+    const existing = uniqueByProductAndDate.get(key);
+    if (!existing || isItemNewerThan(existing, item)) {
+      uniqueByProductAndDate.set(key, item);
+    }
+  }
+
+  const productLatestEntry = new Map<string, InventoryWithProduct>();
+  const productTotals = new Map<
+    string,
+    { sold: number; revenue: number; profit: number; costSold: number }
+  >();
+
+  for (const item of uniqueByProductAndDate.values()) {
+    const productId = getItemProductId(item);
+    if (!productId) continue;
+
+    const metrics = getInventoryMetrics(item);
+    const { buyPrice } = getItemPrices(item);
+    const totals = productTotals.get(productId) ?? {
+      sold: 0,
+      revenue: 0,
+      profit: 0,
+      costSold: 0,
+    };
+    totals.sold += metrics.sold;
+    totals.revenue += metrics.revenue;
+    totals.profit += metrics.realizedProfit;
+    totals.costSold += metrics.sold * buyPrice;
+    productTotals.set(productId, totals);
+
+    const existing = productLatestEntry.get(productId);
+    if (!existing || isItemNewerThan(existing, item)) {
+      productLatestEntry.set(productId, item);
+    }
+  }
+
+  const rows: ProductStatisticsRow[] = [];
+
+  for (const [productId, latest] of productLatestEntry) {
+    const metrics = getInventoryMetrics(latest);
+    const { buyPrice, sellPrice } = getItemPrices(latest);
+    const totals = productTotals.get(productId)!;
+    const jami = Math.max(latest.startQuantity ?? 0, metrics.remaining + totals.sold);
+    const abarot = jami * sellPrice;
+    const olinganNarxJami = jami * buyPrice;
+
+    rows.push({
+      productId,
+      name: latest.product?.name ?? "—",
+      buyPrice,
+      sellPrice,
+      jami,
+      qoldi: metrics.remaining,
+      sotildi: totals.sold,
+      olinganNarxiSold: totals.costSold,
+      sotilganNarx: totals.revenue,
+      tozaFoyda: totals.profit,
+      abarot,
+      olinganNarxJami,
+      foyda: abarot - olinganNarxJami,
+    });
+  }
+
+  const includedIds = new Set(rows.map((r) => r.productId));
+  for (const product of catalog) {
+    if (product.isDeleted || includedIds.has(product.localId)) continue;
+
+    const jami = product.quantity ?? 0;
+    rows.push({
+      productId: product.localId,
+      name: product.name,
+      buyPrice: product.buyPrice,
+      sellPrice: product.sellPrice,
+      jami,
+      qoldi: jami,
+      sotildi: 0,
+      olinganNarxiSold: 0,
+      sotilganNarx: 0,
+      tozaFoyda: 0,
+      abarot: jami * product.sellPrice,
+      olinganNarxJami: jami * product.buyPrice,
+      foyda: jami * (product.sellPrice - product.buyPrice),
+    });
+  }
+
+  rows.sort((a, b) => a.name.localeCompare(b.name, "uz"));
+  return rows;
+}
+

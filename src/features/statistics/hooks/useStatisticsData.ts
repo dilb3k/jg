@@ -9,7 +9,7 @@ import type {
   Product,
   DailySnapshot,
 } from "../../../types";
-import { formatMoney, getInventoryTotals } from "../../../utils/inventory";
+import { getInventoryMetrics, getInventoryTotals } from "../../../utils/inventory";
 import type { PeriodType } from "../components/PeriodTabs";
 
 type InventoryRangeResult = {
@@ -30,11 +30,11 @@ type Params = {
   snapshots: DailySnapshot[];
   period: PeriodType;
   selectedDate: string;
-  overallStartDate: string | null;
-  overallEndDate: string | null;
+  isPayed: boolean;
+  refreshToken?: number;
 };
 
-const getPeriodRange = (period: PeriodType, selectedDate: string) => {
+export const getPeriodRange = (period: PeriodType, selectedDate: string) => {
   const baseDate = dayjs(selectedDate);
   switch (period) {
     case "daily":
@@ -57,124 +57,117 @@ const getPeriodRange = (period: PeriodType, selectedDate: string) => {
   }
 };
 
+export type ProductRankRow = {
+  id: string;
+  name: string;
+  sold: number;
+  profit: number;
+};
+
+function mergeInventoryStats(
+  items: InventoryWithProduct[],
+  stats: Map<string, { sold: number; profit: number }>,
+) {
+  for (const item of items) {
+    const metrics = getInventoryMetrics(item);
+    const id = item.productId || item.product?.localId;
+    if (!id) continue;
+    const current = stats.get(id) ?? { sold: 0, profit: 0 };
+    current.sold += metrics.sold;
+    current.profit += metrics.realizedProfit;
+    stats.set(id, current);
+  }
+}
+
+function buildAllProductPeriodStats(
+  products: Product[],
+  snapshots: DailySnapshot[],
+  inventoryItems: InventoryWithProduct[],
+): ProductRankRow[] {
+  const namesById = new Map<string, string>();
+  const stats = new Map<string, { sold: number; profit: number }>();
+
+  products
+    .filter((p) => !p.isDeleted)
+    .forEach((p) => {
+      namesById.set(p.localId, p.name);
+      stats.set(p.localId, { sold: 0, profit: 0 });
+    });
+
+  snapshots.forEach((snapshot) => {
+    snapshot.items.forEach((item) => {
+      if (!namesById.has(item.productId)) {
+        namesById.set(item.productId, item.productName);
+      }
+      const current = stats.get(item.productId) ?? { sold: 0, profit: 0 };
+      current.sold += item.sold;
+      current.profit += item.profit;
+      stats.set(item.productId, current);
+    });
+  });
+
+  if (snapshots.length === 0 && inventoryItems.length > 0) {
+    mergeInventoryStats(inventoryItems, stats);
+  }
+
+  return Array.from(stats.entries()).map(([id, totals]) => ({
+    id,
+    name: namesById.get(id) || "Noma'lum mahsulot",
+    sold: totals.sold,
+    profit: totals.profit,
+  }));
+}
+
 export function useStatisticsData({
   getStatistics,
   products,
   snapshots,
   period,
   selectedDate,
-  overallStartDate,
-  overallEndDate,
+  isPayed,
+  refreshToken = 0,
 }: Params) {
-  const [overallRange, setOverallRange] = useState<InventoryRangeResult | null>(null);
-  const [overallAttempted, setOverallAttempted] = useState(false);
-  const [periodRange, setPeriodRange] = useState<InventoryRangeResult | null>(null);
-  const [periodAttempted, setPeriodAttempted] = useState(false);
-
-  useEffect(() => {
-    setOverallRange(null);
-    setOverallAttempted(false);
-
-    let isMounted = true;
-
-    const loadOverall = async () => {
-      try {
-        const params: { from?: string; to?: string } = {};
-        if (overallStartDate) params.from = overallStartDate;
-        if (overallEndDate) params.to = overallEndDate;
-
-        const result = await apiClient.getInventoryWithProducts(params);
-        if (isMounted) {
-          setOverallRange(result);
-        }
-      } catch {
-        if (isMounted) {
-          setOverallRange(null);
-        }
-      } finally {
-        if (isMounted) {
-          setOverallAttempted(true);
-        }
-      }
-    };
-
-    loadOverall();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [overallStartDate, overallEndDate, snapshots, products]);
-
   const periodDateRange = useMemo(
     () => getPeriodRange(period, selectedDate),
     [period, selectedDate],
   );
 
+  const [inventoryRange, setInventoryRange] = useState<InventoryRangeResult | null>(null);
+  const [inventoryAttempted, setInventoryAttempted] = useState(false);
+
   useEffect(() => {
-    setPeriodRange(null);
-    setPeriodAttempted(false);
+    setInventoryRange(null);
+    setInventoryAttempted(false);
 
     let isMounted = true;
 
-    const loadPeriod = async () => {
+    const load = async () => {
+      if (!isPayed) {
+        if (isMounted) setInventoryAttempted(true);
+        return;
+      }
       try {
         const result = await apiClient.getInventoryWithProducts(periodDateRange);
         if (isMounted) {
-          setPeriodRange(result);
+          setInventoryRange(result);
         }
       } catch {
         if (isMounted) {
-          setPeriodRange(null);
+          setInventoryRange(null);
         }
       } finally {
         if (isMounted) {
-          setPeriodAttempted(true);
+          setInventoryAttempted(true);
         }
       }
     };
 
-    loadPeriod();
+    void load();
 
     return () => {
       isMounted = false;
     };
-  }, [periodDateRange, snapshots, products]);
-
-  const overallSnapshots = useMemo(
-    () =>
-      snapshots.filter((snapshot) => {
-        if (overallStartDate && dayjs(snapshot.date).isBefore(dayjs(overallStartDate))) {
-          return false;
-        }
-
-        if (overallEndDate && dayjs(snapshot.date).isAfter(dayjs(overallEndDate))) {
-          return false;
-        }
-
-        return true;
-      }),
-    [overallEndDate, overallStartDate, snapshots],
-  );
-
-  const overallSummary = overallRange?.summary;
-
-  const overallInventory = useMemo(
-    () => overallRange?.items ?? [],
-    [overallRange],
-  );
-
-  const overallInventoryStats = useMemo(
-    () => getInventoryTotals(overallInventory, overallSummary),
-    [overallInventory, overallSummary],
-  );
-
-  const overallRangeLabel = useMemo(() => {
-    if (!overallStartDate && !overallEndDate) {
-      return "Boshidan - Hozirgacha";
-    }
-
-    return `${overallStartDate ? dayjs(overallStartDate).format("DD MMM YYYY") : "Boshidan"} - ${overallEndDate ? dayjs(overallEndDate).format("DD MMM YYYY") : "Hozirgacha"}`;
-  }, [overallEndDate, overallStartDate]);
+  }, [periodDateRange, isPayed, refreshToken]);
 
   const periodSnapshots = useMemo(() => {
     const baseDate = dayjs(selectedDate);
@@ -204,118 +197,130 @@ export function useStatisticsData({
     });
   }, [period, selectedDate, snapshots]);
 
-  const productRanking = useMemo(() => {
-    const namesById = new Map<string, string>();
+  const allProductStats = useMemo(
+    () =>
+      buildAllProductPeriodStats(
+        products,
+        periodSnapshots,
+        inventoryRange?.items ?? [],
+      ),
+    [products, periodSnapshots, inventoryRange],
+  );
 
-    periodSnapshots.forEach((snapshot) => {
-      snapshot.items.forEach((item) => {
-        if (!namesById.has(item.productId)) {
-          namesById.set(item.productId, item.productName);
-        }
-      });
-    });
+  const inventoryItems = useMemo(
+    () => inventoryRange?.items ?? [],
+    [inventoryRange],
+  );
 
-    products.forEach((product) => {
-      if (!namesById.has(product.localId)) {
-        namesById.set(product.localId, product.name);
-      }
-    });
+  const inventorySummary = inventoryRange?.summary;
 
-    const rows = periodSnapshots
-      .reduce<Record<string, { sold: number; profit: number }>>((acc, snapshot) => {
-        snapshot.items.forEach((item) => {
-          const current = acc[item.productId] || { sold: 0, profit: 0 };
-          current.sold += item.sold;
-          current.profit += item.profit;
-          acc[item.productId] = current;
-        });
-        return acc;
-      }, {});
-
-    return Object.entries(rows)
-      .map(([productId, totals]) => ({
-        id: productId,
-        name: namesById.get(productId) || "Noma'lum mahsulot",
-        sold: totals.sold,
-        profit: totals.profit,
-      }))
-      .filter((item) => item.sold > 0 || item.profit > 0)
-      .sort((a, b) => (b.sold === a.sold ? b.profit - a.profit : b.sold - a.sold));
-  }, [periodSnapshots, products]);
+  const inventoryStats = useMemo(
+    () => getInventoryTotals(inventoryItems, inventorySummary),
+    [inventoryItems, inventorySummary],
+  );
 
   const currentPeriodStats = useMemo(() => {
-    if (periodRange?.summary) {
+    if (inventorySummary) {
       return {
-        totalRevenue: periodRange.summary.totalRevenue,
-        totalProfit: periodRange.summary.totalProfit,
-        totalSoldItems: periodRange.summary.totalSold,
+        totalRevenue: inventorySummary.totalRevenue,
+        totalProfit: inventorySummary.totalProfit,
+        totalSoldItems: inventorySummary.totalSold,
+      };
+    }
+    if (inventoryItems.length > 0) {
+      return {
+        totalRevenue: inventoryStats.revenue,
+        totalProfit: inventoryStats.profit,
+        totalSoldItems: inventoryStats.sold,
       };
     }
     return getStatistics(period, selectedDate);
-  }, [periodRange, period, selectedDate, getStatistics, snapshots]);
+  }, [inventorySummary, inventoryItems, inventoryStats, period, selectedDate, getStatistics]);
 
   const overallTotals = useMemo(() => {
-    if (overallSummary) {
+    if (!inventoryAttempted) return null;
+
+    if (inventorySummary) {
       return {
-        earnedRevenue: overallSummary.totalRevenue,
-        earnedProfit: overallSummary.totalProfit,
-        soldItems: overallSummary.totalSold,
-        remainingItems: overallSummary.totalCurrent,
-        sellableItems: overallSummary.totalSold + overallSummary.totalCurrent,
-        sellableValue: overallSummary.totalRevenue + overallSummary.totalStockSellValue,
-        possibleProfit: overallSummary.totalProfit + overallSummary.totalStockProfit,
-        stockValue: overallSummary.totalStockSellValue,
+        earnedRevenue: inventorySummary.totalRevenue,
+        earnedProfit: inventorySummary.totalProfit,
+        soldItems: inventorySummary.totalSold,
+        remainingItems: inventorySummary.totalCurrent,
+        sellableItems: inventorySummary.totalSold + inventorySummary.totalCurrent,
+        sellableValue:
+          inventorySummary.totalRevenue + inventorySummary.totalStockSellValue,
+        possibleProfit:
+          inventorySummary.totalProfit + inventorySummary.totalStockProfit,
+        stockValue: inventorySummary.totalStockSellValue,
       };
     }
 
-    if (!overallAttempted) return null;
+    if (inventoryItems.length > 0) {
+      return {
+        earnedRevenue: inventoryStats.revenue,
+        earnedProfit: inventoryStats.profit,
+        soldItems: inventoryStats.sold,
+        remainingItems: inventoryStats.current,
+        sellableItems: inventoryStats.sold + inventoryStats.current,
+        sellableValue: inventoryStats.revenue + inventoryStats.stockSellValue,
+        possibleProfit: inventoryStats.profit + inventoryStats.stockProfit,
+        stockValue: inventoryStats.stockSellValue,
+      };
+    }
 
-    const earnedProfit = overallSnapshots.reduce(
+    const earnedProfit = periodSnapshots.reduce(
       (sum, snapshot) => sum + snapshot.totalProfit,
       0,
     );
-    const soldItems = overallSnapshots.reduce(
+    const soldItems = periodSnapshots.reduce(
       (sum, snapshot) => sum + snapshot.totalSoldItems,
       0,
     );
-    const earnedRevenue = overallSnapshots.reduce(
+    const earnedRevenue = periodSnapshots.reduce(
       (sum, snapshot) => sum + snapshot.totalRevenue,
       0,
     );
-    const remainingItems = overallInventoryStats.current;
-    const sellableItems = soldItems + remainingItems;
-    const possibleProfit = earnedProfit + (overallInventoryStats.stockProfit ?? 0);
-    const sellableValue = earnedRevenue + overallInventoryStats.stockSellValue;
 
     return {
       earnedProfit,
       earnedRevenue,
       soldItems,
-      remainingItems,
-      sellableItems,
-      sellableValue,
-      possibleProfit,
-      stockValue: overallInventoryStats.stockSellValue,
+      remainingItems: 0,
+      sellableItems: soldItems,
+      sellableValue: earnedRevenue,
+      possibleProfit: earnedProfit,
+      stockValue: 0,
     };
-  }, [overallAttempted, overallInventoryStats, overallSnapshots, overallSummary]);
+  }, [inventoryAttempted, inventoryStats, inventorySummary, inventoryItems, periodSnapshots]);
 
-  const isLoading = !overallAttempted || !periodAttempted;
+  const isLoading = !inventoryAttempted;
 
   const topProducts = useMemo(
     () =>
-      productRanking.map((item) => ({
-        id: item.id,
-        name: item.name,
-        valueText: `${item.sold} ta sotilgan • ${formatMoney(item.profit)}`,
-      })),
-    [productRanking],
+      allProductStats
+        .filter((item) => item.sold > 0)
+        .sort((a, b) =>
+          b.sold === a.sold ? b.profit - a.profit : b.sold - a.sold,
+        ),
+    [allProductStats],
+  );
+
+  /** Qora ro'yxat: eng kam foyda, shu jumladan umuman sotilmagan mahsulotlar */
+  const leastProducts = useMemo(
+    () =>
+      [...allProductStats].sort(
+        (a, b) => a.profit - b.profit || a.sold - b.sold,
+      ),
+    [allProductStats],
   );
 
   return {
-    overallRangeLabel,
     overallTotals,
     currentPeriodStats,
     topProducts,
+    leastProducts,
+    inventoryItems,
+    periodSnapshots,
     isLoading,
   };
 }

@@ -19,7 +19,7 @@ module.exports = {
         'theme-text-secondary': '#64748b',
         'theme-text-tertiary': '#94a3b8',
         'theme-border': '#e2e8f0',
-        'theme-primary': '#6366f1',
+        'theme-primary': '#7C3AED',
         'theme-secondary': '#10b981',
         'theme-danger': '#ef4444',
         'theme-warning': '#f59e0b',

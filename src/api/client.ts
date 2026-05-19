@@ -1,10 +1,11 @@
-import axios, { AxiosError, AxiosInstance } from "axios";
+﻿import axios, { AxiosError, AxiosInstance } from "axios";
 import NetInfo from "@react-native-community/netinfo";
 
 import { API_BASE_URL } from "../constants";
 import type {
   AuthUser,
   DailySnapshot,
+  Debtor,
   InventoryEntry,
   InventorySummary,
   InventoryWithProduct,
@@ -83,7 +84,7 @@ type BulkCurrentInventoryItem = {
 };
 
 let isOnline = false;
-let connectionMode: "online" | "offline" = "online";
+let connectionMode: "online" | "offline" = "offline";
 let wasAutoSetOffline = false;
 let moduleConnectionModeChangeHandler: ((mode: "online" | "offline") => void) | null = null;
 
@@ -274,11 +275,22 @@ class ApiClient {
 
      this.client.interceptors.response.use(
        (response) => response,
-       (error: AxiosError<{ success?: boolean; error?: { message?: string; details?: unknown }; message?: string }>) => {
-         if (error.response?.status === 401) {
-           this.unauthorizedHandler?.();
-           return Promise.reject(new Error("Avtorizatsiya tugagan. Qayta kiring."));
-         }
+        (error: AxiosError<{ success?: boolean; error?: { message?: string; details?: unknown }; message?: string }>) => {
+          if (error.response?.status === 401) {
+            const data = error.response?.data;
+            if (data && typeof data === "object") {
+              if ("error" in data && data.error && typeof data.error === "object" && "message" in data.error && typeof data.error.message === "string") {
+                this.unauthorizedHandler?.();
+                return Promise.reject(new Error(data.error.message));
+              }
+              if ("message" in data && typeof data.message === "string") {
+                this.unauthorizedHandler?.();
+                return Promise.reject(new Error(data.message));
+              }
+            }
+            this.unauthorizedHandler?.();
+            return Promise.reject(new Error("Avtorizatsiya tugagan. Qayta kiring."));
+          }
          if (error.code === "ECONNABORTED") {
            return Promise.reject(
              new Error("So'rov vaqti tugadi. Internet aloqasini tekshiring."),
@@ -441,6 +453,18 @@ class ApiClient {
     const updated = { ...existing, ...product, updatedAt: new Date().toISOString() };
     await dbProducts.updateProduct(updated);
 
+    const allInv = await dbInventory.getAllInventoryEntries();
+    const affectedInv = allInv.filter((e) => e.productId === id);
+    if (affectedInv.length > 0) {
+      for (const inv of affectedInv) {
+        inv.buyPrice = updated.buyPrice;
+        inv.sellPrice = updated.sellPrice;
+      }
+      await dbInventory.saveInventoryEntries(affectedInv);
+    }
+
+    await dbInventory.syncTodayInventoryWithProducts();
+
     if (!canReachServer()) {
       await dbSyncQueue.addToSyncQueue({
         id,
@@ -564,21 +588,26 @@ class ApiClient {
         : allEntries;
 
       const productsById = new Map(localProducts.map((p) => [p.localId, p]));
-      const joined = localInventory.map((entry) => ({
-        ...entry,
-        product: productsById.get(entry.productId) ?? {
-          localId: entry.productId,
-          deviceId: entry.deviceId,
-          entityType: "product" as const,
-          name: "Noma'lum mahsulot",
-          quantity: entry.currentQuantity,
-          buyPrice: 0,
-          sellPrice: 0,
-          isDeleted: false,
-          createdAt: entry.createdAt,
-          updatedAt: entry.updatedAt,
-        },
-      }));
+      const joined = localInventory.map((entry) => {
+        const product = productsById.get(entry.productId);
+        return {
+          ...entry,
+          buyPrice: product?.buyPrice ?? entry.buyPrice ?? 0,
+          sellPrice: product?.sellPrice ?? entry.sellPrice ?? 0,
+          product: product ?? {
+            localId: entry.productId,
+            deviceId: entry.deviceId,
+            entityType: "product" as const,
+            name: "Noma'lum mahsulot",
+            quantity: entry.currentQuantity,
+            buyPrice: 0,
+            sellPrice: 0,
+            isDeleted: false,
+            createdAt: entry.createdAt,
+            updatedAt: entry.updatedAt,
+          },
+        };
+      });
       return { items: joined };
     }
 
@@ -929,9 +958,14 @@ class ApiClient {
           const data = item.data as Product;
           await this.client.put(`/products/${item.id}`, data);
         } else if (item.entityType === "inventory") {
-          const data = item.data as { deviceId: string; items: StartDayInventoryItem[]; date: string };
+          const data = item.data as { deviceId: string; items: StartDayInventoryItem[] | BulkCurrentInventoryItem[]; date: string };
           if (data.items?.length > 0) {
-            await this.client.post("/inventory/start-day", data);
+            // Route to correct endpoint based on queue item id prefix
+            if (item.id.startsWith("bulk-update-")) {
+              await this.client.put("/inventory/bulk-current", data);
+            } else {
+              await this.client.post("/inventory/start-day", data);
+            }
           }
         } else if (item.entityType === "snapshot") {
           const data = item.data as DailySnapshot;
@@ -987,7 +1021,15 @@ class ApiClient {
   }
 
   async getMe(): Promise<AuthUser> {
+    if (!canReachServer()) {
+      throw new Error("Internet aloqasi yo'q. Oflayn rejim.");
+    }
     const response = await this.client.get<ApiResponse<AuthUser>>("/auth/me");
+    return this.unwrap(response);
+  }
+
+  async updateMe(payload: { businessDayStartHour: number }): Promise<{ user: AuthUser; token: string }> {
+    const response = await this.client.put<ApiResponse<{ user: AuthUser; token: string }>>("/auth/me", payload);
     return this.unwrap(response);
   }
 
@@ -1032,6 +1074,64 @@ class ApiClient {
     }
     await this.client.delete(`/auth/admins/${id}`);
   }
+
+  // Debtors
+  async getDebtors(): Promise<Debtor[]> {
+    if (!canReachServer()) {
+      throw new Error("Qarzdorlar ro'yxatini yuklash uchun server kerak");
+    }
+    const response = await this.client.get<ApiResponse<Debtor[]>>("/debtors");
+    return this.unwrap(response);
+  }
+
+  async getDebtor(id: string): Promise<Debtor> {
+    if (!canReachServer()) {
+      throw new Error("Qarzdorni yuklash uchun server kerak");
+    }
+    const response = await this.client.get<ApiResponse<Debtor>>(`/debtors/${id}`);
+    return this.unwrap(response);
+  }
+
+  async createDebtor(data: {
+    name: string;
+    amount: number;
+    phone?: string;
+    notes?: string;
+  }): Promise<Debtor> {
+    if (!canReachServer()) {
+      throw new Error("Qarzdor yaratish uchun server kerak");
+    }
+    const response = await this.client.post<ApiResponse<Debtor>>("/debtors", data);
+    return this.unwrap(response);
+  }
+
+  async updateDebtor(id: string, data: { name?: string; amount?: number }): Promise<Debtor> {
+    if (!canReachServer()) {
+      throw new Error("Qarzdorni tahrirlash uchun server kerak");
+    }
+    const response = await this.client.put<ApiResponse<Debtor>>(`/debtors/${id}`, data);
+    return this.unwrap(response);
+  }
+
+  async adjustDebt(
+    id: string,
+    data: { amount: number; type: "add" | "subtract"; note?: string }
+  ): Promise<Debtor> {
+    if (!canReachServer()) {
+      throw new Error("Qarzni o'zgartirish uchun server kerak");
+    }
+    const response = await this.client.post<ApiResponse<Debtor>>(`/debtors/${id}/adjust`, data);
+    return this.unwrap(response);
+  }
+
+  async deleteDebtor(id: string): Promise<void> {
+    if (!canReachServer()) {
+      throw new Error("Qarzdorni o'chirish uchun server kerak");
+    }
+    await this.client.delete(`/debtors/${id}`);
+  }
 }
 
 export const apiClient = new ApiClient();
+
+

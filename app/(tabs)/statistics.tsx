@@ -1,10 +1,19 @@
-import { useMemo, useState } from "react";
-import { ActivityIndicator, Linking, Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { Lock, MessageCircle } from "lucide-react-native";
+import { useCallback, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Linking,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useFocusEffect } from "expo-router";
+import { Lock, MessageCircle, RefreshCw, Download, CalendarClock } from "lucide-react-native";
 import dayjs from "dayjs";
 
 import { DatePickerModal } from "../../src/features/statistics/components/DatePickerModal";
 import { OverallRangeCard } from "../../src/features/statistics/components/OverallRangeCard";
+import { AllTimeStatisticsModal } from "../../src/features/statistics/components/AllTimeStatisticsModal";
 import {
   PeriodTabs,
   type PeriodType,
@@ -17,13 +26,19 @@ import { RankingCard } from "../../src/features/statistics/components/RankingCar
 import { useStatisticsData } from "../../src/features/statistics/hooks/useStatisticsData";
 import { createStatisticsStyles } from "../../src/features/statistics/styles";
 import { useStatisticsScreenStore, useAuthStore } from "../../src/store/selectors";
+import { useStore } from "../../src/store";
+import { apiClient } from "../../src/api/client";
 import { getBusinessDate } from "../../src/utils/businessDay";
 import { formatMoney } from "../../src/utils/inventory";
 import { useTheme } from "../../src/store/themeStore";
 import { useI18n } from "../../src/i18n";
 import { useNetworkStatus } from "../../src/hooks/useNetworkStatus";
-
-type PickerTarget = "period" | "overallStart" | "overallEnd";
+import {
+  buildStatisticsCsv,
+  buildStatisticsDailyRows,
+  buildStatisticsProductRows,
+  shareStatisticsFile,
+} from "../../src/utils/statisticsExport";
 
 const PERIOD_UNIT: Record<PeriodType, dayjs.ManipulateType> = {
   daily: "day",
@@ -32,134 +47,67 @@ const PERIOD_UNIT: Record<PeriodType, dayjs.ManipulateType> = {
   yearly: "year",
 };
 
-
-
 export default function StatisticsScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
+  const loadSnapshots = useStore((s) => s.loadSnapshots);
+  const snapshots = useStore((s) => s.snapshots);
+  const showToast = useStore((s) => s.showToast);
   const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
-  const { getStatistics, products, snapshots } =
-    useStatisticsScreenStore();
+  const { getStatistics, products } = useStatisticsScreenStore();
 
   const isSuperAdmin = user?.role?.toLowerCase() === "superadmin";
   const isPayed = isSuperAdmin || (user?.isPayed ?? false);
 
   const [period, setPeriod] = useState<PeriodType>("daily");
   const [selectedDate, setSelectedDate] = useState(() => getBusinessDate());
-  const [overallStartDate, setOverallStartDate] = useState<string | null>(null);
-  const [overallEndDate, setOverallEndDate] = useState<string | null>(null);
-  const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
+  const [showPeriodPicker, setShowPeriodPicker] = useState(false);
   const [pickerDate, setPickerDate] = useState(() => getBusinessDate());
+  const [showAllTimeModal, setShowAllTimeModal] = useState(false);
+  const [statsRefreshToken, setStatsRefreshToken] = useState(0);
 
-  const { overallRangeLabel, overallTotals, currentPeriodStats, topProducts, isLoading } =
-    useStatisticsData({
+  const {
+    overallTotals,
+    currentPeriodStats,
+    topProducts,
+    leastProducts,
+    inventoryItems,
+    periodSnapshots,
+    isLoading,
+  } = useStatisticsData({
       getStatistics,
       products,
       snapshots,
       period,
       selectedDate,
-      overallStartDate,
-      overallEndDate,
+      isPayed,
+      refreshToken: statsRefreshToken,
     });
 
   const earliestSnapshotDate = useMemo(() => {
     if (!snapshots.length) return null;
-
     return snapshots.reduce((earliest, snapshot) => {
       if (!earliest) return snapshot.date;
-      return dayjs(snapshot.date).isBefore(dayjs(earliest))
-        ? snapshot.date
-        : earliest;
+      return dayjs(snapshot.date).isBefore(dayjs(earliest)) ? snapshot.date : earliest;
     }, snapshots[0]?.date ?? null);
   }, [snapshots]);
 
   const latestSnapshotDate = useMemo(() => {
     if (!snapshots.length) return null;
-
     return snapshots.reduce((latest, snapshot) => {
       if (!latest) return snapshot.date;
-      return dayjs(snapshot.date).isAfter(dayjs(latest))
-        ? snapshot.date
-        : latest;
+      return dayjs(snapshot.date).isAfter(dayjs(latest)) ? snapshot.date : latest;
     }, snapshots[0]?.date ?? null);
   }, [snapshots]);
 
-  const normalizedRange = useMemo(() => {
-    if (!overallStartDate && !overallEndDate) {
-      return { start: null, end: null };
-    }
-
-    if (!overallStartDate) {
-      return { start: overallEndDate, end: overallEndDate };
-    }
-
-    if (!overallEndDate) {
-      return { start: overallStartDate, end: overallStartDate };
-    }
-
-    return dayjs(overallStartDate).isBefore(dayjs(overallEndDate))
-      ? { start: overallStartDate, end: overallEndDate }
-      : { start: overallEndDate, end: overallStartDate };
-  }, [overallEndDate, overallStartDate]);
-
-  const openAndroidPicker = (target: PickerTarget) => {
-    const initialValue =
-      target === "period"
-        ? selectedDate
-        : target === "overallStart"
-          ? normalizedRange.start || earliestSnapshotDate || selectedDate
-          : normalizedRange.end || latestSnapshotDate || getBusinessDate();
-
-    setPickerTarget(target);
-    setPickerDate(initialValue);
-  };
-
-  const closePickerModal = () => {
-    setPickerTarget(null);
-  };
-
-  const handlePickerSave = (nextDate?: string) => {
-    if (!pickerTarget) return;
-
-    const pickedDate = nextDate || pickerDate;
-
-    if (pickerTarget === "period") {
-      setSelectedDate(pickedDate);
-      closePickerModal();
-      return;
-    }
-
-    const otherDate =
-      pickerTarget === "overallStart"
-        ? normalizedRange.end
-        : normalizedRange.start;
-
-    if (!otherDate) {
-      if (pickerTarget === "overallStart") {
-        setOverallStartDate(pickedDate);
-      } else {
-        setOverallEndDate(pickedDate);
-      }
-      closePickerModal();
-      return;
-    }
-
-    const [startDate, endDate] = [pickedDate, otherDate].sort(
-      (a, b) => dayjs(a).valueOf() - dayjs(b).valueOf(),
-    );
-
-    setOverallStartDate(startDate);
-    setOverallEndDate(endDate);
-    closePickerModal();
-  };
-
-  const pickerTitle =
-    pickerTarget === "period"
-      ? t("selectPeriodDate")
-      : pickerTarget === "overallStart"
-        ? t("selectStartDate")
-        : t("selectEndDate");
+  useFocusEffect(
+    useCallback(() => {
+      if (!isPayed) return;
+      setStatsRefreshToken((n) => n + 1);
+      void loadSnapshots();
+    }, [isPayed, loadSnapshots]),
+  );
 
   const handleDateChange = (dir: number) => {
     setSelectedDate(
@@ -182,19 +130,90 @@ export default function StatisticsScreen() {
 
   const { isServerReachable } = useNetworkStatus();
 
+  const [refreshingUser, setRefreshingUser] = useState(false);
+
+  const handleRefreshUser = async () => {
+    setRefreshingUser(true);
+    try {
+      const me = await apiClient.getMe();
+      setUser(me);
+    } catch {
+      // ignore
+    } finally {
+      setRefreshingUser(false);
+    }
+  };
+
   const marginPercent =
     currentPeriodStats.totalRevenue > 0
       ? Math.round(
-          (currentPeriodStats.totalProfit / currentPeriodStats.totalRevenue) *
-            100,
+          (currentPeriodStats.totalProfit / currentPeriodStats.totalRevenue) * 100,
         )
       : 0;
+
+  const handleExport = async () => {
+    const productRows = buildStatisticsProductRows(
+      inventoryItems,
+      periodSnapshots,
+      products,
+    );
+    const dailyRows = buildStatisticsDailyRows(periodSnapshots);
+
+    const payload = {
+      periodLabel,
+      productRows,
+      dailyRows,
+      labels: {
+        title: t("statistics"),
+        period: t("statisticsPeriod"),
+        colNo: "№",
+        colName: t("exportColProduct"),
+        colBuy: t("exportColBuy"),
+        colSell: t("exportColSell"),
+        colJami: t("exportColJami"),
+        colQoldi: t("exportColQoldi"),
+        colSotildi: t("sold"),
+        colCostSold: t("exportColCostSold"),
+        colRevenue: t("exportColRevenue"),
+        colNetProfit: t("exportColNetProfit"),
+        colTurnover: t("exportColTurnover"),
+        colCostTotal: t("exportColCostTotal"),
+        colProfit: t("profit"),
+        totalRow: t("exportTotal"),
+        dailyTitle: t("exportDailyTitle"),
+        colDate: t("date"),
+        colDailySold: t("soldPieces"),
+        colDailyProfit: t("netProfit"),
+        colDailyTurnover: t("totalRevenueLabel"),
+      },
+    };
+    try {
+      const csv = buildStatisticsCsv(payload);
+      const fileName = await shareStatisticsFile(csv, "hisvex-statistics", "csv");
+      showToast(t("exportFileSaved", { fileName }), "success");
+    } catch {
+      showToast(t("exportFileError"), "error");
+    }
+  };
 
   if (!isPayed) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <PeriodTabs period={period} onChange={setPeriod} />
+        <View style={styles.headerRow}>
+          <View style={styles.headerFlex}>
+            <PeriodTabs period={period} onChange={setPeriod} />
+          </View>
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={handleRefreshUser}
+            disabled={refreshingUser}
+          >
+            {refreshingUser ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <RefreshCw size={18} color={colors.white} />
+            )}
+          </TouchableOpacity>
         </View>
         <View style={styles.lockedContainer}>
           <View style={[styles.lockedIconContainer, { backgroundColor: colors.primary + "15" }]}>
@@ -220,32 +239,59 @@ export default function StatisticsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <PeriodTabs period={period} onChange={setPeriod} />
+      <View style={styles.headerRow}>
+        <View style={styles.headerFlex}>
+          <PeriodTabs period={period} onChange={setPeriod} />
+        </View>
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={handleRefreshUser}
+          disabled={refreshingUser}
+        >
+          {refreshingUser ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <RefreshCw size={18} color={colors.white} />
+          )}
+        </TouchableOpacity>
       </View>
 
       <View style={styles.dateNav}>
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => handleDateChange(-1)}
-        >
+        <TouchableOpacity style={styles.navButton} onPress={() => handleDateChange(-1)}>
           <Text style={styles.navButtonText}>{"<"}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.datePickerButton}
-          onPress={() => openAndroidPicker("period")}
+          onPress={() => {
+            setPickerDate(selectedDate);
+            setShowPeriodPicker(true);
+          }}
           activeOpacity={0.85}
         >
           <Text style={styles.dateText}>{periodLabel}</Text>
           <Text style={styles.dateHint}>{t("selectDateHint")}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => handleDateChange(1)}
-        >
+        <TouchableOpacity style={styles.navButton} onPress={() => handleDateChange(1)}>
           <Text style={styles.navButtonText}>{">"}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.statsToolbar}>
+        <TouchableOpacity
+          style={[styles.statsToolbarBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          onPress={handleExport}
+        >
+          <Download size={16} color={colors.primary} />
+          <Text style={[styles.statsToolbarBtnText, { color: colors.text }]}>{t("downloadStatistics")}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.statsToolbarBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          onPress={() => setShowAllTimeModal(true)}
+        >
+          <CalendarClock size={16} color={colors.primary} />
+          <Text style={[styles.statsToolbarBtnText, { color: colors.text }]}>{t("allTimeStatistics")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -287,62 +333,47 @@ export default function StatisticsScreen() {
             }
           />
 
-          {overallTotals && (
-            <>
-              <OverallRangeCard
-                rangeLabel={overallRangeLabel}
-                overallStartDate={overallStartDate}
-                overallEndDate={overallEndDate}
-                onReset={() => {
-                  setOverallStartDate(null);
-                  setOverallEndDate(null);
-                }}
-                onPickStart={() => openAndroidPicker("overallStart")}
-                onPickEnd={() => openAndroidPicker("overallEnd")}
-                totals={overallTotals}
-              />
-
-              <StatsSummaryCard
-                title={t("profitInsight")}
-                items={[
-                  moneyStat(t("earningsSoFar"), overallTotals.earnedProfit, true),
-                  moneyStat(
-                    t("remainingPotentialProfit"),
-                    Math.max(
-                      overallTotals.possibleProfit - overallTotals.earnedProfit,
-                      0,
-                    ),
-                  ),
-                  moneyStat(t("totalPotential"), overallTotals.possibleProfit, true),
-                  {
-                    label: t("progress"),
-                    value:
-                      overallTotals.possibleProfit > 0
-                        ? `${Math.round((overallTotals.earnedProfit / overallTotals.possibleProfit) * 100)}%`
-                        : "0%",
-                  },
-                ]}
-              />
-            </>
-          )}
+          {overallTotals ? (
+            <OverallRangeCard rangeLabel={periodLabel} totals={overallTotals} />
+          ) : null}
 
           <RankingCard
             title={t("topProductsLabel")}
             items={topProducts}
             emptyText={t("noProductsPeriod")}
+            limit={5}
           />
+
+          {leastProducts.length > 0 ? (
+            <RankingCard
+              title={t("leastSold")}
+              subtitle={t("blackListSubtitle")}
+              items={leastProducts}
+              emptyText={t("noProductsPeriod")}
+              limit={5}
+              variant="blacklist"
+            />
+          ) : null}
         </ScrollView>
       )}
 
       <DatePickerModal
-        visible={!!pickerTarget}
-        title={pickerTitle}
+        visible={showPeriodPicker}
+        title={t("selectPeriodDate")}
         selectedDate={pickerDate}
-        onClose={closePickerModal}
+        onClose={() => setShowPeriodPicker(false)}
         onConfirm={(date) => {
           setPickerDate(date);
-          handlePickerSave(date);
+          setSelectedDate(date);
+          setShowPeriodPicker(false);
         }}
+      />
+
+      <AllTimeStatisticsModal
+        visible={showAllTimeModal}
+        onClose={() => setShowAllTimeModal(false)}
+        earliestDate={earliestSnapshotDate}
+        latestDate={latestSnapshotDate}
       />
     </View>
   );

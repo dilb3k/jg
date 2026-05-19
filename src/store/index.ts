@@ -1,4 +1,4 @@
-import "react-native-get-random-values";
+﻿import "react-native-get-random-values";
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import dayjs from "dayjs";
@@ -10,6 +10,13 @@ import * as secureStorage from "../utils/secureStorage";
 import { hasValidationErrors, validateProductInput } from "../utils/inventory";
 import {
   getBusinessDate,
+  getBusinessDayStartHour,
+  setBusinessDayStartHour,
+  scheduleBusinessDayStartHour,
+  setPendingBusinessDayHour,
+  clearPending,
+  getPendingBusinessDayStartHour,
+  getEffectiveFrom,
   isPastBusinessDate,
   isTodayBusinessDate,
 } from "../utils/businessDay";
@@ -27,6 +34,18 @@ import type {
 
 let latestInventoryLoadRequest = 0;
 const inflightKeys = new Set<string>();
+let toastTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+function sortByDisplayIndex(products: Product[]): Product[] {
+  return [...products].sort((a, b) => {
+    const indexA = a.displayIndex ?? 0;
+    const indexB = b.displayIndex ?? 0;
+    if (indexA !== indexB) {
+      return indexA - indexB;
+    }
+    return a.name.localeCompare(b.name);
+  });
+}
 
 export const isPastDate = (date: string): boolean => isPastBusinessDate(date);
 export const isToday = (date: string): boolean => isTodayBusinessDate(date);
@@ -131,6 +150,10 @@ interface AppState {
   ) => Promise<void>;
 
   loadSnapshots: (from?: string, to?: string) => Promise<void>;
+  applySales: (
+    date: string,
+    lines: { productId: string; quantity: number }[],
+  ) => Promise<void>;
   getStatistics: (
     period: "daily" | "weekly" | "monthly" | "yearly",
     date?: string,
@@ -140,6 +163,7 @@ interface AppState {
   syncNow: () => Promise<void>;
   setSearchQuery: (query: string) => void;
   setSelectedDate: (date: string) => void;
+  setBusinessDayHour: (hour: number) => Promise<void>;
   clearError: () => void;
   showToast: (message: string, type?: "success" | "error" | "info") => void;
   hideToast: () => void;
@@ -173,7 +197,12 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // Auth actions
-  setUser: (user) => set({ user, isAuthenticated: !!user }),
+  setUser: (user) => {
+    set({ user, isAuthenticated: !!user });
+    if (user && typeof user.businessDayStartHour === 'number' && user.businessDayStartHour >= 0 && user.businessDayStartHour <= 23) {
+      setBusinessDayStartHour(user.businessDayStartHour);
+    }
+  },
 
   logout: async () => {
     apiClient.setToken(null);
@@ -207,10 +236,30 @@ export const useStore = create<AppState>((set, get) => ({
         setConnectionMode(savedConnectionMode);
       }
 
+      const savedHour = await secureStorage.getItemAsync(STORAGE_KEYS.BUSINESS_DAY_START_HOUR);
+      if (savedHour) {
+        const parsed = Number(savedHour);
+        if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 23) {
+          setBusinessDayStartHour(parsed);
+        }
+      }
+
+      const pendingHourStr = await secureStorage.getItemAsync(STORAGE_KEYS.PENDING_BUSINESS_DAY_HOUR);
+      const effectiveFromStr = await secureStorage.getItemAsync(STORAGE_KEYS.BUSINESS_DAY_EFFECTIVE_FROM);
+      if (pendingHourStr && effectiveFromStr) {
+        const ph = Number(pendingHourStr);
+        if (Number.isInteger(ph) && ph >= 0 && ph <= 23) {
+          setPendingBusinessDayHour(ph, effectiveFromStr);
+        }
+      }
+
       const userJson = await secureStorage.getItemAsync(STORAGE_KEYS.AUTH_USER);
       if (userJson) {
         const user: AuthUser = JSON.parse(userJson);
         set({ user, isAuthenticated: true });
+        if (typeof user.businessDayStartHour === 'number' && user.businessDayStartHour >= 0 && user.businessDayStartHour <= 23) {
+          setBusinessDayStartHour(user.businessDayStartHour);
+        }
       }
 
       let deviceId = await secureStorage.getItemAsync(STORAGE_KEYS.DEVICE_ID);
@@ -234,9 +283,14 @@ export const useStore = create<AppState>((set, get) => ({
         },
       });
 
+      await get().loadProducts();
+
+      const authedUser = get().user;
+      const isPaidOrSuper =
+        authedUser?.role?.toLowerCase() === "superadmin" || authedUser?.isPayed;
       await Promise.all([
-        get().loadProducts(),
-        get().loadSnapshots(),
+        get().loadInventoryByDate(businessDate),
+        isPaidOrSuper ? get().loadSnapshots() : Promise.resolve(),
       ]);
     } catch (error: any) {
       set((state) => ({
@@ -269,14 +323,16 @@ export const useStore = create<AppState>((set, get) => ({
     const cacheKey = `products:${searchQuery || '__all'}`;
     if (inflightKeys.has(cacheKey)) return;
     inflightKeys.add(cacheKey);
-    try {
-      const products = await apiClient.getProducts(searchQuery || undefined);
+     try {
+       const products = await apiClient.getProducts(searchQuery || undefined);
+       const filteredProducts = products.filter((product) => !product.isDeleted);
+       const sortedProducts = sortByDisplayIndex(filteredProducts);
 
-      set((state) => ({
-        products: products.filter((product) => !product.isDeleted),
-        syncStatus: setOnlineStatus(state.syncStatus, true),
-      }));
-    } catch (error: any) {
+       set((state) => ({
+         products: sortedProducts,
+         syncStatus: setOnlineStatus(state.syncStatus, true),
+       }));
+     } catch (error: any) {
       set((state) => ({
         error: error.message || "Mahsulotlar yuklanmadi",
         syncStatus: setOnlineStatus(state.syncStatus, false),
@@ -287,6 +343,13 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   createProduct: async (input) => {
+    const user = get().user;
+    const isPaid =
+      user?.role?.toLowerCase() === "superadmin" || user?.isPayed;
+    if (!isPaid) {
+      throw new Error("Mahsulot qo'shish uchun premium obuna kerak");
+    }
+
     const validationErrors = validateProductInput(input);
     if (hasValidationErrors(validationErrors)) {
       throw new Error(
@@ -328,10 +391,22 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   updateProduct: async (localId, input) => {
+    const user = get().user;
+    const isPaid =
+      user?.role?.toLowerCase() === "superadmin" || user?.isPayed;
+
     const existing = get().products.find(
       (product) => product.localId === localId,
     );
     if (!existing) return;
+
+    const inputKeys = Object.keys(stripUndefined(input));
+    const isQuantityOnlyUpdate =
+      inputKeys.length === 1 && inputKeys[0] === "quantity";
+
+    if (!isPaid && !isQuantityOnlyUpdate) {
+      throw new Error("Mahsulotni tahrirlash uchun premium obuna kerak");
+    }
 
     const validationErrors = validateProductInput({ ...existing, ...input });
     if (hasValidationErrors(validationErrors)) {
@@ -363,6 +438,13 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   deleteProduct: async (localId) => {
+    const user = get().user;
+    const isPaid =
+      user?.role?.toLowerCase() === "superadmin" || user?.isPayed;
+    if (!isPaid) {
+      throw new Error("Mahsulotni o'chirish uchun premium obuna kerak");
+    }
+
     try {
       await apiClient.deleteProduct(localId);
 
@@ -561,6 +643,14 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   loadSnapshots: async (from, to) => {
+    const user = get().user;
+    const isSuperAdmin = user?.role?.toLowerCase() === "superadmin";
+    if (!isSuperAdmin && !user?.isPayed) {
+      set((state) => ({
+        syncStatus: setOnlineStatus(state.syncStatus, false),
+      }));
+      return;
+    }
     const cacheKey = `snapshots:${from || '__all'}:${to || '__all'}`;
     if (inflightKeys.has(cacheKey)) return;
     inflightKeys.add(cacheKey);
@@ -584,6 +674,46 @@ export const useStore = create<AppState>((set, get) => ({
     } finally {
       inflightKeys.delete(cacheKey);
     }
+  },
+
+  applySales: async (date, lines) => {
+    if (isPastDate(date)) {
+      throw new Error("O'tgan kunlar uchun savdo kiritib bo'lmaydi!");
+    }
+
+    let { deviceId, currentInventory } = get();
+    if (!deviceId) {
+      deviceId = uuidv4();
+      await secureStorage.setItemAsync(STORAGE_KEYS.DEVICE_ID, deviceId);
+      set({ deviceId });
+    }
+    const items: { productId: string; currentQuantity: number; note?: string }[] = [];
+
+    for (const line of lines) {
+      if (line.quantity <= 0) continue;
+      const entry =
+        currentInventory.find(
+          (e) => e.productId === line.productId && e.date === date,
+        ) ??
+        currentInventory.find((e) => e.productId === line.productId);
+      if (!entry) continue;
+      const newCurrent = Math.max(0, entry.currentQuantity - line.quantity);
+      if (newCurrent === entry.currentQuantity) continue;
+      items.push({
+        productId: line.productId,
+        currentQuantity: newCurrent,
+        note: entry.note,
+      });
+    }
+
+    if (!items.length) return;
+
+    await apiClient.bulkUpdateInventory(deviceId, items, date);
+
+    await Promise.all([get().loadProducts(), get().loadInventoryByDate(date)]);
+
+    await get().buildAndSaveSnapshot(date);
+    await get().loadSnapshots();
   },
 
   getStatistics: (period, date) => {
@@ -776,14 +906,49 @@ export const useStore = create<AppState>((set, get) => ({
   setSelectedDate: (date) => set({ selectedDate: date }),
   clearError: () => set({ error: null }),
 
+  setBusinessDayHour: async (hour: number) => {
+    const clamped = Math.min(Math.max(Math.round(hour), 0), 23);
+    scheduleBusinessDayStartHour(clamped);
+    await secureStorage.setItemAsync(STORAGE_KEYS.PENDING_BUSINESS_DAY_HOUR, String(clamped));
+    await secureStorage.setItemAsync(STORAGE_KEYS.BUSINESS_DAY_EFFECTIVE_FROM, getEffectiveFrom() || "");
+
+    try {
+      const result = await apiClient.updateMe({ businessDayStartHour: clamped });
+      if (result.token) {
+        await secureStorage.setItemAsync(STORAGE_KEYS.USER_TOKEN, result.token);
+      }
+      if (result.user) {
+        const mergedUser = { ...result.user, businessDayStartHour: result.user.businessDayStartHour ?? getBusinessDayStartHour() };
+        set({ user: mergedUser });
+        await secureStorage.setItemAsync(STORAGE_KEYS.AUTH_USER, JSON.stringify(mergedUser));
+      }
+    } catch {
+      // Server update is best-effort
+    }
+
+    const effectiveDate = dayjs(getEffectiveFrom()).format("DD.MM.YYYY HH:mm");
+    const message = `Ish kuni boshlanish vaqti ${String(clamped).padStart(2, "0")}:00 ga o'zgartirildi. ${effectiveDate} dan kuchga kiradi.`;
+    get().showToast(message, "info");
+  },
+
   showToast: (message, type = "info") => {
+    if (toastTimeoutId) clearTimeout(toastTimeoutId);
     set({ toast: { visible: true, message, type } });
-    setTimeout(
-      () => set({ toast: { visible: false, message: "", type: "info" } }),
+    toastTimeoutId = setTimeout(
+      () => {
+        set({ toast: { visible: false, message: "", type: "info" } });
+        toastTimeoutId = null;
+      },
       3000,
     );
   },
 
-  hideToast: () =>
-    set({ toast: { visible: false, message: "", type: "info" } }),
+  hideToast: () => {
+    if (toastTimeoutId) clearTimeout(toastTimeoutId);
+    toastTimeoutId = null;
+    set({ toast: { visible: false, message: "", type: "info" } });
+  },
 }));
+
+
+

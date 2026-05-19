@@ -3,6 +3,17 @@ import type { Product } from '../types';
 
 const STORAGE_KEY = 'clubbar_products';
 
+export const sortProductsByDisplayIndex = (products: Product[]): Product[] => {
+  return [...products].sort((a, b) => {
+    const indexA = a.displayIndex ?? 0;
+    const indexB = b.displayIndex ?? 0;
+    if (indexA !== indexB) {
+      return indexA - indexB;
+    }
+    return a.name.localeCompare(b.name);
+  });
+};
+
 export const getAllProducts = async (): Promise<Product[]> => {
   const data = await AsyncStorage.getItem(STORAGE_KEY);
   return data ? JSON.parse(data) : [];

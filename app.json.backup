@@ -5,11 +5,6 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
-    "splash": {
-      "image": "./assets/logo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#7C3AED"
-    },
     "scheme": "hisvex",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -35,8 +30,7 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-font",
-      "expo-splash-screen"
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
@@ -45,10 +39,8 @@
     "extra": {
       "EXPO_PUBLIC_API_BASE_URL": "https://comp-bar-server-1.onrender.com/api",
       "eas": {
-        "projectId": "a22c3b7d-4be4-4322-b573-5abc6a65a02f"
-      },
-      "router": {}
-    },
-    "owner": "dilbek1"
+        "projectId": "80e6d2f2-8fb5-4715-84c0-02fc3dc1e635"
+      }
+    }
   }
 }

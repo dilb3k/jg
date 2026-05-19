@@ -1,6 +1,8 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View, ActivityIndicator, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+import * as SplashScreen from "expo-splash-screen";
+import HisvexSplashScreen from "../src/components/HisvexSplashScreen";
 import { useStore } from "../src/store";
 import { useEffect, useState, useCallback } from "react";
 import { initDatabase } from "../src/db";
@@ -10,11 +12,21 @@ import { apiClient } from "../src/api/client";
 import type { AuthUser } from "../src/types";
 import { useTheme, useThemeStore } from "../src/store/themeStore";
 import { useStatusBarStyle } from "../src/theme";
+import * as Font from "expo-font";
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
+
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayoutNav() {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [splashFinished, setSplashFinished] = useState(false);
   const initialize = useStore((state) => state.initialize);
   const toast = useStore((state) => state.toast);
 
@@ -36,9 +48,16 @@ export default function RootLayoutNav() {
   useEffect(() => {
     const init = async () => {
       try {
-        console.log("Initializing DB...");
         await initDatabase();
-        console.log("DB initialized");
+
+        await Font.loadAsync({
+          Inter_400Regular,
+          Inter_500Medium,
+          Inter_600SemiBold,
+          Inter_700Bold,
+        });
+
+        await SplashScreen.hideAsync();
 
         const token = await secureStorage.getItemAsync(STORAGE_KEYS.USER_TOKEN);
         let isAuthenticatedUser = false;
@@ -52,24 +71,29 @@ export default function RootLayoutNav() {
             localUser = JSON.parse(userJson || "null");
           } catch {}
 
-          try {
-            console.log("Fetching /api/auth/me to verify token and get latest data...");
-            freshUser = await apiClient.getMe();
-            console.log("Fetched user from server:", freshUser.username, "isPayed:", freshUser.isPayed);
+           try {
+             console.log("Fetching /api/auth/me to verify token and get latest data...");
+             freshUser = await apiClient.getMe();
+             console.log("Fetched user from server:", freshUser.username, "isPayed:", (freshUser as any).isPayed);
 
-            const userForStorage: AuthUser = {
-              userId: freshUser.userId,
-              username: freshUser.username,
-              role: freshUser.role,
-              isPayed: freshUser.role === "superAdmin" ? true : (freshUser.isPayed ?? false)
-            };
+              const userData = {
+                id: (freshUser as any).id || (freshUser as any).userId,
+                username: freshUser.username,
+                role: freshUser.role,
+                createdBy: (freshUser as any).createdBy,
+                isActive: (freshUser as any).isActive ?? true,
+                isPayed: freshUser.role === "superAdmin" ? true : ((freshUser as any).isPayed ?? false),
+                businessDayStartHour: (freshUser as any).businessDayStartHour ?? 7,
+                createdAt: (freshUser as any).createdAt,
+                updatedAt: (freshUser as any).updatedAt,
+              };
 
-            await secureStorage.setItemAsync(
-              STORAGE_KEYS.AUTH_USER,
-              JSON.stringify(userForStorage)
-            );
-            isAuthenticatedUser = true;
-          } catch (meError: any) {
+             await secureStorage.setItemAsync(
+               STORAGE_KEYS.AUTH_USER,
+               JSON.stringify(userData)
+             );
+             isAuthenticatedUser = true;
+           } catch (meError: any) {
             const errorMsg = meError.message || "";
             const isAuthError = errorMsg.includes("Avtorizatsiya") || errorMsg.includes("401") || errorMsg.includes("Unauthorized");
 
@@ -117,27 +141,15 @@ export default function RootLayoutNav() {
 
   if (error) {
     return (
-      <View
-        style={[styles.errorContainer, { backgroundColor: colors.background }]}
-      >
-        <Text style={[styles.errorText, { color: colors.danger }]}>
-          Error: {error}
-        </Text>
+      <View style={errorStyles.container}>
+        <Text style={errorStyles.title}>Xatolik yuz berdi</Text>
+        <Text style={errorStyles.message}>{error}</Text>
       </View>
     );
   }
 
-  if (!isReady || isAuthenticated === null) {
-    return (
-      <View
-        style={[
-          styles.loadingContainer,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+  if (!splashFinished || !isReady || isAuthenticated === null) {
+    return <HisvexSplashScreen onFinish={() => setSplashFinished(true)} />;
   }
 
   // Show login screen if not authenticated
@@ -151,7 +163,7 @@ export default function RootLayoutNav() {
         {toast.visible && (
           <View
             style={[
-              styles.toast,
+              toastStyles.toast,
               toast.type === "success"
                 ? { backgroundColor: "rgba(15, 23, 42, 0.86)" }
                 : toast.type === "error"
@@ -160,7 +172,7 @@ export default function RootLayoutNav() {
               { pointerEvents: "none" },
             ]}
           >
-            <Text style={styles.toastText}>{toast.message}</Text>
+            <Text style={toastStyles.toastText}>{toast.message}</Text>
           </View>
         )}
       </>
@@ -177,7 +189,7 @@ export default function RootLayoutNav() {
       {toast.visible && (
         <View
           style={[
-            styles.toast,
+            toastStyles.toast,
             toast.type === "success"
               ? { backgroundColor: "rgba(15, 23, 42, 0.86)" }
               : toast.type === "error"
@@ -186,29 +198,14 @@ export default function RootLayoutNav() {
             { pointerEvents: "none" },
           ]}
         >
-          <Text style={styles.toastText}>{toast.message}</Text>
+          <Text style={toastStyles.toastText}>{toast.message}</Text>
         </View>
       )}
     </>
   );
 }
 
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  errorText: {
-    textAlign: "center",
-    fontSize: 16,
-  },
+const toastStyles = StyleSheet.create({
   toast: {
     position: "absolute",
     bottom: 28,
@@ -226,5 +223,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
     textAlign: "center",
+  },
+});
+
+const errorStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#0A0718",
+    padding: 24,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#ef4444",
+    marginBottom: 12,
+  },
+  message: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.7)",
+    textAlign: "center",
+    lineHeight: 20,
   },
 });

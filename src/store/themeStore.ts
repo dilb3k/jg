@@ -22,9 +22,9 @@ interface ThemeStore {
 }
 
 export const useThemeStore = create<ThemeStore>((set, get) => ({
-  theme: 'light',
+  theme: 'dark',
   language: 'uz',
-  connectionMode: 'online',
+  connectionMode: 'offline',
 
   setTheme: async (newTheme: ThemeMode) => {
     set({ theme: newTheme });
@@ -73,14 +73,15 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
 
       const theme = (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') 
         ? savedTheme 
-        : 'light';
+        : 'dark';
       const language = (savedLanguage === 'uz' || savedLanguage === 'ru') 
         ? savedLanguage 
         : 'uz';
       const connectionMode = (savedConnectionMode === 'online' || savedConnectionMode === 'offline')
         ? savedConnectionMode
-        : 'online';
+        : 'offline';
 
+      setApiConnectionMode(connectionMode);
       set({ theme, language, connectionMode });
     } catch (error) {
       console.error('Failed to load preferences:', error);

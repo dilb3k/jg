@@ -55,7 +55,12 @@ export const getInventoryWithProduct = async (date: string): Promise<(InventoryE
     processedProductIds.add(product.localId);
 
     if (existingInv) {
-      result.push({ ...existingInv, product });
+      result.push({
+        ...existingInv,
+        buyPrice: product.buyPrice,
+        sellPrice: product.sellPrice,
+        product,
+      });
     } else {
       const prevInv = prevInventory.find(inv => inv.productId === product.localId);
       let startQty = product.quantity || 0;
@@ -160,7 +165,7 @@ export const syncTodayInventoryWithProducts = async (): Promise<void> => {
     const existing = nextEntries[index];
     const soldSoFar = Math.max(existing.startQuantity - existing.currentQuantity, 0);
     const correctedCurrent = product.quantity;
-    const correctedStart = Math.max(existing.startQuantity, correctedCurrent + soldSoFar);
+    const correctedStart = correctedCurrent + soldSoFar;
 
     if (
       existing.currentQuantity !== correctedCurrent ||

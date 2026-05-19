@@ -7,7 +7,7 @@ interface HeaderProps {
   title?: string;
 }
 
-export function Header({ title = 'Club Bar' }: HeaderProps) {
+export function Header({ title = 'Hisvex' }: HeaderProps) {
   const { colors } = useTheme();
   const { isServerReachable } = useNetworkStatus();
 

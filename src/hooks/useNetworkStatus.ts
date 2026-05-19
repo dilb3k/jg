@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { useStore } from '../store';
 import { useThemeStore } from '../store/themeStore';
@@ -10,31 +10,56 @@ export const useNetworkStatus = () => {
   const isAuthenticated = useStore((state) => state.isAuthenticated);
   const connectionMode = useThemeStore((state) => state.connectionMode);
   const isSyncingRef = useRef(false);
+  const prevConnectionModeRef = useRef(connectionMode);
 
+  const doSync = useCallback(() => {
+    if (!isSyncingRef.current && connectionMode === 'online' && isAuthenticated) {
+      isSyncingRef.current = true;
+      syncNow()
+        .catch(() => {})
+        .finally(() => {
+          isSyncingRef.current = false;
+        });
+    }
+  }, [syncNow, connectionMode, isAuthenticated]);
+
+  // Listen for network state changes
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
       const connected = state.isConnected ?? false;
       setIsOnline(connected);
 
-      if (connected && !isSyncingRef.current && connectionMode === 'online' && isAuthenticated) {
-        isSyncingRef.current = true;
-        syncNow()
-          .catch(() => {})
-          .finally(() => {
-            isSyncingRef.current = false;
-          });
+      if (connected) {
+        doSync();
       }
     });
 
     return () => unsubscribe();
-  }, [syncNow, connectionMode, isAuthenticated]);
+  }, [doSync]);
 
+  // Check initial state and re-sync when connectionMode changes to online
   useEffect(() => {
     NetInfo.fetch().then((state) => {
       const connected = state.isConnected ?? false;
       setIsOnline(connected);
+
+      if (connected && connectionMode === 'online' && isAuthenticated) {
+        doSync();
+      }
     });
-  }, []);
+  }, []); // Only on mount
+
+  // Trigger sync when connectionMode changes from offline to online
+  useEffect(() => {
+    if (prevConnectionModeRef.current === 'offline' && connectionMode === 'online') {
+      NetInfo.fetch().then((state) => {
+        if (state.isConnected) {
+          doSync();
+        }
+      });
+    }
+    prevConnectionModeRef.current = connectionMode;
+  }, [connectionMode, doSync]);
 
   const effectiveOnline = canReachServer();
 

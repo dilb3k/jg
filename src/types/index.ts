@@ -128,6 +128,25 @@ export interface SyncStatus {
 // Auth types
 export type UserRole = 'admin' | 'superAdmin';
 
+export interface Debtor {
+  id: string;
+  createdBy: string;
+  name: string;
+  amount: number;
+  phone?: string;
+  notes?: string;
+  history: DebtHistory[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DebtHistory {
+  amount: number;
+  type: "add" | "subtract";
+  note?: string;
+  date: string;
+}
+
 export interface AuthUser {
   id: string;
   username: string;
@@ -135,6 +154,7 @@ export interface AuthUser {
   createdBy: string | null;
   isActive: boolean;
   isPayed: boolean;
+  businessDayStartHour?: number;
   createdAt: string;
   updatedAt: string;
 }

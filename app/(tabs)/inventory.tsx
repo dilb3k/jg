@@ -14,6 +14,8 @@ import {
   View,
 } from "react-native";
 import dayjs from "dayjs";
+import { ChevronLeft, ChevronRight, Package } from "lucide-react-native";
+import { SearchInputWithClear } from "../../src/components/SearchInputWithClear";
 
 import DateTimePicker from "@react-native-community/datetimepicker";
 
@@ -31,6 +33,7 @@ import {
   getInventoryTotals,
   parseWholeNumber,
 } from "../../src/utils/inventory";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../src/store/themeStore";
 import { useI18n } from "../../src/i18n";
 import {
@@ -71,11 +74,12 @@ export default function InventoryScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDateLoading, setIsDateLoading] = useState(true);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const insets = useSafeAreaInsets();
 
   const isReadOnly = isPastDate(selectedDate);
   const isFutureDate = isFutureBusinessDate(selectedDate);
 
-  // Load inventory when date changes
   useEffect(() => {
     let isMounted = true;
 
@@ -98,9 +102,17 @@ export default function InventoryScreen() {
   }, [loadInventoryByDate, selectedDate]);
 
   const inventoryData = useMemo(() => currentInventory, [currentInventory]);
-  const displayedData = isFutureDate ? [] : inventoryData;
 
-  // Backend hisoblagan summary ma'lumotlardan foydalanadi
+  const displayedData = useMemo(() => {
+    if (isFutureDate) return [];
+    if (!searchQuery.trim()) return inventoryData;
+    const query = searchQuery.trim().toLowerCase();
+    return inventoryData.filter((item) => {
+      const productName = item.product?.name?.toLowerCase() || "";
+      return productName.includes(query);
+    });
+  }, [isFutureDate, inventoryData, searchQuery]);
+
   const totals = useMemo(
     () => getInventoryTotals(inventoryData, inventorySummary),
     [inventoryData, inventorySummary],
@@ -115,14 +127,12 @@ export default function InventoryScreen() {
 
   const preview = useMemo(() => {
     if (!selectedEntry) return null;
-
     const inputCurrent = parseWholeNumber(currentQty);
     const previousSold = Math.max(
       selectedEntry.startQuantity - selectedEntry.currentQuantity,
       0,
     );
     const nextSold = Math.max(selectedEntry.startQuantity - inputCurrent, 0);
-
     return {
       previousSold,
       nextSold,
@@ -154,14 +164,11 @@ export default function InventoryScreen() {
 
   const validateInputs = (): boolean => {
     if (!selectedEntry) return false;
-
     const inputCurrent = parseWholeNumber(currentQty);
     const nextErrors: FormErrors = { currentQty: "", general: "" };
-
-    if (inputCurrent > selectedEntry.currentQuantity) {
-      nextErrors.currentQty = t("cannotIncreaseStock");
+    if (inputCurrent > selectedEntry.startQuantity) {
+      nextErrors.currentQty = t("cannotAddMoreThanSold");
     }
-
     setErrors(nextErrors);
     return !Object.values(nextErrors).some(Boolean);
   };
@@ -169,9 +176,7 @@ export default function InventoryScreen() {
   const handleSave = async () => {
     if (!selectedEntry || isReadOnly || isFutureDate) return;
     if (!validateInputs()) return;
-
     const inputCurrent = parseWholeNumber(currentQty);
-
     setIsSubmitting(true);
     try {
       await setCurrentQuantity(
@@ -179,7 +184,6 @@ export default function InventoryScreen() {
         selectedDate,
         inputCurrent,
       );
-
       closeModal();
       showToast(t("inventoryUpdated"), "success");
     } catch (error: any) {
@@ -192,8 +196,15 @@ export default function InventoryScreen() {
     }
   };
 
+  const getStockStatus = (remaining: number) => {
+    if (remaining <= 0) return { label: "Tugagan", color: colors.danger };
+    if (remaining <= 5) return { label: "Kam", color: colors.warning };
+    return { label: "Bor", color: colors.success };
+  };
+
   const renderItem = ({ item }: { item: InventoryWithProduct }) => {
     const metrics = getInventoryMetrics(item);
+    const stockStatus = getStockStatus(metrics.remaining);
 
     return (
       <TouchableOpacity
@@ -201,29 +212,33 @@ export default function InventoryScreen() {
         onPress={() => openEntry(item)}
         activeOpacity={0.85}
       >
-        {item.product.image ? (
-          <Image
-            source={{ uri: item.product.image }}
-            style={styles.productImage}
-            resizeMode="contain"
-          />
-        ) : null}
-
-        <View style={styles.cardHeader}>
-          <View style={styles.cardTitleWrap}>
-            <Text style={styles.productName}>{item.product.name}</Text>
-            <Text style={styles.productPrice}>
-              {formatMoney(item.product.sellPrice)}
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.quantityBadge,
-              metrics.remaining <= 5 && styles.quantityBadgeLow,
-            ]}
-          >
-            <Text style={styles.quantityBadgeText}>{metrics.remaining}</Text>
+        <View style={styles.cardTop}>
+          <View style={styles.cardTitleRow}>
+            {item.product.image ? (
+              <Image
+                source={{ uri: item.product.image }}
+                style={styles.productImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <View style={styles.noImageBox}>
+                <Package size={20} color={colors.textTertiary} />
+              </View>
+            )}
+            <View style={styles.cardTitleWrap}>
+              <Text style={styles.productName} numberOfLines={1}>
+                {item.product.displayIndex && item.product.displayIndex > 0 ? `#${item.product.displayIndex}` : ""} {item.product.name}
+              </Text>
+              <Text style={styles.productPrice}>
+                {formatMoney(item.product.sellPrice)}
+              </Text>
+            </View>
+            <View style={[styles.stockBadge, { backgroundColor: stockStatus.color + "20" }]}>
+              <View style={[styles.stockDot, { backgroundColor: stockStatus.color }]} />
+              <Text style={[styles.stockBadgeText, { color: stockStatus.color }]}>
+                {stockStatus.label}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -232,23 +247,25 @@ export default function InventoryScreen() {
             <Text style={styles.quantityLabel}>{t("start")}</Text>
             <Text style={styles.quantityValue}>{item.startQuantity}</Text>
           </View>
+          <View style={styles.separator} />
           <View style={styles.quantityItem}>
             <Text style={styles.quantityLabel}>{t("remaining")}</Text>
             <Text
               style={[
                 styles.quantityValue,
-                metrics.remaining <= 5 ? styles.loss : null,
+                metrics.remaining <= 5 ? { color: colors.danger } : null,
               ]}
             >
               {metrics.remaining}
             </Text>
           </View>
+          <View style={styles.separator} />
           <View style={styles.quantityItem}>
             <Text style={styles.quantityLabel}>{t("sold")}</Text>
             <Text
               style={[
                 styles.quantityValue,
-                metrics.sold > 0 ? styles.profit : null,
+                metrics.sold > 0 ? { color: colors.secondary } : null,
               ]}
             >
               {metrics.sold}
@@ -257,38 +274,25 @@ export default function InventoryScreen() {
         </View>
 
         <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>{t("revenue")}</Text>
+          <View style={styles.statItemGroup}>
+            <Text style={styles.statsLabelSmall}>{t("revenue")}</Text>
             <Text style={styles.statValue}>{formatMoney(metrics.revenue)}</Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>{t("unitProfit")}</Text>
-            <Text
-              style={[
-                styles.statValue,
-                item.product.sellPrice - item.product.buyPrice >= 0
-                  ? styles.profit
-                  : styles.loss,
-              ]}
-            >
-              {formatMoney(item.product.sellPrice - item.product.buyPrice)}
-            </Text>
+          <View style={styles.statsDivider} />
+          <View style={styles.statItemGroup}>
+            <Text style={styles.statsLabelSmall}>{t("stockValue")}</Text>
+            <Text style={styles.statValue}>{formatMoney(metrics.stockSellValue)}</Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>{t("profit")}</Text>
-            <Text
-              style={[
-                styles.statValue,
-                metrics.realizedProfit >= 0 ? styles.profit : styles.loss,
-              ]}
-            >
-              {formatMoney(metrics.realizedProfit)}
-            </Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>{t("stockValue")}</Text>
-            <Text style={styles.statValue}>
-              {formatMoney(metrics.stockSellValue)}
+          <View style={styles.statsDivider} />
+          <View style={styles.statItemGroup}>
+            <View style={styles.unitProfitRow}>
+              <Text style={styles.unitProfitLabel}>{t("unitProfit")}</Text>
+              <Text style={[styles.unitProfitValue, { color: colors.secondary }]}>
+                {formatMoney(item.product.sellPrice - item.product.buyPrice)}
+              </Text>
+            </View>
+            <Text style={[styles.statProfit, metrics.realizedProfit >= 0 ? { color: colors.secondary } : { color: colors.danger }]}>
+              {t("profit")}: {formatMoney(metrics.realizedProfit)}
             </Text>
           </View>
         </View>
@@ -304,7 +308,7 @@ export default function InventoryScreen() {
           onPress={() => handleDateChange(-1)}
           disabled={isDateLoading}
         >
-          <Text style={styles.navButtonText}>{"<"}</Text>
+          <ChevronLeft size={22} color={colors.primary} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -319,14 +323,15 @@ export default function InventoryScreen() {
           </Text>
 
           {isReadOnly && (
-            <View style={styles.readOnlyBadge}>
-              <Text style={styles.readOnlyText}>{t("readOnly")}</Text>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{t("readOnly")}</Text>
             </View>
           )}
-
           {isFutureDate && (
-            <View style={styles.futureBadge}>
-              <Text style={styles.futureText}>{t("futureDate")}</Text>
+            <View style={[styles.badge, { backgroundColor: colors.warning + "20" }]}>
+              <Text style={[styles.badgeText, { color: colors.warning }]}>
+                {t("futureDate")}
+              </Text>
             </View>
           )}
         </TouchableOpacity>
@@ -336,17 +341,30 @@ export default function InventoryScreen() {
           onPress={() => handleDateChange(1)}
           disabled={isDateLoading}
         >
-          <Text style={styles.navButtonText}>{">"}</Text>
+          <ChevronRight size={22} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
       {isDateLoading ? (
         <View style={styles.loadingCard}>
-          <ActivityIndicator size="small" color={colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingTitle}>{t("loading")}</Text>
           <Text style={styles.loadingText}>{t("loadingInventory")}</Text>
         </View>
       ) : null}
+
+      {!isFutureDate && !isDateLoading && (
+        <View style={styles.searchRow}>
+          <SearchInputWithClear
+            colors={colors}
+            placeholder={t("search") || "Qidirish..."}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+      )}
 
       {!isFutureDate && !isDateLoading && (
         <View style={styles.totalsSummary}>
@@ -354,22 +372,27 @@ export default function InventoryScreen() {
             <Text style={styles.summaryLabel}>{t("start")}</Text>
             <Text style={styles.summaryValue}>{totals.start}</Text>
           </View>
+          <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>{t("remaining")}</Text>
             <Text style={styles.summaryValue}>{totals.current}</Text>
           </View>
+          <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>{t("sold")}</Text>
-            <Text style={[styles.summaryValue, styles.profit]}>
+            <Text style={[styles.summaryValue, { color: colors.secondary }]}>
               {totals.sold}
             </Text>
           </View>
+          <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>{t("profit")}</Text>
             <Text
               style={[
                 styles.summaryValue,
-                (totals.profit ?? 0) >= 0 ? styles.profit : styles.loss,
+                (totals.profit ?? 0) >= 0
+                  ? { color: colors.secondary }
+                  : { color: colors.danger },
               ]}
             >
               {formatWholeNumber(totals.profit ?? 0)}
@@ -384,8 +407,10 @@ export default function InventoryScreen() {
           keyExtractor={(item) => item.localId}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
+              <Package size={48} color={colors.textTertiary} />
               <Text style={styles.emptyText}>{t("noProductsFound")}</Text>
               <Text style={styles.emptySubtext}>{t("addProductsFirst")}</Text>
             </View>
@@ -409,7 +434,7 @@ export default function InventoryScreen() {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalContainer}
+          style={[styles.modalContainer, { paddingTop: insets.top }]}
         >
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={closeModal}>
@@ -504,7 +529,6 @@ export default function InventoryScreen() {
                         <Text style={styles.previewTitle}>
                           {t("preSaveCheck")}
                         </Text>
-
                         <View style={styles.previewRow}>
                           <Text style={styles.previewLabel}>
                             {t("previousSold")}
@@ -536,7 +560,9 @@ export default function InventoryScreen() {
                           <Text
                             style={[
                               styles.previewValue,
-                              preview.profit >= 0 ? styles.profit : styles.loss,
+                              preview.profit >= 0
+                                ? { color: colors.secondary }
+                                : { color: colors.danger },
                             ]}
                           >
                             {formatMoney(preview.profit)}
@@ -559,7 +585,7 @@ export default function InventoryScreen() {
           </ScrollView>
 
           {!isReadOnly && (
-            <View style={styles.modalFooter}>
+            <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, SPACING.lg) }]}>
               <TouchableOpacity
                 onPress={closeModal}
                 style={styles.backButton}
@@ -582,6 +608,7 @@ export default function InventoryScreen() {
           )}
         </KeyboardAvoidingView>
       </Modal>
+
       {showDatePicker && (
         <DateTimePicker
           value={new Date(selectedDate)}
@@ -599,34 +626,41 @@ export default function InventoryScreen() {
   );
 }
 
-/* ====================== STYLES ====================== */
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
+
+    // Date Navigation
     dateNav: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
       padding: SPACING.lg,
+      paddingBottom: SPACING.sm,
     },
     navButton: {
       width: 44,
       height: 44,
       backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       justifyContent: "center",
       alignItems: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     navButtonDisabled: { opacity: 0.55 },
-    navButtonText: {
-      fontSize: FONT_SIZE.xl,
-      color: colors.primary,
-      fontWeight: "600",
-    },
     dateDisplay: { alignItems: "center", flex: 1 },
-    dateText: { fontSize: FONT_SIZE.lg, fontWeight: "700", color: colors.text },
-    dayName: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
-    readOnlyBadge: {
+    dateText: {
+      fontSize: FONT_SIZE.lg,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    dayName: {
+      fontSize: FONT_SIZE.sm,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    badge: {
       marginTop: 6,
       backgroundColor: colors.surface,
       paddingHorizontal: SPACING.sm,
@@ -635,38 +669,50 @@ const createStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
     },
-    readOnlyText: { fontSize: FONT_SIZE.xs, color: colors.text },
-    futureBadge: {
-      marginTop: 6,
-      backgroundColor: colors.warning + "20",
-      paddingHorizontal: SPACING.sm,
-      paddingVertical: 4,
-      borderRadius: BORDER_RADIUS.full,
+    badgeText: { fontSize: FONT_SIZE.xs, color: colors.text },
+
+    // Search
+    searchRow: {
+      paddingHorizontal: SPACING.lg,
+      marginBottom: SPACING.sm,
     },
-    futureText: { fontSize: FONT_SIZE.xs, color: colors.warning },
+
+    // Summary
     totalsSummary: {
       flexDirection: "row",
-      justifyContent: "space-around",
-      paddingHorizontal: SPACING.md,
-      paddingBottom: SPACING.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      marginHorizontal: SPACING.lg,
+      marginBottom: SPACING.md,
+      backgroundColor: colors.surface,
+      borderRadius: BORDER_RADIUS.lg,
+      padding: SPACING.md,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
-    summaryItem: { alignItems: "center", flex: 1 },
-    summaryLabel: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
+    summaryItem: { flex: 1, alignItems: "center" },
+    summaryDivider: {
+      width: 1,
+      backgroundColor: colors.border,
+      marginHorizontal: SPACING.sm,
+    },
+    summaryLabel: {
+      fontSize: FONT_SIZE.xs,
+      color: colors.textSecondary,
+      marginBottom: 2,
+    },
     summaryValue: {
-      fontSize: FONT_SIZE.lg,
+      fontSize: FONT_SIZE.md,
       fontWeight: "700",
       color: colors.text,
     },
 
+    // Loading
     loadingCard: {
       margin: SPACING.lg,
       backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.md,
-      padding: SPACING.lg,
+      borderRadius: BORDER_RADIUS.lg,
+      padding: SPACING.xl,
       alignItems: "center",
-      gap: SPACING.xs,
+      gap: SPACING.sm,
     },
     loadingTitle: {
       fontSize: FONT_SIZE.md,
@@ -679,11 +725,12 @@ const createStyles = (colors: ThemeColors) =>
       textAlign: "center",
     },
 
+    // Future notice
     futureNotice: {
       margin: SPACING.lg,
       backgroundColor: colors.warning + "10",
-      borderRadius: BORDER_RADIUS.md,
-      padding: SPACING.md,
+      borderRadius: BORDER_RADIUS.lg,
+      padding: SPACING.lg,
       borderWidth: 1,
       borderColor: colors.warning + "40",
     },
@@ -696,90 +743,152 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: FONT_SIZE.sm,
       color: colors.warning,
       lineHeight: 20,
+      marginTop: SPACING.sm,
     },
 
-    list: { padding: SPACING.lg },
+    // List
+    list: { padding: SPACING.lg, paddingTop: 0, paddingBottom: SPACING.xxxl },
     emptyContainer: { alignItems: "center", marginTop: SPACING.xxxl },
-    emptyText: { fontSize: FONT_SIZE.lg, color: colors.textSecondary },
+    emptyText: {
+      fontSize: FONT_SIZE.lg,
+      color: colors.textSecondary,
+      marginTop: SPACING.md,
+    },
     emptySubtext: {
       marginTop: SPACING.xs,
       fontSize: FONT_SIZE.sm,
       color: colors.textTertiary,
     },
 
+    // Card
     card: {
       backgroundColor: colors.surface,
       borderRadius: BORDER_RADIUS.lg,
       padding: SPACING.md,
-      marginBottom: SPACING.md,
+      marginBottom: SPACING.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cardTop: { marginBottom: SPACING.md },
+    cardTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SPACING.sm,
     },
     productImage: {
-      width: 72,
-      height: 72,
+      width: 44,
+      height: 44,
       borderRadius: BORDER_RADIUS.sm,
-      marginBottom: SPACING.sm,
     },
-    cardHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
+    noImageBox: {
+      width: 44,
+      height: 44,
+      borderRadius: BORDER_RADIUS.sm,
+      backgroundColor: colors.surfaceSecondary,
+      justifyContent: "center",
       alignItems: "center",
-      marginBottom: SPACING.md,
     },
     cardTitleWrap: { flex: 1 },
     productName: {
-      fontSize: FONT_SIZE.lg,
+      fontSize: FONT_SIZE.md,
       fontWeight: "700",
       color: colors.text,
     },
-    productPrice: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
-
-    quantityBadge: {
-      minWidth: 42,
-      paddingHorizontal: SPACING.sm,
-      paddingVertical: 6,
-      borderRadius: BORDER_RADIUS.full,
-      backgroundColor: colors.primary,
-      alignItems: "center",
-    },
-    quantityBadgeLow: { backgroundColor: colors.danger },
-    quantityBadgeText: {
-      color: colors.white,
+    productPrice: {
       fontSize: FONT_SIZE.sm,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    stockBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: SPACING.sm,
+      paddingVertical: 4,
+      borderRadius: BORDER_RADIUS.full,
+    },
+    stockDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    stockBadgeText: {
+      fontSize: FONT_SIZE.xs,
       fontWeight: "700",
     },
 
+    // Quantities
     quantityRow: {
       flexDirection: "row",
-      justifyContent: "space-between",
+      alignItems: "center",
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: BORDER_RADIUS.md,
+      padding: SPACING.sm,
       marginBottom: SPACING.md,
     },
-    quantityItem: { alignItems: "center", flex: 1 },
-    quantityLabel: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
+    quantityItem: { flex: 1, alignItems: "center" },
+    separator: {
+      width: 1,
+      height: 24,
+      backgroundColor: colors.border,
+    },
+    quantityLabel: {
+      fontSize: FONT_SIZE.xs,
+      color: colors.textTertiary,
+      marginBottom: 2,
+    },
     quantityValue: {
-      fontSize: FONT_SIZE.lg,
+      fontSize: FONT_SIZE.md,
       fontWeight: "700",
       color: colors.text,
     },
 
+    // Stats
     statsRow: {
       flexDirection: "row",
-      justifyContent: "space-between",
+      alignItems: "flex-start",
       borderTopWidth: 1,
       borderTopColor: colors.border,
       paddingTop: SPACING.md,
     },
-    statItem: { flex: 1, alignItems: "center" },
-    statLabel: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
+    statsDivider: {
+      width: 1,
+      alignSelf: "stretch",
+      backgroundColor: colors.border,
+      marginHorizontal: SPACING.sm,
+    },
+    statItemGroup: { flex: 1, alignItems: "center" },
+    statsLabelSmall: {
+      fontSize: FONT_SIZE.xs,
+      color: colors.textSecondary,
+      marginBottom: 2,
+    },
     statValue: {
       fontSize: FONT_SIZE.sm,
-      fontWeight: "600",
+      fontWeight: "700",
       color: colors.text,
     },
+    unitProfitRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 2,
+      marginTop: 4,
+    },
+    unitProfitLabel: {
+      fontSize: FONT_SIZE.xs,
+      color: colors.textTertiary,
+    },
+    unitProfitValue: {
+      fontSize: FONT_SIZE.xs,
+      fontWeight: "700",
+    },
+    statProfit: {
+      fontSize: FONT_SIZE.xs,
+      fontWeight: "600",
+      marginTop: 2,
+    },
 
-    profit: { color: colors.secondary },
-    loss: { color: colors.danger },
-
-    // Modal Styles
+    // Modal
     modalContainer: { flex: 1, backgroundColor: colors.background },
     modalHeader: {
       flexDirection: "row",
@@ -788,6 +897,7 @@ const createStyles = (colors: ThemeColors) =>
       padding: SPACING.lg,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
+      backgroundColor: colors.surface,
     },
     cancelText: { fontSize: FONT_SIZE.md, color: colors.textSecondary },
     modalTitle: {
@@ -796,7 +906,6 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.text,
     },
     modalHeaderSpacer: { width: 60 },
-
     modalContent: { flex: 1 },
     modalBody: { padding: SPACING.lg, paddingBottom: SPACING.xxxl },
 
@@ -817,6 +926,7 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: FONT_SIZE.sm,
       color: colors.textSecondary,
       lineHeight: 20,
+      marginTop: 4,
     },
 
     readOnlyBox: {
@@ -836,10 +946,16 @@ const createStyles = (colors: ThemeColors) =>
       padding: SPACING.md,
       fontSize: FONT_SIZE.lg,
       color: colors.text,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     inputError: { borderWidth: 1, borderColor: colors.danger },
     errorText: { color: colors.danger, fontSize: FONT_SIZE.sm, marginTop: 4 },
-    autoHint: { fontSize: FONT_SIZE.xs, color: colors.textTertiary, fontStyle: "italic" },
+    autoHint: {
+      fontSize: FONT_SIZE.xs,
+      color: colors.textTertiary,
+      fontStyle: "italic",
+    },
     errorBanner: {
       backgroundColor: colors.danger + "15",
       borderRadius: BORDER_RADIUS.md,
@@ -877,6 +993,7 @@ const createStyles = (colors: ThemeColors) =>
       borderTopWidth: 1,
       borderTopColor: colors.border,
       gap: SPACING.md,
+      backgroundColor: colors.surface,
     },
     backButton: {
       flex: 1,

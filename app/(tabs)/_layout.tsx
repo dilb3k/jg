@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Tabs, useRouter } from "expo-router";
 import {
   ActivityIndicator,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -23,17 +24,23 @@ import {
   Moon,
   Sun,
   Users,
-  Star,
   Wifi,
   WifiOff,
   Lock,
+  HandCoins,
+  MessageCircle,
+  Info,
+  ShoppingCart,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import dayjs from "dayjs";
 import { apiClient, setConnectionMode as setApiConnectionMode } from "../../src/api/client";
 import { useAppRefreshStore, useAuthStore } from "../../src/store/selectors";
+import { useStore } from "../../src/store";
 import { useTheme } from "../../src/store/themeStore";
 import { useI18n } from "../../src/i18n";
 import { SPACING, FONT_SIZE, BORDER_RADIUS } from "../../src/theme";
+import { getBusinessDayStartHour, getPendingBusinessDayStartHour, getEffectiveFrom } from "../../src/utils/businessDay";
 
 const TabIcon = ({
   name,
@@ -46,7 +53,9 @@ const TabIcon = ({
   colors: any;
   isLocked?: boolean;
 }) => {
-  const color = isLocked ? colors.textTertiary : (focused ? colors.primary : colors.textTertiary);
+  const active = colors.primary;
+  const inactive = colors.textTertiary;
+  const color = isLocked ? inactive : (focused ? active : inactive);
   const size = 22;
 
   let IconComponent;
@@ -66,8 +75,11 @@ const TabIcon = ({
     case "users":
       IconComponent = Users;
       break;
-    case "rating":
-      IconComponent = Star;
+    case "debtors":
+      IconComponent = HandCoins;
+      break;
+    case "sales":
+      IconComponent = ShoppingCart;
       break;
     default:
       IconComponent = Package;
@@ -98,10 +110,13 @@ const CONNECTION_MODES: { code: "online" | "offline"; labelKey: "onlineMode" | "
 function HeaderRefreshButton({ colors, t }: { colors: any; t: any }) {
   const { isLoading, refreshAppData } = useAppRefreshStore();
   const { showToast } = useAppRefreshStore();
+  const { setUser } = useAuthStore();
 
   const handleRefresh = async () => {
     if (isLoading) return;
     try {
+      const me = await apiClient.getMe();
+      setUser(me);
       await refreshAppData();
       showToast(t("dataRefreshed"), "success");
     } catch {
@@ -156,6 +171,39 @@ export default function TabLayout() {
   const [showSettings, setShowSettings] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showBusinessDayModal, setShowBusinessDayModal] = useState(false);
+  const [editingHour, setEditingHour] = useState(() => getBusinessDayStartHour());
+  const [confirmStep, setConfirmStep] = useState(false);
+  const setBusinessDayHour = useStore((state) => state.setBusinessDayHour);
+
+  const openBusinessDayModal = () => {
+    setEditingHour(getBusinessDayStartHour());
+    setConfirmStep(false);
+    setShowBusinessDayModal(true);
+  };
+
+  const handleBusinessDayDec = () => {
+    setEditingHour((prev) => (prev <= 0 ? 23 : prev - 1));
+  };
+
+  const handleBusinessDayInc = () => {
+    setEditingHour((prev) => (prev >= 23 ? 0 : prev + 1));
+  };
+
+  const handleBusinessDaySave = () => {
+    setConfirmStep(true);
+  };
+
+  const confirmBusinessDayChange = () => {
+    setBusinessDayHour(editingHour);
+    setShowBusinessDayModal(false);
+    setConfirmStep(false);
+  };
+
+  const cancelBusinessDayChange = () => {
+    setShowBusinessDayModal(false);
+    setConfirmStep(false);
+  };
 
   const { theme, isDark, setTheme, language, setLanguage, connectionMode, setConnectionMode, colors } = useTheme();
   const { t } = useI18n();
@@ -164,6 +212,10 @@ export default function TabLayout() {
     { code: "uz", label: t("lang_uz") },
     { code: "ru", label: t("lang_ru") },
   ];
+
+  useEffect(() => {
+    setApiConnectionMode(connectionMode);
+  }, [connectionMode]);
 
   useEffect(() => {
     apiClient.setUnauthorizedHandler(() => {
@@ -182,7 +234,7 @@ export default function TabLayout() {
   const isSuperAdmin = user?.role?.toLowerCase() === "superadmin";
   const isPayed = isSuperAdmin || (user?.isPayed ?? false);
 
-  const initialRouteName = isSuperAdmin ? "users" : "index";
+  const initialRouteName = isSuperAdmin ? "users" : "products";
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -233,14 +285,14 @@ export default function TabLayout() {
             </View>
           ),
            tabBarStyle: {
-             backgroundColor: colors.surface,
-             borderTopColor: colors.border,
+              backgroundColor: colors.surface,
+              borderTopColor: colors.border,
              height: 70 + insets.bottom,
              paddingBottom: Math.max(insets.bottom, 8),
              paddingTop: 8,
            },
-          tabBarActiveTintColor: colors.primary,
-          tabBarInactiveTintColor: colors.textTertiary,
+           tabBarActiveTintColor: colors.primary,
+           tabBarInactiveTintColor: colors.textTertiary,
           tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
           tabBarIconStyle: { marginBottom: -4 },
         }}
@@ -248,11 +300,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: t("restock"),
-            href: isSuperAdmin ? null : undefined,
-            tabBarIcon: ({ focused }) => (
-              <TabIcon name="index" focused={focused} colors={colors} />
-            ),
+            href: null,
           }}
         />
         <Tabs.Screen
@@ -272,6 +320,16 @@ export default function TabLayout() {
             href: isSuperAdmin ? null : undefined,
             tabBarIcon: ({ focused }) => (
               <TabIcon name="inventory" focused={focused} colors={colors} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="sales"
+          options={{
+            title: t("sales"),
+            href: isSuperAdmin ? null : undefined,
+            tabBarIcon: ({ focused }) => (
+              <TabIcon name="sales" focused={focused} colors={colors} />
             ),
           }}
         />
@@ -296,12 +354,12 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="rating"
+          name="debtors"
           options={{
-            title: t("rating"),
+            title: t("debtors"),
             href: isSuperAdmin ? null : undefined,
             tabBarIcon: ({ focused }) => (
-              <TabIcon name="rating" focused={focused} colors={colors} isLocked={!isPayed} />
+              <TabIcon name="debtors" focused={focused} colors={colors} />
             ),
           }}
         />
@@ -319,7 +377,7 @@ export default function TabLayout() {
           onPress={() => setShowSettings(false)}
         >
           <Pressable
-            style={[styles.modalContent, { backgroundColor: colors.surface }]}
+            style={[styles.modalContent, { backgroundColor: colors.surface, paddingBottom: Math.max(insets.bottom, SPACING.lg) }]}
             onPress={(e) => e.stopPropagation()}
           >
             <View
@@ -550,6 +608,43 @@ export default function TabLayout() {
                 </View>
               </View>
 
+              {/* Business Day */}
+              <View style={styles.section}>
+                <Pressable
+                  style={[styles.optionItem, { backgroundColor: colors.background }]}
+                  onPress={openBusinessDayModal}
+                >
+                  <Text style={[styles.optionText, { color: colors.text }]}>
+                    {t("businessDayHour")}
+                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={[styles.optionText, { color: colors.textSecondary }]}>
+                      {String(getBusinessDayStartHour()).padStart(2, "0")}:00
+                    </Text>
+                    <Info size={14} color={colors.textTertiary} />
+                  </View>
+                </Pressable>
+              </View>
+
+              {/* Support */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <MessageCircle size={18} color={colors.textSecondary} />
+                  <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                    {t("support")}
+                  </Text>
+                </View>
+                <Pressable
+                  style={[styles.optionItem, { backgroundColor: colors.background }]}
+                  onPress={() => Linking.openURL("https://t.me/dilbek7011")}
+                >
+                  <MessageCircle size={18} color="#0088cc" />
+                  <Text style={[styles.optionText, { color: "#0088cc" }]}>
+                    Telegram: @dilbek7011
+                  </Text>
+                </Pressable>
+              </View>
+
               {/* Logout */}
               <View style={styles.section}>
                 <Pressable
@@ -573,6 +668,131 @@ export default function TabLayout() {
                 </Pressable>
               </View>
             </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Business Day Modal */}
+      <Modal
+        visible={showBusinessDayModal}
+        animationType="slide"
+        transparent
+        onRequestClose={cancelBusinessDayChange}
+      >
+        <Pressable
+          style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}
+          onPress={cancelBusinessDayChange}
+        >
+          <Pressable
+            style={[styles.modalContent, { backgroundColor: colors.surface, paddingBottom: Math.max(insets.bottom, SPACING.lg) }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {confirmStep ? t("confirm") : t("businessDayHour")}
+              </Text>
+              <TouchableOpacity onPress={cancelBusinessDayChange}>
+                <Text style={[styles.modalClose, { color: colors.primary }]}>
+                  {t("close")}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {confirmStep ? (
+              <View style={styles.modalBody}>
+                <View style={[styles.confirmBody, { borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border }]}>
+                  <View style={styles.confirmRow}>
+                    <Text style={[styles.confirmLabel, { color: colors.textSecondary }]}>Joriy vaqt:</Text>
+                    <Text style={[styles.confirmValue, { color: colors.text }]}>
+                      {String(getBusinessDayStartHour()).padStart(2, "0")}:00
+                    </Text>
+                  </View>
+                  <View style={styles.confirmRow}>
+                    <Text style={[styles.confirmLabel, { color: colors.textSecondary }]}>Yangi vaqt:</Text>
+                    <Text style={[styles.confirmValue, { color: colors.primary }]}>
+                      {String(editingHour).padStart(2, "0")}:00
+                    </Text>
+                  </View>
+                  <View style={styles.confirmRow}>
+                    <Text style={[styles.confirmLabel, { color: colors.textSecondary }]}>Kuchga kiradi:</Text>
+                    <Text style={[styles.confirmValue, { color: colors.warning }]}>
+                      {dayjs().add(1, "day").startOf("day").hour(editingHour).format("DD.MM.YYYY HH:mm")}
+                    </Text>
+                  </View>
+                  <View style={styles.confirmRow}>
+                    <Text style={[styles.confirmLabel, { color: colors.textSecondary }]}>Hisob davri:</Text>
+                    <Text style={[styles.confirmValue, { color: colors.text }]}>
+                      {dayjs().add(1, "day").startOf("day").hour(editingHour).format("DD.MM HH:mm")} - {dayjs().add(2, "day").startOf("day").hour(editingHour).format("DD.MM HH:mm")}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.confirmInfo}>
+                  <Info size={14} color={colors.warning} />
+                  <Text style={[styles.confirmInfoText, { color: colors.textSecondary }]}>
+                    {t("businessDayConfirmInfo")}
+                  </Text>
+                </View>
+                <View style={styles.confirmActions}>
+                  <Pressable
+                    style={[styles.confirmBtn, { backgroundColor: colors.border }]}
+                    onPress={() => setConfirmStep(false)}
+                  >
+                    <Text style={[styles.confirmBtnText, { color: colors.text }]}>{t("back")}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
+                    onPress={confirmBusinessDayChange}
+                  >
+                    <Text style={[styles.confirmBtnText, { color: colors.white }]}>{t("confirm")}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.modalBody}>
+                <Text style={[styles.settingDescription, { color: colors.textTertiary }]}>
+                  {t("businessDayHourDesc")}
+                </Text>
+                {getPendingBusinessDayStartHour() !== null && (
+                  <View style={[styles.pendingBadge, { backgroundColor: colors.warning + "20", borderColor: colors.warning + "40", borderWidth: 1, borderRadius: BORDER_RADIUS.sm, padding: SPACING.sm, marginBottom: SPACING.sm, flexDirection: "row", alignItems: "center", gap: SPACING.xs }]}>
+                    <Info size={14} color={colors.warning} />
+                    <Text style={[styles.pendingBadgeText, { color: colors.warning, fontSize: FONT_SIZE.sm, fontWeight: "500" }]}>
+                      Kutilayotgan: {String(getPendingBusinessDayStartHour()).padStart(2, "0")}:00 ({dayjs(getEffectiveFrom()).format("DD.MM HH:mm")} dan)
+                    </Text>
+                  </View>
+                )}
+                <View style={[styles.businessDayRow, { backgroundColor: colors.background }]}>
+                  <TouchableOpacity onPress={handleBusinessDayDec} style={styles.businessDayBtn}>
+                    <Text style={[styles.businessDayBtnText, { color: colors.primary }]}>-</Text>
+                  </TouchableOpacity>
+                  <View style={styles.businessDayTimeWrap}>
+                    <Text style={[styles.businessDayTime, { color: colors.text }]}>
+                      {String(editingHour).padStart(2, "0")}:00
+                    </Text>
+                    <Text style={[styles.businessDayExample, { color: colors.textSecondary }]}>
+                      {editingHour === 0
+                        ? "00:00 dan 23:59 gacha"
+                        : `${String(editingHour).padStart(2, "0")}:00 dan ${String(editingHour - 1 < 0 ? 23 : editingHour - 1).padStart(2, "0")}:59 gacha`}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={handleBusinessDayInc} style={styles.businessDayBtn}>
+                    <Text style={[styles.businessDayBtnText, { color: colors.primary }]}>+</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Text style={[styles.infoBoxText, { color: colors.text }]}>
+                    {editingHour === 0
+                      ? `00:00 dan 23:59 gacha. Masalan: ${dayjs().format("DD.MM")} 00:00 dan ${dayjs().add(1, "day").format("DD.MM")} 00:00 gacha bir kun hisoblanadi.`
+                      : `${String(editingHour).padStart(2, "0")}:00 dan ${String(editingHour - 1 < 0 ? 23 : editingHour - 1).padStart(2, "0")}:59 gacha.\nMasalan: ${dayjs().add(1, "day").startOf("day").hour(editingHour).format("DD.MM HH:mm")} dan ${dayjs().add(2, "day").startOf("day").hour(editingHour).format("DD.MM HH:mm")} gacha bir kun hisoblanadi.`}
+                  </Text>
+                </View>
+                <Pressable
+                  style={[styles.confirmBtn, { backgroundColor: colors.primary, marginTop: SPACING.lg }]}
+                  onPress={handleBusinessDaySave}
+                >
+                  <Text style={[styles.confirmBtnText, { color: colors.white }]}>{t("save")}</Text>
+                </Pressable>
+              </View>
+            )}
           </Pressable>
         </Pressable>
       </Modal>
@@ -630,6 +850,19 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: FONT_SIZE.xl, fontWeight: "700" },
   modalClose: { fontSize: FONT_SIZE.lg, fontWeight: "600" },
   modalBody: { padding: SPACING.lg },
+  pendingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.sm,
+    marginBottom: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  pendingBadgeText: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: "500",
+    flex: 1,
+  },
   section: { marginBottom: SPACING.lg },
   sectionHeader: {
     flexDirection: "row",
@@ -690,4 +923,105 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   logoutText: { fontSize: FONT_SIZE.lg, fontWeight: "600" },
+  businessDayRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACING.lg,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  businessDayBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: BORDER_RADIUS.md,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  businessDayBtnText: {
+    fontSize: 24,
+    fontWeight: "700",
+  },
+  businessDayTime: {
+    fontSize: FONT_SIZE.xl,
+    fontWeight: "700",
+    minWidth: 60,
+    textAlign: "center",
+  },
+  infoBox: {
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+  },
+  infoBoxText: {
+    fontSize: FONT_SIZE.sm,
+    lineHeight: 20,
+  },
+  settingDescription: {
+    fontSize: FONT_SIZE.sm,
+    marginBottom: SPACING.sm,
+  },
+  businessDayTimeWrap: {
+    alignItems: "center",
+  },
+  businessDayExample: {
+    fontSize: FONT_SIZE.xs,
+    marginTop: 2,
+  },
+  confirmModal: {
+    marginHorizontal: SPACING.xl,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.lg,
+  },
+  confirmTitle: {
+    fontSize: FONT_SIZE.xl,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: SPACING.lg,
+  },
+  confirmBody: {
+    paddingVertical: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  confirmRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: SPACING.xs,
+  },
+  confirmLabel: {
+    fontSize: FONT_SIZE.md,
+  },
+  confirmValue: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: "600",
+  },
+  confirmInfo: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  confirmInfoText: {
+    flex: 1,
+    fontSize: FONT_SIZE.sm,
+    lineHeight: 18,
+  },
+  confirmActions: {
+    flexDirection: "row",
+    gap: SPACING.md,
+  },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    alignItems: "center",
+  },
+  confirmBtnText: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: "600",
+  },
 });

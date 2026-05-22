@@ -2,15 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
-import { Minus, Plus, ShoppingBag } from "lucide-react-native";
+import { Minus, Package, Plus, ShoppingBag } from "lucide-react-native";
 
 import { SearchInputWithClear } from "../../src/components/SearchInputWithClear";
 import {
@@ -44,6 +45,7 @@ export default function SalesScreen() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLoading, setLocalLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const reloadInventory = useCallback(async () => {
     setLocalLoading(true);
@@ -54,11 +56,18 @@ export default function SalesScreen() {
     }
   }, [businessDate, loadInventoryByDate]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void reloadInventory();
-    }, [reloadInventory]),
-  );
+  useEffect(() => {
+    void reloadInventory();
+  }, [reloadInventory]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadInventoryByDate(businessDate);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [businessDate, loadInventoryByDate]);
 
   const sellable = useMemo(
     () =>
@@ -128,35 +137,46 @@ export default function SalesScreen() {
 
     return (
       <View style={[styles.row, qty > 0 && styles.rowActive]}>
-        <View style={styles.rowMain}>
-          <Text style={styles.rowName} numberOfLines={2}>
-            {item.product.name}
-          </Text>
-          <Text style={styles.rowMeta}>
-            {formatMoney(item.product.sellPrice)} · {t("remaining")}: {max}
-          </Text>
-        </View>
-        <View style={styles.qtyRow}>
-          <TouchableOpacity
-            style={[styles.qtyBtn, qty <= 0 && styles.qtyBtnDisabled]}
-            onPress={() => setQty(item.productId, qty - 1, max)}
-            disabled={qty <= 0}
-          >
-            <Minus size={20} color={qty > 0 ? colors.primary : colors.textTertiary} />
-          </TouchableOpacity>
-          <View style={styles.qtyValue}>
-            <Text style={[styles.qtyText, qty > 0 && { color: colors.primary }]}>
-              {qty}
+        <View style={styles.rowHeader}>
+          <View style={styles.imgBox}>
+            {item.product.image ? (
+              <Image source={{ uri: item.product.image }} style={styles.img} />
+            ) : (
+              <View style={styles.noImgBox}>
+                <Package size={22} color={colors.textTertiary} />
+              </View>
+            )}
+          </View>
+          <View style={styles.rowMain}>
+            <Text style={styles.rowName} numberOfLines={2}>
+              {item.product.name}
+            </Text>
+            <Text style={styles.rowMeta}>
+              {formatMoney(item.product.sellPrice)} · {t("remaining")}: {max}
             </Text>
           </View>
-          <TouchableOpacity
-            style={[styles.qtyBtn, qty >= max && styles.qtyBtnDisabled]}
-            onPress={() => setQty(item.productId, qty + 1, max)}
-            disabled={qty >= max}
-            accessibilityLabel={t("add")}
-          >
-            <Plus size={20} color={qty < max ? colors.primary : colors.textTertiary} />
-          </TouchableOpacity>
+          <View style={styles.qtyRow}>
+            <TouchableOpacity
+              style={[styles.qtyBtn, qty <= 0 && styles.qtyBtnDisabled]}
+              onPress={() => setQty(item.productId, qty - 1, max)}
+              disabled={qty <= 0}
+            >
+              <Minus size={20} color={qty > 0 ? colors.primary : colors.textTertiary} />
+            </TouchableOpacity>
+            <View style={styles.qtyValue}>
+              <Text style={[styles.qtyText, qty > 0 && { color: colors.primary }]}>
+                {qty}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.qtyBtn, qty >= max && styles.qtyBtnDisabled]}
+              onPress={() => setQty(item.productId, qty + 1, max)}
+              disabled={qty >= max}
+              accessibilityLabel={t("add")}
+            >
+              <Plus size={20} color={qty < max ? colors.primary : colors.textTertiary} />
+            </TouchableOpacity>
+          </View>
         </View>
         {qty > 0 ? (
           <Text style={styles.lineTotal}>{formatMoney(lineTotal)}</Text>
@@ -196,6 +216,9 @@ export default function SalesScreen() {
           renderItem={renderRow}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
           ListEmptyComponent={
             <View style={styles.centered}>
               <ShoppingBag size={40} color={colors.textTertiary} />
@@ -268,7 +291,31 @@ const createStyles = (colors: ThemeColors) =>
       borderColor: colors.primary,
       backgroundColor: colors.primary + "08",
     },
-    rowMain: { marginBottom: SPACING.sm },
+    rowHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    imgBox: {
+      width: 44,
+      height: 44,
+      borderRadius: BORDER_RADIUS.md,
+      overflow: "hidden",
+      marginRight: SPACING.sm,
+    },
+    img: {
+      width: 44,
+      height: 44,
+      borderRadius: BORDER_RADIUS.md,
+    },
+    noImgBox: {
+      width: 44,
+      height: 44,
+      borderRadius: BORDER_RADIUS.md,
+      backgroundColor: colors.surfaceSecondary,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    rowMain: { flex: 1 },
     rowName: {
       fontSize: FONT_SIZE.md,
       fontWeight: "600",
@@ -283,6 +330,8 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: SPACING.xs,
+      flexShrink: 0,
+      marginLeft: SPACING.sm,
     },
     qtyBtn: {
       width: 44,

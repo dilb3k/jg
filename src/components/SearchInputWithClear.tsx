@@ -50,12 +50,12 @@ export function SearchInputWithClear({
 
 const styles = StyleSheet.create({
   wrap: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
     paddingRight: SPACING.xs,
+    minHeight: 48,
   },
   input: {
     flex: 1,

@@ -7,7 +7,12 @@ const APP_META_KEY = 'clubbar_app_meta';
 export const addToSyncQueue = async (item: SyncQueueItem): Promise<void> => {
   const data = await AsyncStorage.getItem(SYNC_QUEUE_KEY);
   const queue: SyncQueueItem[] = data ? JSON.parse(data) : [];
-  queue.push(item);
+  const existingIndex = queue.findIndex((q) => q.id === item.id);
+  if (existingIndex >= 0) {
+    queue[existingIndex] = item;
+  } else {
+    queue.push(item);
+  }
   await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
 };
 

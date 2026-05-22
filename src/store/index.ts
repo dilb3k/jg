@@ -1,10 +1,10 @@
-﻿import "react-native-get-random-values";
+import "react-native-get-random-values";
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import dayjs from "dayjs";
 
-import { apiClient, setConnectionMode, getConnectionMode } from "../api/client";
-import { getAppMeta, setAppMeta, getSyncQueue, clearSyncQueue, getSyncQueueCount } from "../db/syncQueue";
+import { apiClient, setConnectionMode } from "../api/client";
+import { getAppMeta, setAppMeta, getSyncQueueCount } from "../db/syncQueue";
 import { STORAGE_KEYS } from "../constants";
 import * as secureStorage from "../utils/secureStorage";
 import { hasValidationErrors, validateProductInput } from "../utils/inventory";
@@ -14,8 +14,6 @@ import {
   setBusinessDayStartHour,
   scheduleBusinessDayStartHour,
   setPendingBusinessDayHour,
-  clearPending,
-  getPendingBusinessDayStartHour,
   getEffectiveFrom,
   isPastBusinessDate,
   isTodayBusinessDate,
@@ -198,9 +196,18 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Auth actions
   setUser: (user) => {
-    set({ user, isAuthenticated: !!user });
-    if (user && typeof user.businessDayStartHour === 'number' && user.businessDayStartHour >= 0 && user.businessDayStartHour <= 23) {
-      setBusinessDayStartHour(user.businessDayStartHour);
+    const normalized = user
+      ? {
+          ...user,
+          isPayed:
+            user.role?.toLowerCase() === "superadmin"
+              ? true
+              : (user as any).isPayed ?? false,
+        }
+      : user;
+    set({ user: normalized, isAuthenticated: !!normalized });
+    if (normalized && typeof normalized.businessDayStartHour === 'number' && normalized.businessDayStartHour >= 0 && normalized.businessDayStartHour <= 23) {
+      setBusinessDayStartHour(normalized.businessDayStartHour);
     }
   },
 
@@ -325,8 +332,7 @@ export const useStore = create<AppState>((set, get) => ({
     inflightKeys.add(cacheKey);
      try {
        const products = await apiClient.getProducts(searchQuery || undefined);
-       const filteredProducts = products.filter((product) => !product.isDeleted);
-       const sortedProducts = sortByDisplayIndex(filteredProducts);
+       const sortedProducts = sortByDisplayIndex(products);
 
        set((state) => ({
          products: sortedProducts,
@@ -375,7 +381,6 @@ export const useStore = create<AppState>((set, get) => ({
       buyPrice: Number(input.buyPrice),
       sellPrice: Number(input.sellPrice),
       image: sanitizeProductImage(input.image),
-      isDeleted: false,
       updatedAt: now,
       createdAt: now,
     };
@@ -452,7 +457,7 @@ export const useStore = create<AppState>((set, get) => ({
         currentInventory: syncInventoryProductRefs(
           state.currentInventory,
           localId,
-          { isDeleted: true } as Partial<Product>,
+          {} as Partial<Product>,
         ),
       }));
 
@@ -532,7 +537,6 @@ export const useStore = create<AppState>((set, get) => ({
       startQuantity: quantity,
       currentQuantity: quantity - soldSoFar,
       note: existing?.note || "",
-      isDeleted: false,
       updatedAt: now,
       createdAt: existing?.createdAt || now,
     };
@@ -610,11 +614,6 @@ export const useStore = create<AppState>((set, get) => ({
       updatedEntry.date,
     );
 
-    await apiClient.updateProduct(existing.productId, {
-      quantity: safeQuantity,
-      updatedAt: now,
-    });
-
     set((state) => ({
       currentInventory: state.currentInventory.map((entry) =>
         entry.productId === productId && entry.date === date
@@ -687,20 +686,53 @@ export const useStore = create<AppState>((set, get) => ({
       await secureStorage.setItemAsync(STORAGE_KEYS.DEVICE_ID, deviceId);
       set({ deviceId });
     }
-    const items: { productId: string; currentQuantity: number; note?: string }[] = [];
+    const salesByProduct = new Map<string, number>();
 
     for (const line of lines) {
       if (line.quantity <= 0) continue;
+      salesByProduct.set(
+        line.productId,
+        (salesByProduct.get(line.productId) ?? 0) + line.quantity,
+      );
+    }
+
+    const items: { productId: string; currentQuantity: number; note?: string }[] = [];
+
+    for (const [productId, totalQuantity] of salesByProduct) {
       const entry =
         currentInventory.find(
-          (e) => e.productId === line.productId && e.date === date,
+          (e) => e.productId === productId && e.date === date,
         ) ??
-        currentInventory.find((e) => e.productId === line.productId);
-      if (!entry) continue;
-      const newCurrent = Math.max(0, entry.currentQuantity - line.quantity);
+        currentInventory.find((e) => e.productId === productId);
+      if (!entry) {
+        const product = get().products.find((p) => p.localId === productId);
+        if (!product) continue;
+        const now = new Date().toISOString();
+        const newEntry: InventoryEntry = {
+          localId: `${date}-${product.localId}`,
+          deviceId: deviceId,
+          productId: product.localId,
+          date,
+          startQuantity: totalQuantity,
+          currentQuantity: Math.max(0, product.quantity - totalQuantity),
+          note: "",
+          updatedAt: now,
+          createdAt: now,
+        };
+        await apiClient.startDayInventory(deviceId, [{
+          productId: newEntry.productId,
+          startQuantity: newEntry.startQuantity,
+          currentQuantity: newEntry.currentQuantity,
+          localId: newEntry.localId,
+          createdAt: newEntry.createdAt,
+          updatedAt: newEntry.updatedAt,
+        }], date);
+        continue;
+      }
+      const newCurrent = Math.max(0, entry.currentQuantity - totalQuantity);
       if (newCurrent === entry.currentQuantity) continue;
       items.push({
-        productId: line.productId,
+        productId,
         currentQuantity: newCurrent,
         note: entry.note,
       });
@@ -744,8 +776,8 @@ export const useStore = create<AppState>((set, get) => ({
       [dayjs.Dayjs, dayjs.Dayjs]
     > = {
       weekly: [
-        dayjs(targetDate).startOf("week"),
-        dayjs(targetDate).endOf("week"),
+        dayjs(targetDate).startOf("week").add(1, "day"),
+        dayjs(targetDate).endOf("week").add(1, "day"),
       ],
       monthly: [
         dayjs(targetDate).startOf("month"),
@@ -776,11 +808,8 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   buildAndSaveSnapshot: async (date) => {
-    const { deviceId, currentInventory, snapshots } = get();
-    const inventory =
-      get().selectedDate === date
-        ? currentInventory
-        : (await apiClient.getInventoryWithProducts({ date })).items;
+    const { deviceId, snapshots } = get();
+    const inventory = (await apiClient.getInventoryWithProducts({ date })).items;
     const existing =
       snapshots.find((snapshot) => snapshot.date === date) || null;
 
@@ -798,8 +827,8 @@ export const useStore = create<AppState>((set, get) => ({
       .map((entry) => {
         const sold = Math.max(entry.startQuantity - entry.currentQuantity, 0);
         const previousPrices = historicalPrices.get(entry.productId);
-        const buyPrice = previousPrices?.buyPrice ?? entry.product.buyPrice;
-        const sellPrice = previousPrices?.sellPrice ?? entry.product.sellPrice;
+        const buyPrice = entry.product.buyPrice ?? previousPrices?.buyPrice ?? 0;
+        const sellPrice = entry.product.sellPrice ?? previousPrices?.sellPrice ?? 0;
 
         return {
           productId: entry.productId,
@@ -823,7 +852,6 @@ export const useStore = create<AppState>((set, get) => ({
       totalProfit: items.reduce((sum, item) => sum + item.profit, 0),
       totalSoldItems: items.reduce((sum, item) => sum + item.sold, 0),
       items,
-      isDeleted: false,
       updatedAt: now,
       createdAt: existing?.createdAt || now,
     };

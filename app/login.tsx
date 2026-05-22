@@ -1,8 +1,8 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,7 +14,7 @@ import { useRouter } from "expo-router";
 
 import { apiClient } from "../src/api/client";
 import * as secureStorage from "../src/utils/secureStorage";
-import { STORAGE_KEYS } from "../src/constants";
+import { BUSINESS_DAY_START_HOUR, STORAGE_KEYS } from "../src/constants";
 import { useTheme } from "../src/store/themeStore";
 import { useI18n } from "../src/i18n";
 import { SPACING, FONT_SIZE, BORDER_RADIUS } from "../src/theme";
@@ -28,6 +28,7 @@ export default function LoginScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
 
   const { colors } = useTheme();
   const { t } = useI18n();
@@ -64,18 +65,28 @@ export default function LoginScreen() {
       await secureStorage.setItemAsync(STORAGE_KEYS.USER_TOKEN, result.token);
       apiClient.setToken(result.token);
 
-       await secureStorage.setItemAsync(
-         STORAGE_KEYS.AUTH_USER,
-         JSON.stringify(result.user),
-       );
+        const normalizedUser = {
+          ...result.user,
+          businessDayStartHour:
+            (result.user as any)?.businessDayStartHour || BUSINESS_DAY_START_HOUR,
+          isPayed:
+            result.user?.role?.toLowerCase() === "superadmin"
+              ? true
+              : (result.user as any)?.isPayed ?? false,
+        };
 
-       setUser(result.user as any);
+        await secureStorage.setItemAsync(
+          STORAGE_KEYS.AUTH_USER,
+          JSON.stringify(normalizedUser),
+        );
 
-       if (result.user?.role === "superAdmin") {
-         router.replace("/(tabs)/users");
-       } else {
-         router.replace("/(tabs)");
-       }
+        setUser(normalizedUser);
+
+        if (result.user?.role === "superAdmin") {
+          router.replace("/(tabs)/users");
+        } else {
+          router.replace("/(tabs)");
+        }
     } catch (err: any) {
       setError(err.message || (isLoginMode ? t("loginError") : t("registerError")));
     } finally {
@@ -86,20 +97,22 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior="padding"
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="always"
+        bounces={false}
+        showsVerticalScrollIndicator={false}
       >
         <View style={styles.logoContainer}>
-          <View
-            style={[styles.logoCircle, { backgroundColor: colors.primary }]}
-          >
-            <Text style={[styles.logoText, { color: colors.white }]}>B</Text>
-          </View>
+          <Image
+            source={require("../assets/Hisvex.png")}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
           <Text style={[styles.title, { color: colors.text }]}>
-            {t("barrelManagement")}
+            {"Hisvex"}
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {isLoginMode ? t("signInToSystem") : t("createAccount")}
@@ -285,31 +298,26 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: SPACING.xl,
+    paddingHorizontal: SPACING.xl,
+    paddingBottom: SPACING.xl,
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: SPACING.xxxl,
+    marginBottom: SPACING.md,
   },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: SPACING.lg,
-  },
-  logoText: {
-    fontSize: FONT_SIZE.title,
-    fontWeight: "700",
+  logoImage: {
+    width: 200,
+    height: 200,
+    marginBottom: -SPACING.xxl *2,
   },
   title: {
-    fontSize: FONT_SIZE.xl,
+    fontSize: FONT_SIZE.title,
     fontWeight: "700",
     marginBottom: SPACING.xs,
   },
   subtitle: {
     fontSize: FONT_SIZE.md,
+    marginBottom: SPACING.xxl,
   },
   modeSwitch: {
     flexDirection: "row",

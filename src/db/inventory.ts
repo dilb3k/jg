@@ -9,23 +9,13 @@ const STORAGE_KEY = 'clubbar_inventory';
 
 const isProductVisibleOnDate = (product: Product, date: string): boolean => {
   const productCreatedDate = dayjs(product.createdAt).format('YYYY-MM-DD');
-
-  if (productCreatedDate > date) {
-    return false;
-  }
-
-  if (!product.isDeleted) {
-    return true;
-  }
-
-  const deletedDate = dayjs(product.updatedAt).format('YYYY-MM-DD');
-  return date < deletedDate;
+  return productCreatedDate <= date;
 };
 
 export const getAllInventoryEntries = async (): Promise<InventoryEntry[]> => {
   const data = await AsyncStorage.getItem(STORAGE_KEY);
   const entries: InventoryEntry[] = data ? JSON.parse(data) : [];
-  return entries.filter(e => !e.isDeleted);
+  return entries;
 };
 
 export const getInventoryByDate = async (date: string): Promise<InventoryEntry[]> => {
@@ -46,6 +36,7 @@ export const getInventoryWithProduct = async (date: string): Promise<(InventoryE
 
   const result: (InventoryEntry & { product: Product })[] = [];
   const processedProductIds = new Set<string>();
+  const newEntries: InventoryEntry[] = [];
 
   const prevDateStr = dayjs(date).subtract(1, 'day').format('YYYY-MM-DD');
   const prevInventory = await getInventoryByDate(prevDateStr);
@@ -66,12 +57,12 @@ export const getInventoryWithProduct = async (date: string): Promise<(InventoryE
       let startQty = product.quantity || 0;
       let currentQty = product.quantity || 0;
 
-      if (prevInv && !prevInv.isDeleted) {
-        startQty = prevInv.currentQuantity;
-        currentQty = prevInv.currentQuantity;
-      }
+    if (prevInv) {
+      startQty = prevInv.currentQuantity;
+      currentQty = prevInv.currentQuantity;
+    }
 
-      result.push({
+      const newEntry: InventoryEntry = {
         id: undefined,
         localId: `${date}-${product.localId}`,
         deviceId: '',
@@ -80,12 +71,17 @@ export const getInventoryWithProduct = async (date: string): Promise<(InventoryE
         startQuantity: startQty,
         currentQuantity: currentQty,
         note: '',
-        isDeleted: false,
         updatedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
-        product,
-      });
+      };
+      newEntries.push(newEntry);
+
+      result.push({ ...newEntry, product });
     }
+  }
+
+  if (newEntries.length > 0) {
+    await saveInventoryEntries(newEntries);
   }
 
   for (const inv of allInventory) {
@@ -98,7 +94,6 @@ export const getInventoryWithProduct = async (date: string): Promise<(InventoryE
         quantity: inv.currentQuantity,
         buyPrice: 0,
         sellPrice: 0,
-        isDeleted: false,
         createdAt: inv.createdAt,
         updatedAt: inv.updatedAt,
       };
@@ -132,11 +127,14 @@ export const updateInventoryEntry = async (entry: InventoryEntry): Promise<void>
 export const syncTodayInventoryWithProducts = async (): Promise<void> => {
   const today = getBusinessDate();
   const { getAllProducts } = await import('./products');
-  const products = (await getAllProducts()).filter((p) => !p.isDeleted);
+  const products = (await getAllProducts());
   const entries = await getAllInventoryEntries();
 
   let hasChanges = false;
   const nextEntries = [...entries];
+
+  const prevDateStr = dayjs(today).subtract(1, 'day').format('YYYY-MM-DD');
+  const prevEntries = entries.filter((e) => e.date === prevDateStr);
 
   products.forEach((product) => {
     const index = nextEntries.findIndex(
@@ -144,16 +142,18 @@ export const syncTodayInventoryWithProducts = async (): Promise<void> => {
     );
 
     if (index === -1) {
+      const prevInv = prevEntries.find((e) => e.productId === product.localId);
+      const prevQty = prevInv ? prevInv.currentQuantity : 0;
+
       const newEntry: InventoryEntry = {
         id: undefined,
         localId: `${today}-${product.localId}`,
         deviceId: product.deviceId,
         productId: product.localId,
         date: today,
-        startQuantity: product.quantity,
-        currentQuantity: product.quantity,
+        startQuantity: prevQty,
+        currentQuantity: prevQty,
         note: '',
-        isDeleted: false,
         updatedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
       };
@@ -163,18 +163,13 @@ export const syncTodayInventoryWithProducts = async (): Promise<void> => {
     }
 
     const existing = nextEntries[index];
-    const soldSoFar = Math.max(existing.startQuantity - existing.currentQuantity, 0);
-    const correctedCurrent = product.quantity;
-    const correctedStart = correctedCurrent + soldSoFar;
+    const priceChanged = existing.buyPrice !== product.buyPrice || existing.sellPrice !== product.sellPrice;
 
-    if (
-      existing.currentQuantity !== correctedCurrent ||
-      existing.startQuantity !== correctedStart
-    ) {
+    if (priceChanged) {
       nextEntries[index] = {
         ...existing,
-        currentQuantity: correctedCurrent,
-        startQuantity: correctedStart,
+        buyPrice: product.buyPrice,
+        sellPrice: product.sellPrice,
         updatedAt: new Date().toISOString(),
       };
       hasChanges = true;
@@ -191,15 +186,19 @@ export const deleteInventoryByLocalId = async (localId: string): Promise<void> =
   const entries: InventoryEntry[] = data ? JSON.parse(data) : [];
   const index = entries.findIndex(e => e.localId === localId);
   if (index !== -1) {
-    entries[index].isDeleted = true;
-    entries[index].updatedAt = new Date().toISOString();
+    entries.splice(index, 1);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
   }
 };
 
 export const saveInventoryEntries = async (entries: InventoryEntry[]): Promise<void> => {
   if (entries.length === 0) return;
-  const validEntries = entries.filter(e => e.date && e.localId);
+  const validEntries = entries.filter(e =>
+    e.date && e.localId &&
+    typeof e.startQuantity === 'number' &&
+    typeof e.currentQuantity === 'number' &&
+    e.productId
+  );
   if (validEntries.length === 0) return;
   const data = await AsyncStorage.getItem(STORAGE_KEY);
   const existing: InventoryEntry[] = data ? JSON.parse(data) : [];

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -7,6 +7,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -62,6 +63,8 @@ export default function ProductsScreen() {
   const isSuperAdmin = user?.role?.toLowerCase() === "superadmin";
   const isPayed = isSuperAdmin || (user?.isPayed ?? false);
   const canManageProducts = isPayed;
+  const userTier = user?.tier ?? "tekin";
+  const productLimit = userTier === "bor" ? 100 : null;
 
   const {
     products,
@@ -75,6 +78,7 @@ export default function ProductsScreen() {
 
   const [search, setSearch] = useState("");
   const [isListLoading, setIsListLoading] = useState(products.length === 0);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -108,6 +112,15 @@ export default function ProductsScreen() {
       setIsListLoading(false);
     }
   }, [loadProducts, products.length]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadProducts();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadProducts]);
 
   const getStockStatus = (qty: number) => {
     if (qty <= 0) return { label: "Tugagan", color: colors.danger };
@@ -333,6 +346,7 @@ export default function ProductsScreen() {
           placeholder={t("search")}
           value={search}
           onChangeText={setSearch}
+          containerStyle={{ flex: 1 }}
         />
         <Pressable
           style={[styles.addBtn, !canManageProducts && styles.addBtnDisabled]}
@@ -355,6 +369,17 @@ export default function ProductsScreen() {
         </View>
       ) : null}
 
+      {productLimit !== null ? (
+        <View style={[styles.limitBar, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <View style={styles.limitBarInner}>
+            <View style={[styles.limitFill, { width: `${Math.min((products.length / productLimit) * 100, 100)}%`, backgroundColor: products.length >= productLimit ? colors.danger : colors.primary }]} />
+          </View>
+          <Text style={[styles.limitText, { color: products.length >= productLimit ? colors.danger : colors.textSecondary }]}>
+            {t("productsUsed", { count: products.length, limit: productLimit })}
+          </Text>
+        </View>
+      ) : null}
+
       {isListLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -365,9 +390,11 @@ export default function ProductsScreen() {
           data={products}
           keyExtractor={(item) => item.localId}
           renderItem={renderItem}
-          // ✅ FIX: padding is inside list content, not on the screen edges
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Package size={48} color={colors.textTertiary} />
@@ -475,6 +502,39 @@ export default function ProductsScreen() {
                     { backgroundColor: colors.surfaceSecondary, borderColor: colors.border },
                   ]}
                 >
+                  {previewBuy > 0 && (
+                    <View style={styles.costPreviewRow}>
+                      <Text style={styles.costPreviewLabel}>{t("buyPrice")}</Text>
+                      <Text style={styles.costPreviewValue}>
+                        {formatMoney(previewBuy)}
+                      </Text>
+                    </View>
+                  )}
+                  {previewSell > 0 && (
+                    <View style={styles.costPreviewRow}>
+                      <Text style={styles.costPreviewLabel}>{t("sellPrice")}</Text>
+                      <Text style={styles.costPreviewValue}>
+                        {formatMoney(previewSell)}
+                      </Text>
+                    </View>
+                  )}
+                  {previewSell > 0 && previewBuy > 0 && (
+                    <View style={styles.costPreviewRow}>
+                      <Text style={styles.costPreviewLabel}>{t("profitPerUnit")}</Text>
+                      <Text style={[styles.costPreviewValue, { color: colors.secondary }]}>
+                        {formatMoney(previewSell - previewBuy)}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.costPreviewDivider} />
+                  {previewQty > 0 && (
+                    <View style={styles.costPreviewRow}>
+                      <Text style={styles.costPreviewLabel}>{t("totalRevenueLabelShort")}</Text>
+                      <Text style={styles.costPreviewValue}>
+                        {formatMoney(previewQty * previewSell)}
+                      </Text>
+                    </View>
+                  )}
                   <View style={styles.costPreviewRow}>
                     <Text style={styles.costPreviewLabel}>{t("totalProductCost")}</Text>
                     <Text style={styles.costPreviewValue}>{formatMoney(previewTotalCost)}</Text>
@@ -493,6 +553,14 @@ export default function ProductsScreen() {
                       {formatMoney(previewExpectedProfit)}
                     </Text>
                   </View>
+                  {previewSell > 0 && previewBuy > 0 && previewQty > 0 && (
+                    <View style={styles.costPreviewRow}>
+                      <Text style={styles.costPreviewLabel}>{t("profitMarginPercent")}</Text>
+                      <Text style={[styles.costPreviewValue, { color: colors.secondary }]}>
+                        {((previewSell - previewBuy) / previewSell * 100).toFixed(1)}%
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
 
@@ -601,6 +669,26 @@ export default function ProductsScreen() {
                         {restockProduct.quantity + parseInt(restockQty || "0", 10)}
                       </Text>
                     </View>
+                    <View style={[styles.previewDivider, { backgroundColor: colors.border }]} />
+                    {restockProduct.buyPrice > 0 && (
+                      <View style={styles.previewRow}>
+                        <Text style={styles.previewLabel}>{t("restockCost")}</Text>
+                        <Text style={styles.previewValue}>
+                          {formatMoney(parseInt(restockQty || "0", 10) * restockProduct.buyPrice)}
+                        </Text>
+                      </View>
+                    )}
+                    {restockProduct.buyPrice > 0 && restockProduct.sellPrice > 0 && (
+                      <View style={styles.previewRow}>
+                        <Text style={styles.previewLabel}>{t("expectedProfitAmount")}</Text>
+                        <Text style={[styles.previewValue, { color: colors.secondary }]}>
+                          {formatMoney(
+                            parseInt(restockQty || "0", 10) *
+                              (restockProduct.sellPrice - restockProduct.buyPrice),
+                          )}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 ) : null}
               </>
@@ -699,6 +787,30 @@ const createStyles = (colors: ThemeColors) =>
     },
     premiumBannerText: { fontSize: FONT_SIZE.sm, fontWeight: "600", textAlign: "center" },
 
+    limitBar: {
+      marginHorizontal: SPACING.lg,
+      marginBottom: SPACING.sm,
+      paddingVertical: SPACING.sm,
+      paddingHorizontal: SPACING.md,
+      borderRadius: BORDER_RADIUS.md,
+      borderWidth: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SPACING.sm,
+    },
+    limitBarInner: {
+      flex: 1,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.border,
+      overflow: "hidden",
+    },
+    limitFill: {
+      height: "100%",
+      borderRadius: 3,
+    },
+    limitText: { fontSize: FONT_SIZE.xs, fontWeight: "600" },
+
     loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
     loadingText: { marginTop: SPACING.md, color: colors.textSecondary, fontSize: FONT_SIZE.md },
 
@@ -791,6 +903,7 @@ const createStyles = (colors: ThemeColors) =>
     costPreviewRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     costPreviewLabel: { fontSize: FONT_SIZE.sm, color: colors.textSecondary },
     costPreviewValue: { fontSize: FONT_SIZE.md, fontWeight: "700", color: colors.text },
+    costPreviewDivider: { height: 1, backgroundColor: colors.border, marginVertical: SPACING.xs },
     modalContainer: { flex: 1, backgroundColor: colors.background },
     modalHeader: {
       flexDirection: "row",

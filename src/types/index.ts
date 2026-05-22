@@ -9,7 +9,6 @@ export interface Product {
   sellPrice: number;
   image?: string;
   displayIndex?: number;
-  isDeleted: boolean;
   updatedAt: string;
   createdAt: string;
 }
@@ -29,7 +28,6 @@ export interface InventoryEntry {
   revenue?: number;
   realizedProfit?: number;
   note?: string;
-  isDeleted: boolean;
   updatedAt: string;
   createdAt: string;
 }
@@ -75,7 +73,6 @@ export interface DailySnapshot {
   totalProfit: number;
   totalSoldItems: number;
   items: DailySnapshotItem[];
-  isDeleted: boolean;
   updatedAt: string;
   createdAt: string;
 }
@@ -104,9 +101,9 @@ export interface AppMeta {
   value: string;
 }
 
-export type ProductInput = Omit<Product, 'id' | 'localId' | 'deviceId' | 'updatedAt' | 'createdAt' | 'isDeleted'> & { quantity?: number };
-export type InventoryInput = Omit<InventoryEntry, 'id' | 'localId' | 'deviceId' | 'updatedAt' | 'createdAt' | 'isDeleted'>;
-export type SnapshotInput = Omit<DailySnapshot, 'id' | 'localId' | 'deviceId' | 'updatedAt' | 'createdAt' | 'isDeleted'>;
+export type ProductInput = Omit<Product, 'id' | 'localId' | 'deviceId' | 'updatedAt' | 'createdAt'> & { quantity?: number };
+export type InventoryInput = Omit<InventoryEntry, 'id' | 'localId' | 'deviceId' | 'updatedAt' | 'createdAt'>;
+export type SnapshotInput = Omit<DailySnapshot, 'id' | 'localId' | 'deviceId' | 'updatedAt' | 'createdAt'>;
 
 export interface StatisticsData {
   date: string;
@@ -147,6 +144,8 @@ export interface DebtHistory {
   date: string;
 }
 
+export type SubscriptionTier = "tekin" | "bor" | "pro";
+
 export interface AuthUser {
   id: string;
   username: string;
@@ -154,6 +153,8 @@ export interface AuthUser {
   createdBy: string | null;
   isActive: boolean;
   isPayed: boolean;
+  tier: SubscriptionTier;
+  subscriptionEndDate?: string | null;
   businessDayStartHour?: number;
   createdAt: string;
   updatedAt: string;
@@ -163,4 +164,28 @@ export interface AuthState {
   isAuthenticated: boolean;
   user: AuthUser | null;
   token: string | null;
+}
+
+export interface DatabaseStats {
+  database: {
+    name: string;
+    size: string;
+    storageSize: string;
+    indexSize: string;
+    totalSize: string;
+    collections: number;
+    objects: number;
+    avgObjectSize: string;
+  };
+  records: {
+    totalAdmins: number;
+    totalProducts: number;
+    totalInventory: number;
+    totalSnapshots: number;
+    totalDebtors: number;
+    totalSubscriptions: number;
+    totalActiveSubscriptions: number;
+    totalRecords: number;
+  };
+  collections?: Record<string, { count: number; size: string }>;
 }

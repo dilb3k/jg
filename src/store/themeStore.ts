@@ -24,7 +24,7 @@ interface ThemeStore {
 export const useThemeStore = create<ThemeStore>((set, get) => ({
   theme: 'dark',
   language: 'uz',
-  connectionMode: 'offline',
+  connectionMode: 'online',
 
   setTheme: async (newTheme: ThemeMode) => {
     set({ theme: newTheme });
@@ -79,7 +79,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
         : 'uz';
       const connectionMode = (savedConnectionMode === 'online' || savedConnectionMode === 'offline')
         ? savedConnectionMode
-        : 'offline';
+        : 'online';
 
       setApiConnectionMode(connectionMode);
       set({ theme, language, connectionMode });

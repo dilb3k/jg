@@ -5,14 +5,14 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
-    "splash": {
-      "image": "./assets/logo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#7C3AED"
-    },
     "scheme": "hisvex",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#070512"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dilbek.mediaapp",
@@ -21,12 +21,13 @@
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#7C3AED",
-        "foregroundImage": "./assets/logo.png"
-      },
+      "package": "com.dilbek.mediaapp",
+      "versionCode": 1,
       "edgeToEdgeEnabled": true,
-      "package": "com.dilbek.mediaapp"
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#070512"
+      }
     },
     "web": {
       "output": "static",
@@ -41,14 +42,19 @@
     "experiments": {
       "typedRoutes": true
     },
-    "nodeModules": "./.expo/node_modules",
     "extra": {
       "EXPO_PUBLIC_API_BASE_URL": "https://comp-bar-server-1.onrender.com/api",
+      "router": {},
       "eas": {
-        "projectId": "a22c3b7d-4be4-4322-b573-5abc6a65a02f"
-      },
-      "router": {}
+        "projectId": "2319ed04-72c5-4a00-9ea5-532ecf90bb74"
+      }
     },
-    "owner": "dilbek1"
+    "owner": "hisvex",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2319ed04-72c5-4a00-9ea5-532ecf90bb74"
+    }
   }
 }

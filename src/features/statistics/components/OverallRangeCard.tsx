@@ -46,7 +46,6 @@ export function OverallRangeCard({ rangeLabel, totals }: Props) {
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.cardHeaderInfo}>
-          <Text style={styles.cardTitle}>{t("ranging_overall")}</Text>
           <Text style={styles.rangeLabel}>{rangeLabel}</Text>
         </View>
       </View>

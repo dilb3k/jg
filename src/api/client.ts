@@ -1,10 +1,11 @@
-﻿import axios, { AxiosError, AxiosInstance } from "axios";
+import axios, { AxiosError, AxiosInstance } from "axios";
 import NetInfo from "@react-native-community/netinfo";
 
 import { API_BASE_URL } from "../constants";
 import type {
   AuthUser,
   DailySnapshot,
+  DatabaseStats,
   Debtor,
   InventoryEntry,
   InventorySummary,
@@ -84,28 +85,16 @@ type BulkCurrentInventoryItem = {
 };
 
 let isOnline = false;
-let connectionMode: "online" | "offline" = "offline";
-let wasAutoSetOffline = false;
+let connectionMode: "online" | "offline" = "online";
 let moduleConnectionModeChangeHandler: ((mode: "online" | "offline") => void) | null = null;
 
 NetInfo.addEventListener((state) => {
   const connected = state.isConnected ?? false;
   isOnline = connected;
-
-  if (connected && wasAutoSetOffline) {
-    wasAutoSetOffline = false;
-    connectionMode = "online";
-    moduleConnectionModeChangeHandler?.("online");
-  }
 });
 
 export const setConnectionMode = (mode: "online" | "offline") => {
   connectionMode = mode;
-  wasAutoSetOffline = false;
-};
-
-const notifyConnectionModeChange = (mode: "online" | "offline") => {
-  moduleConnectionModeChangeHandler?.(mode);
 };
 
 export const getConnectionMode = (): "online" | "offline" => {
@@ -135,7 +124,6 @@ const backendItemToEntry = (
   revenue: item.revenue,
   realizedProfit: item.realizedProfit,
   note: item.note || "",
-  isDeleted: false,
   updatedAt: item.updatedAt || new Date().toISOString(),
   createdAt: item.createdAt || new Date().toISOString(),
 });
@@ -239,7 +227,6 @@ const joinInventoryWithProducts = (
       quantity: entry.currentQuantity,
       buyPrice: 0,
       sellPrice: 0,
-      isDeleted: false,
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
     },
@@ -275,7 +262,7 @@ class ApiClient {
 
      this.client.interceptors.response.use(
        (response) => response,
-        (error: AxiosError<{ success?: boolean; error?: { message?: string; details?: unknown }; message?: string }>) => {
+         (error: AxiosError<{ success?: boolean; error?: { message?: string; details?: unknown }; message?: string }>) => {
           if (error.response?.status === 401) {
             const data = error.response?.data;
             if (data && typeof data === "object") {
@@ -296,15 +283,13 @@ class ApiClient {
              new Error("So'rov vaqti tugadi. Internet aloqasini tekshiring."),
            );
          }
-         if (error.code === "ERR_NETWORK") {
-           wasAutoSetOffline = true;
-           connectionMode = "offline";
-           moduleConnectionModeChangeHandler?.("offline");
-           this.connectionModeChangeHandler?.("offline");
-           return Promise.reject(
-             new Error("Tarmoq xatoligi. Server bilan aloqa yo'q."),
-           );
-         }
+          if (error.code === "ERR_NETWORK") {
+            connectionMode = "offline";
+            moduleConnectionModeChangeHandler?.("offline");
+            return Promise.reject(
+              new Error("Tarmoq xatoligi. Server bilan aloqa yo'q."),
+            );
+          }
 
          const data = error.response?.data;
          let message: string;
@@ -363,7 +348,7 @@ class ApiClient {
         return dbProducts.searchProducts(search);
       }
       const products = await dbProducts.getAllProducts();
-      return products.filter((p) => !p.isDeleted);
+      return products;
     }
 
     try {
@@ -376,11 +361,11 @@ class ApiClient {
       return products.map((p: Product) => ({
         ...p,
         image: resolveImageUrl(p.image),
-      })).filter((p) => !p.isDeleted);
-    } catch (error) {
-      console.error("API getProducts failed, falling back to local:", error);
+      }));
+    } catch (err) {
+      console.error("API getProducts failed, falling back to local:", err);
       const products = await dbProducts.getAllProducts();
-      return products.filter((p) => !p.isDeleted);
+      return products;
     }
   }
 
@@ -406,6 +391,7 @@ class ApiClient {
 
   async createProduct(product: Product): Promise<Product> {
     await dbProducts.createProduct(product);
+    await dbInventory.syncTodayInventoryWithProducts();
 
     if (!canReachServer()) {
       await dbSyncQueue.addToSyncQueue({
@@ -432,7 +418,7 @@ class ApiClient {
       });
       const created = this.unwrap(response);
       return { ...created, image: resolveImageUrl(created.image) };
-    } catch (error) {
+    } catch {
       await dbSyncQueue.addToSyncQueue({
         id: product.localId,
         entityType: "product",
@@ -450,20 +436,41 @@ class ApiClient {
       return product as Product;
     }
 
+    const priceChanged = (product.buyPrice !== undefined && product.buyPrice !== existing.buyPrice) ||
+      (product.sellPrice !== undefined && product.sellPrice !== existing.sellPrice);
+    const quantityChanged = product.quantity !== undefined && product.quantity !== existing.quantity;
+
     const updated = { ...existing, ...product, updatedAt: new Date().toISOString() };
     await dbProducts.updateProduct(updated);
 
-    const allInv = await dbInventory.getAllInventoryEntries();
-    const affectedInv = allInv.filter((e) => e.productId === id);
-    if (affectedInv.length > 0) {
-      for (const inv of affectedInv) {
-        inv.buyPrice = updated.buyPrice;
-        inv.sellPrice = updated.sellPrice;
-      }
-      await dbInventory.saveInventoryEntries(affectedInv);
-    }
+    if (priceChanged || quantityChanged) {
+      await dbInventory.syncTodayInventoryWithProducts();
 
-    await dbInventory.syncTodayInventoryWithProducts();
+      if (quantityChanged) {
+        const today = getBusinessDate();
+        const allInv = await dbInventory.getAllInventoryEntries();
+        const todayEntry = allInv.find((e) => e.productId === id && e.date === today);
+        if (todayEntry) {
+          const delta = product.quantity - existing.quantity;
+          todayEntry.startQuantity = (todayEntry.startQuantity ?? 0) + delta;
+          todayEntry.currentQuantity = (todayEntry.currentQuantity ?? 0) + delta;
+          todayEntry.updatedAt = new Date().toISOString();
+          await dbInventory.saveInventoryEntries([todayEntry]);
+        }
+      }
+
+      if (priceChanged) {
+        const allInv = await dbInventory.getAllInventoryEntries();
+        const affectedInv = allInv.filter((e) => e.productId === id && e.date === getBusinessDate());
+        for (const inv of affectedInv) {
+          inv.buyPrice = updated.buyPrice;
+          inv.sellPrice = updated.sellPrice;
+        }
+        if (affectedInv.length > 0) {
+          await dbInventory.saveInventoryEntries(affectedInv);
+        }
+      }
+    }
 
     if (!canReachServer()) {
       await dbSyncQueue.addToSyncQueue({
@@ -477,13 +484,18 @@ class ApiClient {
     }
 
     try {
+      const payload = { ...updated };
+      if (payload.displayIndex !== undefined && payload.displayIndex < 1) {
+        delete payload.displayIndex;
+      }
+
       const response = await this.client.put<ApiResponse<Product>>(
         `/products/${id}`,
-        updated,
+        payload,
       );
       const apiUpdated = this.unwrap(response);
       return { ...apiUpdated, image: resolveImageUrl(apiUpdated.image) };
-    } catch (error) {
+    } catch {
       await dbSyncQueue.addToSyncQueue({
         id,
         entityType: "product",
@@ -511,7 +523,7 @@ class ApiClient {
 
     try {
       await this.client.delete(`/products/${id}`);
-    } catch (error) {
+    } catch {
       await dbSyncQueue.addToSyncQueue({
         id,
         entityType: "product",
@@ -548,8 +560,8 @@ class ApiClient {
         await dbInventory.saveInventoryEntries(entries);
       }
       return { entries, summary: summary as InventorySummary | undefined };
-    } catch (error) {
-      console.error("API getInventory failed, falling back to local:", error);
+    } catch (err) {
+      console.error("API getInventory failed, falling back to local:", err);
       const result = date ? await dbInventory.getInventoryByDate(date) : [];
       return { entries: result };
     }
@@ -599,12 +611,11 @@ class ApiClient {
             deviceId: entry.deviceId,
             entityType: "product" as const,
             name: "Noma'lum mahsulot",
-            quantity: entry.currentQuantity,
-            buyPrice: 0,
-            sellPrice: 0,
-            isDeleted: false,
-            createdAt: entry.createdAt,
-            updatedAt: entry.updatedAt,
+      quantity: entry.currentQuantity,
+      buyPrice: 0,
+      sellPrice: 0,
+      createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
           },
         };
       });
@@ -640,7 +651,6 @@ class ApiClient {
           revenue: item.revenue,
           realizedProfit: item.realizedProfit,
           note: item.note || "",
-          isDeleted: false,
           updatedAt: item.updatedAt || new Date().toISOString(),
           createdAt: item.createdAt || new Date().toISOString(),
         }));
@@ -672,7 +682,6 @@ class ApiClient {
         stockBuyValue: item.stockBuyValue,
         potentialProfit: item.potentialProfit,
         marginPercent: item.marginPercent,
-        isDeleted: false,
         updatedAt: item.updatedAt || new Date().toISOString(),
         createdAt: item.createdAt || new Date().toISOString(),
         product: item.product
@@ -686,7 +695,6 @@ class ApiClient {
               buyPrice: item.buyPrice || 0,
               sellPrice: item.sellPrice || 0,
               image: item.image || "",
-              isDeleted: false,
               createdAt: item.createdAt || new Date().toISOString(),
               updatedAt: item.updatedAt || new Date().toISOString(),
             }),
@@ -746,7 +754,6 @@ class ApiClient {
         startQuantity: item.startQuantity,
         currentQuantity: item.currentQuantity ?? item.startQuantity,
         note: item.note || "",
-        isDeleted: false,
         updatedAt: new Date().toISOString(),
         createdAt: item.createdAt || new Date().toISOString(),
       };
@@ -770,7 +777,7 @@ class ApiClient {
         date: inventoryDate,
         items,
       });
-    } catch (error) {
+    } catch {
       await dbSyncQueue.addToSyncQueue({
         id: `start-day-${inventoryDate}`,
         entityType: "inventory",
@@ -820,7 +827,7 @@ class ApiClient {
         date: inventoryDate,
         items,
       });
-    } catch (error) {
+    } catch {
       await dbSyncQueue.addToSyncQueue({
         id: `bulk-update-${inventoryDate}`,
         entityType: "inventory",
@@ -866,8 +873,8 @@ class ApiClient {
       const snapshots = this.unwrap(response);
       await dbSnapshots.saveSnapshots(snapshots);
       return snapshots;
-    } catch (error) {
-      console.error("API getSnapshotsRange failed, falling back to local:", error);
+    } catch (err) {
+      console.error("API getSnapshotsRange failed, falling back to local:", err);
       return dbSnapshots.getSnapshotsRange(from, to);
     }
   }
@@ -892,7 +899,7 @@ class ApiClient {
         snapshot,
       );
       return this.unwrap(response);
-    } catch (error) {
+    } catch {
       await dbSyncQueue.addToSyncQueue({
         id: snapshot.localId,
         entityType: "snapshot",
@@ -917,13 +924,21 @@ class ApiClient {
       throw new Error("Serverga ulanib bo'lmadi. Oflayn rejimda sync ishlamaydi.");
     }
 
+    const sanitizedProducts = (data.products ?? []).map((p) => {
+      if (p.displayIndex !== undefined && p.displayIndex < 1) {
+        const { displayIndex: _, ...rest } = p;
+        return rest;
+      }
+      return p;
+    });
+
     const response = await this.client.post<
       ApiResponse<{
         products: Product[];
         inventory: InventoryEntry[];
         serverTime: string;
       }>
-    >("/sync", data);
+    >("/sync", { ...data, products: sanitizedProducts });
 
     const result = this.unwrap(response) as {
       products: Product[];
@@ -931,13 +946,40 @@ class ApiClient {
       serverTime: string;
     };
 
-    const serverProducts = result.products || [];
-    await Promise.all([
-      dbProducts.saveProducts(serverProducts),
-      dbInventory.saveInventoryEntries(result.inventory || []),
+    const [localProducts, localInventory] = await Promise.all([
+      dbProducts.getAllProducts(),
+      dbInventory.getAllInventoryEntries(),
     ]);
 
-    const resolvedProducts = serverProducts.map((p) => ({
+    const serverProductMap = new Map(
+      (result.products || []).map((p) => [p.localId, p]),
+    );
+    const serverInventoryMap = new Map(
+      (result.inventory || []).map((i) => [i.localId, i]),
+    );
+
+    const mergedProducts = localProducts.map((p) =>
+      serverProductMap.has(p.localId) ? serverProductMap.get(p.localId)! : p,
+    );
+    const newServerProducts = (result.products || []).filter(
+      (p) => !localProducts.some((lp) => lp.localId === p.localId),
+    );
+    mergedProducts.push(...newServerProducts);
+
+    const mergedInventory = localInventory.map((i) =>
+      serverInventoryMap.has(i.localId) ? serverInventoryMap.get(i.localId)! : i,
+    );
+    const newServerInventory = (result.inventory || []).filter(
+      (i) => !localInventory.some((li) => li.localId === i.localId),
+    );
+    mergedInventory.push(...newServerInventory);
+
+    await Promise.all([
+      dbProducts.saveProducts(mergedProducts),
+      dbInventory.saveInventoryEntries(mergedInventory),
+    ]);
+
+    const resolvedProducts = mergedProducts.map((p) => ({
       ...p,
       image: resolveImageUrl(p.image),
     }));
@@ -955,12 +997,14 @@ class ApiClient {
     const upsertResults = await Promise.allSettled(
       upsertItems.map(async (item) => {
         if (item.entityType === "product") {
-          const data = item.data as Product;
+          const data = { ...(item.data as Product) };
+          if (data.displayIndex !== undefined && data.displayIndex < 1) {
+            delete data.displayIndex;
+          }
           await this.client.put(`/products/${item.id}`, data);
         } else if (item.entityType === "inventory") {
           const data = item.data as { deviceId: string; items: StartDayInventoryItem[] | BulkCurrentInventoryItem[]; date: string };
           if (data.items?.length > 0) {
-            // Route to correct endpoint based on queue item id prefix
             if (item.id.startsWith("bulk-update-")) {
               await this.client.put("/inventory/bulk-current", data);
             } else {
@@ -978,6 +1022,10 @@ class ApiClient {
       deleteItems.map(async (item) => {
         if (item.entityType === "product") {
           await this.client.delete(`/products/${item.id}`);
+        } else if (item.entityType === "inventory") {
+          await this.client.delete(`/inventory/entry/${item.id}`);
+        } else if (item.entityType === "snapshot") {
+          await this.client.delete(`/snapshots/daily/${item.id}`);
         }
       })
     );
@@ -1001,9 +1049,6 @@ class ApiClient {
     username: string,
     password: string,
   ): Promise<{ token: string; user: AuthUser }> {
-    if (!canReachServer()) {
-      throw new Error("Ro'yxatdan o'tish uchun server kerak");
-    }
     const response = await this.client.post<
       ApiResponse<{ token: string; user: AuthUser }>
     >("/auth/register", { username, password });
@@ -1042,13 +1087,13 @@ class ApiClient {
     return this.unwrap(response);
   }
 
-  async createAdmin(username: string, password: string, isPayed?: boolean): Promise<AuthUser> {
+  async createAdmin(username: string, password: string, tier?: "tekin" | "bor" | "pro"): Promise<AuthUser> {
     if (!canReachServer()) {
       throw new Error("Admin yaratish uchun server kerak");
     }
     const payload: Record<string, any> = { username, password };
-    if (isPayed !== undefined) {
-      payload.isPayed = isPayed;
+    if (tier !== undefined) {
+      payload.tier = tier;
     }
     const response = await this.client.post<ApiResponse<AuthUser>>(
       "/auth/admins",
@@ -1057,13 +1102,34 @@ class ApiClient {
     return this.unwrap(response);
   }
 
-  async updateAdmin(id: string, data: { username?: string; password?: string; isPayed?: boolean }): Promise<AuthUser> {
+  async bulkUpdateUsersTier(tier: "tekin" | "bor" | "pro"): Promise<void> {
+    if (!canReachServer()) {
+      throw new Error("Server kerak");
+    }
+    const response = await this.client.put<ApiResponse<void>>(
+      `/auth/users/tier`,
+      { tier },
+    );
+    return this.unwrap(response);
+  }
+
+  async updateAdmin(id: string, data: { username?: string; password?: string; tier?: "tekin" | "bor" | "pro" }): Promise<AuthUser> {
     if (!canReachServer()) {
       throw new Error("Admin tahrirlash uchun server kerak");
     }
     const response = await this.client.put<ApiResponse<AuthUser>>(
       `/auth/admins/${id}`,
       data,
+    );
+    return this.unwrap(response);
+  }
+
+  async getDatabaseStats(): Promise<DatabaseStats> {
+    if (!canReachServer()) {
+      throw new Error("Statistika yuklash uchun server kerak");
+    }
+    const response = await this.client.get<ApiResponse<DatabaseStats>>(
+      "/stats",
     );
     return this.unwrap(response);
   }
@@ -1105,7 +1171,7 @@ class ApiClient {
     return this.unwrap(response);
   }
 
-  async updateDebtor(id: string, data: { name?: string; amount?: number }): Promise<Debtor> {
+  async updateDebtor(id: string, data: { name?: string; phone?: string; notes?: string }): Promise<Debtor> {
     if (!canReachServer()) {
       throw new Error("Qarzdorni tahrirlash uchun server kerak");
     }

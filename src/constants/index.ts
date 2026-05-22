@@ -1,4 +1,4 @@
-﻿// Re-export theme constants for backward compatibility
+// Re-export theme constants for backward compatibility
 export { SPACING, FONT_SIZE, FONT_FAMILY, BORDER_RADIUS, SHADOWS } from '../theme';
 
 // Light theme colors as default for backward compatibility
@@ -27,8 +27,8 @@ export const COLORS = {
 };
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://comp-bar-server-1.onrender.com/api';
-// IMPORTANT: Must match BUSINESS_DAY_START_HOUR in bar-backend/backend/src/config/env.ts (default 2)
-export const BUSINESS_DAY_START_HOUR = Number(process.env.EXPO_PUBLIC_BUSINESS_DAY_START_HOUR) || 7;
+// IMPORTANT: Must match BUSINESS_DAY_START_HOUR in bar-backend/backend/src/config/env.ts (default 0)
+export const BUSINESS_DAY_START_HOUR = Number(process.env.EXPO_PUBLIC_BUSINESS_DAY_START_HOUR) || 6;
 
 export const STORAGE_KEYS = {
   DEVICE_ID: 'device_id',

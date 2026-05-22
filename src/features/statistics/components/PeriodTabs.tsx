@@ -5,7 +5,7 @@ import { createStatisticsStyles } from "../styles";
 import { useTheme } from "../../../store/themeStore";
 import { useI18n } from "../../../i18n";
 
-export type PeriodType = "daily" | "weekly" | "monthly" | "yearly";
+export type PeriodType = "daily" | "monthly" | "yearly";
 
 type Props = {
   period: PeriodType;
@@ -18,7 +18,6 @@ export function PeriodTabs({ period, onChange }: Props) {
   const { t } = useI18n();
   const labels: Record<PeriodType, string> = {
     daily: t("daily"),
-    weekly: t("weekly"),
     monthly: t("monthly"),
     yearly: t("yearly"),
   };

@@ -1,13 +1,13 @@
-import { useCallback, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Linking,
+  RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
 import { Lock, MessageCircle, RefreshCw, Download, CalendarClock } from "lucide-react-native";
 import dayjs from "dayjs";
 
@@ -27,22 +27,20 @@ import { useStatisticsData } from "../../src/features/statistics/hooks/useStatis
 import { createStatisticsStyles } from "../../src/features/statistics/styles";
 import { useStatisticsScreenStore, useAuthStore } from "../../src/store/selectors";
 import { useStore } from "../../src/store";
-import { apiClient } from "../../src/api/client";
+import { apiClient, canReachServer } from "../../src/api/client";
 import { getBusinessDate } from "../../src/utils/businessDay";
 import { formatMoney } from "../../src/utils/inventory";
 import { useTheme } from "../../src/store/themeStore";
 import { useI18n } from "../../src/i18n";
-import { useNetworkStatus } from "../../src/hooks/useNetworkStatus";
+import { BORDER_RADIUS, FONT_SIZE, SPACING } from "../../src/theme";
 import {
   buildStatisticsCsv,
-  buildStatisticsDailyRows,
   buildStatisticsProductRows,
   shareStatisticsFile,
 } from "../../src/utils/statisticsExport";
 
 const PERIOD_UNIT: Record<PeriodType, dayjs.ManipulateType> = {
   daily: "day",
-  weekly: "week",
   monthly: "month",
   yearly: "year",
 };
@@ -51,7 +49,6 @@ export default function StatisticsScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const { user, setUser } = useAuthStore();
-  const loadSnapshots = useStore((s) => s.loadSnapshots);
   const snapshots = useStore((s) => s.snapshots);
   const showToast = useStore((s) => s.showToast);
   const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
@@ -65,7 +62,7 @@ export default function StatisticsScreen() {
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
   const [pickerDate, setPickerDate] = useState(() => getBusinessDate());
   const [showAllTimeModal, setShowAllTimeModal] = useState(false);
-  const [statsRefreshToken, setStatsRefreshToken] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   const {
     overallTotals,
@@ -75,6 +72,7 @@ export default function StatisticsScreen() {
     inventoryItems,
     periodSnapshots,
     isLoading,
+    fetchInventory,
   } = useStatisticsData({
       getStatistics,
       products,
@@ -82,8 +80,20 @@ export default function StatisticsScreen() {
       period,
       selectedDate,
       isPayed,
-      refreshToken: statsRefreshToken,
     });
+
+  useEffect(() => {
+    void fetchInventory();
+  }, [fetchInventory]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchInventory();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchInventory]);
 
   const earliestSnapshotDate = useMemo(() => {
     if (!snapshots.length) return null;
@@ -101,14 +111,6 @@ export default function StatisticsScreen() {
     }, snapshots[0]?.date ?? null);
   }, [snapshots]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!isPayed) return;
-      setStatsRefreshToken((n) => n + 1);
-      void loadSnapshots();
-    }, [isPayed, loadSnapshots]),
-  );
-
   const handleDateChange = (dir: number) => {
     setSelectedDate(
       dayjs(selectedDate).add(dir, PERIOD_UNIT[period]).format("YYYY-MM-DD"),
@@ -119,16 +121,12 @@ export default function StatisticsScreen() {
     switch (period) {
       case "daily":
         return dayjs(selectedDate).format("DD MMMM YYYY");
-      case "weekly":
-        return `${dayjs(selectedDate).startOf("week").format("DD MMM")} - ${dayjs(selectedDate).endOf("week").format("DD MMM YYYY")}`;
       case "monthly":
         return dayjs(selectedDate).format("MMMM YYYY");
       case "yearly":
         return dayjs(selectedDate).format("YYYY");
     }
   }, [period, selectedDate]);
-
-  const { isServerReachable } = useNetworkStatus();
 
   const [refreshingUser, setRefreshingUser] = useState(false);
 
@@ -144,6 +142,10 @@ export default function StatisticsScreen() {
     }
   };
 
+  const handleRefreshStats = () => {
+    void fetchInventory();
+  };
+
   const marginPercent =
     currentPeriodStats.totalRevenue > 0
       ? Math.round(
@@ -157,12 +159,11 @@ export default function StatisticsScreen() {
       periodSnapshots,
       products,
     );
-    const dailyRows = buildStatisticsDailyRows(periodSnapshots);
 
     const payload = {
       periodLabel,
       productRows,
-      dailyRows,
+      dailyRows: [],
       labels: {
         title: t("statistics"),
         period: t("statisticsPeriod"),
@@ -189,7 +190,8 @@ export default function StatisticsScreen() {
     };
     try {
       const csv = buildStatisticsCsv(payload);
-      const fileName = await shareStatisticsFile(csv, "hisvex-statistics", "csv");
+      const filePath = await shareStatisticsFile(csv, "hisvex-statistics", "csv");
+      const fileName = filePath.substring(filePath.lastIndexOf("/") + 1);
       showToast(t("exportFileSaved", { fileName }), "success");
     } catch {
       showToast(t("exportFileError"), "error");
@@ -245,36 +247,30 @@ export default function StatisticsScreen() {
         </View>
         <TouchableOpacity
           style={styles.refreshButton}
-          onPress={handleRefreshUser}
-          disabled={refreshingUser}
+          onPress={handleRefreshStats}
         >
-          {refreshingUser ? (
-            <ActivityIndicator size="small" color={colors.white} />
-          ) : (
-            <RefreshCw size={18} color={colors.white} />
-          )}
+          <RefreshCw size={18} color={colors.white} />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.dateNav}>
-        <TouchableOpacity style={styles.navButton} onPress={() => handleDateChange(-1)}>
-          <Text style={styles.navButtonText}>{"<"}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", marginVertical: SPACING.sm, marginHorizontal: SPACING.lg, backgroundColor: colors.primary, borderRadius: BORDER_RADIUS.lg, paddingHorizontal: SPACING.sm }}>
+        <TouchableOpacity style={{ width: 36, height: 36, justifyContent: "center", alignItems: "center" }} onPress={() => handleDateChange(-1)}>
+          <Text style={{ fontSize: FONT_SIZE.lg, color: colors.white, fontWeight: "600" }}>{"<"}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.datePickerButton}
+          style={{ flex: 1, alignItems: "center", paddingVertical: SPACING.sm }}
           onPress={() => {
             setPickerDate(selectedDate);
             setShowPeriodPicker(true);
           }}
           activeOpacity={0.85}
         >
-          <Text style={styles.dateText}>{periodLabel}</Text>
-          <Text style={styles.dateHint}>{t("selectDateHint")}</Text>
+          <Text style={{ fontSize: FONT_SIZE.md, fontWeight: "700", color: colors.white }}>{periodLabel}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navButton} onPress={() => handleDateChange(1)}>
-          <Text style={styles.navButtonText}>{">"}</Text>
+        <TouchableOpacity style={{ width: 36, height: 36, justifyContent: "center", alignItems: "center" }} onPress={() => handleDateChange(1)}>
+          <Text style={{ fontSize: FONT_SIZE.lg, color: colors.white, fontWeight: "600" }}>{">"}</Text>
         </TouchableOpacity>
       </View>
 
@@ -295,7 +291,7 @@ export default function StatisticsScreen() {
         </TouchableOpacity>
       </View>
 
-      {!isServerReachable && (
+      {!canReachServer() && (
         <View style={styles.offlineBanner}>
           <Text style={styles.offlineBannerText}>{t("offlineDateWarning")}</Text>
         </View>
@@ -307,7 +303,12 @@ export default function StatisticsScreen() {
           <Text style={styles.loadingText}>{t("loading")}</Text>
         </View>
       ) : (
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }>
           <StatsSummaryCard
             title={t("totalRevenueLabel")}
             items={[
@@ -361,6 +362,7 @@ export default function StatisticsScreen() {
         visible={showPeriodPicker}
         title={t("selectPeriodDate")}
         selectedDate={pickerDate}
+        pickerMode={period === "daily" ? "day" : period === "monthly" ? "month" : "year"}
         onClose={() => setShowPeriodPicker(false)}
         onConfirm={(date) => {
           setPickerDate(date);

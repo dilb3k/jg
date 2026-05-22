@@ -21,18 +21,24 @@ export const getAllProducts = async (): Promise<Product[]> => {
 
 export const getProductByLocalId = async (localId: string): Promise<Product | null> => {
   const products = await getAllProducts();
-  return products.find(p => p.localId === localId && !p.isDeleted) || null;
+  return products.find(p => p.localId === localId) || null;
 };
 
 export const searchProducts = async (query: string): Promise<Product[]> => {
   const products = await getAllProducts();
   const q = query.toLowerCase();
-  return products.filter(p => !p.isDeleted && (p.name.toLowerCase().includes(q)));
+  return products.filter(p => p.name.toLowerCase().includes(q));
 };
 
 export const createProduct = async (product: Product): Promise<void> => {
   const products = await getAllProducts();
-  products.push(product);
+  const existing = products.find((p) => p.localId === product.localId);
+  if (existing) {
+    const index = products.findIndex((p) => p.localId === product.localId);
+    products[index] = product;
+  } else {
+    products.push(product);
+  }
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(products));
 };
 
@@ -49,14 +55,20 @@ export const deleteProductByLocalId = async (localId: string): Promise<void> => 
   const products = await getAllProducts();
   const index = products.findIndex(p => p.localId === localId);
   if (index !== -1) {
-    products[index].isDeleted = true;
-    products[index].updatedAt = new Date().toISOString();
+    products.splice(index, 1);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(products));
   }
 };
 
 export const saveProducts = async (products: Product[]): Promise<void> => {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+  const existingData = await AsyncStorage.getItem(STORAGE_KEY);
+  const existing: Product[] = existingData ? JSON.parse(existingData) : [];
+  const existingByLocalId = new Map(existing.map((p) => [p.localId, p]));
+  for (const product of products) {
+    existingByLocalId.set(product.localId, product);
+  }
+  const merged = Array.from(existingByLocalId.values());
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
 };
 
 export const clearAllProducts = async (): Promise<void> => {

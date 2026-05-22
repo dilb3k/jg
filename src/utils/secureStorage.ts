@@ -10,11 +10,7 @@ const canUseSecureStore = (): boolean =>
 
 export const getItemAsync = async (key: string): Promise<string | null> => {
   if (canUseSecureStore()) {
-    try {
-      return await SecureStore.getItemAsync(key);
-    } catch {
-      return AsyncStorage.getItem(key);
-    }
+    return await SecureStore.getItemAsync(key);
   }
 
   return AsyncStorage.getItem(key);
@@ -25,13 +21,8 @@ export const setItemAsync = async (
   value: string,
 ): Promise<void> => {
   if (canUseSecureStore()) {
-    try {
-      await SecureStore.setItemAsync(key, value);
-      return;
-    } catch {
-      await AsyncStorage.setItem(key, value);
-      return;
-    }
+    await SecureStore.setItemAsync(key, value);
+    return;
   }
 
   await AsyncStorage.setItem(key, value);
@@ -39,13 +30,8 @@ export const setItemAsync = async (
 
 export const deleteItemAsync = async (key: string): Promise<void> => {
   if (canUseSecureStore()) {
-    try {
-      await SecureStore.deleteItemAsync(key);
-      return;
-    } catch {
-      await AsyncStorage.removeItem(key);
-      return;
-    }
+    await SecureStore.deleteItemAsync(key);
+    return;
   }
 
   await AsyncStorage.removeItem(key);

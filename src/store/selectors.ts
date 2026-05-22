@@ -32,6 +32,7 @@ export const useAppRefreshStore = () =>
   useStore(
     useShallow((state) => ({
       isLoading: state.isLoading,
+      isSyncing: state.syncStatus.isSyncing,
       refreshAppData: state.refreshAppData,
       showToast: state.showToast,
     })),

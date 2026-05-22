@@ -44,9 +44,9 @@ export interface ThemeColors {
 
 export const lightTheme: ThemeColors = {
   // Primary colors
-  primary: "#7C3AED",
-  primaryDark: "#6D28D9",
-  primaryLight: "#8B5CF6",
+  primary: "#6D28D9",
+  primaryDark: "#5B21B6",
+  primaryLight: "#7C3AED",
   
   // Secondary colors
   secondary: "#10b981",
@@ -84,9 +84,9 @@ export const lightTheme: ThemeColors = {
 
 export const darkTheme: ThemeColors = {
   // Primary colors
-  primary: "#8B5CF6",
-  primaryDark: "#7C3AED",
-  primaryLight: "#A78BFA",
+  primary: "#7C3AED",
+  primaryDark: "#6D28D9",
+  primaryLight: "#8B5CF6",
   
   // Secondary colors
   secondary: "#34d399",

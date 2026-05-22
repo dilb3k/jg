@@ -79,7 +79,7 @@ export const createStatisticsStyles = (colors: ThemeColors) =>
       textAlign: "center",
       fontSize: FONT_SIZE.md,
       fontWeight: "700",
-      color: colors.text,
+      color: colors.primary,
     },
     dateHint: {
       marginTop: 2,
@@ -266,7 +266,7 @@ export const createStatisticsStyles = (colors: ThemeColors) =>
     },
     calendarWeekRow: {
       flexDirection: "row",
-      marginBottom: SPACING.xs,
+      marginBottom: SPACING.sm,
     },
     calendarWeekday: {
       width: "14.2857%",
@@ -285,7 +285,7 @@ export const createStatisticsStyles = (colors: ThemeColors) =>
       alignItems: "center",
       justifyContent: "center",
       borderRadius: BORDER_RADIUS.md,
-      marginBottom: SPACING.xs,
+      marginVertical: SPACING.xs,
     },
     calendarDaySelected: {
       backgroundColor: colors.primary,

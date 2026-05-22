@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import dayjs from "dayjs";
 
@@ -9,13 +9,7 @@ import type {
   Product,
   DailySnapshot,
 } from "../../../types";
-import { getInventoryMetrics, getInventoryTotals } from "../../../utils/inventory";
 import type { PeriodType } from "../components/PeriodTabs";
-
-type InventoryRangeResult = {
-  items: InventoryWithProduct[];
-  summary?: InventorySummary;
-};
 
 type Params = {
   getStatistics: (
@@ -31,7 +25,6 @@ type Params = {
   period: PeriodType;
   selectedDate: string;
   isPayed: boolean;
-  refreshToken?: number;
 };
 
 export const getPeriodRange = (period: PeriodType, selectedDate: string) => {
@@ -39,11 +32,6 @@ export const getPeriodRange = (period: PeriodType, selectedDate: string) => {
   switch (period) {
     case "daily":
       return { from: selectedDate, to: selectedDate };
-    case "weekly":
-      return {
-        from: baseDate.startOf("week").format("YYYY-MM-DD"),
-        to: baseDate.endOf("week").format("YYYY-MM-DD"),
-      };
     case "monthly":
       return {
         from: baseDate.startOf("month").format("YYYY-MM-DD"),
@@ -64,21 +52,6 @@ export type ProductRankRow = {
   profit: number;
 };
 
-function mergeInventoryStats(
-  items: InventoryWithProduct[],
-  stats: Map<string, { sold: number; profit: number }>,
-) {
-  for (const item of items) {
-    const metrics = getInventoryMetrics(item);
-    const id = item.productId || item.product?.localId;
-    if (!id) continue;
-    const current = stats.get(id) ?? { sold: 0, profit: 0 };
-    current.sold += metrics.sold;
-    current.profit += metrics.realizedProfit;
-    stats.set(id, current);
-  }
-}
-
 function buildAllProductPeriodStats(
   products: Product[],
   snapshots: DailySnapshot[],
@@ -87,12 +60,10 @@ function buildAllProductPeriodStats(
   const namesById = new Map<string, string>();
   const stats = new Map<string, { sold: number; profit: number }>();
 
-  products
-    .filter((p) => !p.isDeleted)
-    .forEach((p) => {
-      namesById.set(p.localId, p.name);
-      stats.set(p.localId, { sold: 0, profit: 0 });
-    });
+  products.forEach((p) => {
+    namesById.set(p.localId, p.name);
+    stats.set(p.localId, { sold: 0, profit: 0 });
+  });
 
   snapshots.forEach((snapshot) => {
     snapshot.items.forEach((item) => {
@@ -106,9 +77,17 @@ function buildAllProductPeriodStats(
     });
   });
 
-  if (snapshots.length === 0 && inventoryItems.length > 0) {
-    mergeInventoryStats(inventoryItems, stats);
-  }
+  inventoryItems.forEach((item) => {
+    const id = item.productId || item.product?.localId;
+    if (!id) return;
+    if (!namesById.has(id)) {
+      namesById.set(id, item.product?.name || item.name || "Noma'lum");
+    }
+    const current = stats.get(id) ?? { sold: 0, profit: 0 };
+    current.sold += item.sold ?? 0;
+    current.profit += item.realizedProfit ?? 0;
+    stats.set(id, current);
+  });
 
   return Array.from(stats.entries()).map(([id, totals]) => ({
     id,
@@ -125,68 +104,59 @@ export function useStatisticsData({
   period,
   selectedDate,
   isPayed,
-  refreshToken = 0,
 }: Params) {
   const periodDateRange = useMemo(
     () => getPeriodRange(period, selectedDate),
     [period, selectedDate],
   );
 
-  const [inventoryRange, setInventoryRange] = useState<InventoryRangeResult | null>(null);
+  const [inventoryRange, setInventoryRange] = useState<{
+    items: InventoryWithProduct[];
+    summary?: InventorySummary;
+  } | null>(null);
   const [inventoryAttempted, setInventoryAttempted] = useState(false);
+  const fetchIdRef = useRef(0);
 
-  useEffect(() => {
+  const fetchInventory = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current;
     setInventoryRange(null);
     setInventoryAttempted(false);
 
-    let isMounted = true;
+    if (!isPayed) {
+      setInventoryAttempted(true);
+      return;
+    }
+    try {
+      const result = await apiClient.getInventoryWithProducts(periodDateRange);
+      if (fetchId !== fetchIdRef.current) return;
+      setInventoryRange(result);
+    } catch {
+      if (fetchId !== fetchIdRef.current) return;
+      setInventoryRange(null);
+    } finally {
+      if (fetchId !== fetchIdRef.current) return;
+      setInventoryAttempted(true);
+    }
+  }, [periodDateRange, isPayed, snapshots, products]);
 
-    const load = async () => {
-      if (!isPayed) {
-        if (isMounted) setInventoryAttempted(true);
-        return;
-      }
-      try {
-        const result = await apiClient.getInventoryWithProducts(periodDateRange);
-        if (isMounted) {
-          setInventoryRange(result);
-        }
-      } catch {
-        if (isMounted) {
-          setInventoryRange(null);
-        }
-      } finally {
-        if (isMounted) {
-          setInventoryAttempted(true);
-        }
-      }
-    };
-
-    void load();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [periodDateRange, isPayed, refreshToken]);
+  useEffect(() => {
+    void fetchInventory();
+  }, [fetchInventory]);
 
   const periodSnapshots = useMemo(() => {
     const baseDate = dayjs(selectedDate);
     const start =
       period === "daily"
         ? baseDate.startOf("day")
-        : period === "weekly"
-          ? baseDate.startOf("week")
-          : period === "monthly"
-            ? baseDate.startOf("month")
-            : baseDate.startOf("year");
+        : period === "monthly"
+          ? baseDate.startOf("month")
+          : baseDate.startOf("year");
     const end =
       period === "daily"
         ? baseDate.endOf("day")
-        : period === "weekly"
-          ? baseDate.endOf("week")
-          : period === "monthly"
-            ? baseDate.endOf("month")
-            : baseDate.endOf("year");
+        : period === "monthly"
+          ? baseDate.endOf("month")
+          : baseDate.endOf("year");
 
     return snapshots.filter((snapshot) => {
       const date = dayjs(snapshot.date);
@@ -197,16 +167,6 @@ export function useStatisticsData({
     });
   }, [period, selectedDate, snapshots]);
 
-  const allProductStats = useMemo(
-    () =>
-      buildAllProductPeriodStats(
-        products,
-        periodSnapshots,
-        inventoryRange?.items ?? [],
-      ),
-    [products, periodSnapshots, inventoryRange],
-  );
-
   const inventoryItems = useMemo(
     () => inventoryRange?.items ?? [],
     [inventoryRange],
@@ -214,9 +174,10 @@ export function useStatisticsData({
 
   const inventorySummary = inventoryRange?.summary;
 
-  const inventoryStats = useMemo(
-    () => getInventoryTotals(inventoryItems, inventorySummary),
-    [inventoryItems, inventorySummary],
+  const allProductStats = useMemo(
+    () =>
+      buildAllProductPeriodStats(products, periodSnapshots, inventoryItems),
+    [products, periodSnapshots, inventoryItems],
   );
 
   const currentPeriodStats = useMemo(() => {
@@ -228,14 +189,16 @@ export function useStatisticsData({
       };
     }
     if (inventoryItems.length > 0) {
-      return {
-        totalRevenue: inventoryStats.revenue,
-        totalProfit: inventoryStats.profit,
-        totalSoldItems: inventoryStats.sold,
-      };
+      const sold = inventoryItems.reduce((s, i) => s + (i.sold ?? 0), 0);
+      const revenue = inventoryItems.reduce((s, i) => s + (i.revenue ?? 0), 0);
+      const profit = inventoryItems.reduce(
+        (s, i) => s + (i.realizedProfit ?? 0),
+        0,
+      );
+      return { totalRevenue: revenue, totalProfit: profit, totalSoldItems: sold };
     }
     return getStatistics(period, selectedDate);
-  }, [inventorySummary, inventoryItems, inventoryStats, period, selectedDate, getStatistics]);
+  }, [inventorySummary, inventoryItems, period, selectedDate, getStatistics]);
 
   const overallTotals = useMemo(() => {
     if (!inventoryAttempted) return null;
@@ -256,15 +219,33 @@ export function useStatisticsData({
     }
 
     if (inventoryItems.length > 0) {
+      const sold = inventoryItems.reduce((s, i) => s + (i.sold ?? 0), 0);
+      const revenue = inventoryItems.reduce((s, i) => s + (i.revenue ?? 0), 0);
+      const profit = inventoryItems.reduce(
+        (s, i) => s + (i.realizedProfit ?? 0),
+        0,
+      );
+      const remaining = inventoryItems.reduce(
+        (s, i) => s + (i.remaining ?? i.currentQuantity ?? 0),
+        0,
+      );
+      const stockSellValue = inventoryItems.reduce(
+        (s, i) => s + (i.stockSellValue ?? 0),
+        0,
+      );
+      const stockProfit = inventoryItems.reduce(
+        (s, i) => s + (i.potentialProfit ?? 0),
+        0,
+      );
       return {
-        earnedRevenue: inventoryStats.revenue,
-        earnedProfit: inventoryStats.profit,
-        soldItems: inventoryStats.sold,
-        remainingItems: inventoryStats.current,
-        sellableItems: inventoryStats.sold + inventoryStats.current,
-        sellableValue: inventoryStats.revenue + inventoryStats.stockSellValue,
-        possibleProfit: inventoryStats.profit + inventoryStats.stockProfit,
-        stockValue: inventoryStats.stockSellValue,
+        earnedRevenue: revenue,
+        earnedProfit: profit,
+        soldItems: sold,
+        remainingItems: remaining,
+        sellableItems: sold + remaining,
+        sellableValue: revenue + stockSellValue,
+        possibleProfit: profit + stockProfit,
+        stockValue: stockSellValue,
       };
     }
 
@@ -291,7 +272,7 @@ export function useStatisticsData({
       possibleProfit: earnedProfit,
       stockValue: 0,
     };
-  }, [inventoryAttempted, inventoryStats, inventorySummary, inventoryItems, periodSnapshots]);
+  }, [inventoryAttempted, inventorySummary, inventoryItems, periodSnapshots]);
 
   const isLoading = !inventoryAttempted;
 
@@ -305,7 +286,6 @@ export function useStatisticsData({
     [allProductStats],
   );
 
-  /** Qora ro'yxat: eng kam foyda, shu jumladan umuman sotilmagan mahsulotlar */
   const leastProducts = useMemo(
     () =>
       [...allProductStats].sort(
@@ -322,5 +302,6 @@ export function useStatisticsData({
     inventoryItems,
     periodSnapshots,
     isLoading,
+    fetchInventory,
   };
 }

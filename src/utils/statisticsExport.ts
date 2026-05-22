@@ -1,7 +1,6 @@
 import dayjs from "dayjs";
 
-import type { DailySnapshot, Product } from "../types";
-import type { InventoryWithProduct } from "../types";
+import type { DailySnapshot, InventoryWithProduct, Product } from "../types";
 import {
   buildProductStatisticsRows,
   type ProductStatisticsRow,
@@ -116,7 +115,7 @@ function buildRowsFromSnapshots(
 
   const includedIds = new Set(rows.map((r) => r.productId));
   for (const product of catalog) {
-    if (product.isDeleted || includedIds.has(product.localId)) continue;
+    if (includedIds.has(product.localId)) continue;
     const jami = product.quantity ?? 0;
     rows.push({
       productId: product.localId,
@@ -145,12 +144,12 @@ export function buildStatisticsProductRows(
   catalog: Product[],
 ): ProductStatisticsRow[] {
   if (inventoryItems.length > 0) {
-    return buildProductStatisticsRows(inventoryItems, catalog);
+    return buildProductStatisticsRows(inventoryItems, catalog, false);
   }
   if (snapshots.length > 0) {
     return buildRowsFromSnapshots(snapshots, catalog);
   }
-  return buildProductStatisticsRows([], catalog);
+  return [];
 }
 
 export function buildStatisticsDailyRows(snapshots: DailySnapshot[]): StatisticsDailyExportRow[] {
@@ -165,7 +164,7 @@ export function buildStatisticsDailyRows(snapshots: DailySnapshot[]): Statistics
 }
 
 export function buildStatisticsCsv(payload: FullStatisticsExportPayload): string {
-  const { periodLabel, productRows, dailyRows, labels } = payload;
+  const { periodLabel, productRows, labels } = payload;
   const rows: string[] = [];
 
   rows.push(csvRow([labels.title]));
@@ -247,32 +246,6 @@ export function buildStatisticsCsv(payload: FullStatisticsExportPayload): string
       sumProfit,
     ]),
   );
-
-  if (dailyRows.length > 0) {
-    rows.push("");
-    rows.push(csvRow([labels.dailyTitle]));
-    rows.push(
-      csvRow([
-        labels.colDate,
-        labels.colDailySold,
-        labels.colDailyProfit,
-        labels.colDailyTurnover,
-      ]),
-    );
-
-    let dailySold = 0;
-    let dailyProfit = 0;
-    let dailyTurnover = 0;
-
-    dailyRows.forEach((d) => {
-      dailySold += d.sold;
-      dailyProfit += d.profit;
-      dailyTurnover += d.abarot;
-      rows.push(csvRow([d.date, d.sold, d.profit, d.abarot]));
-    });
-
-    rows.push(csvRow([labels.totalRow, dailySold, dailyProfit, dailyTurnover]));
-  }
 
   rows.push("");
   rows.push(csvRow([dayjs().format("YYYY-MM-DD HH:mm")]));

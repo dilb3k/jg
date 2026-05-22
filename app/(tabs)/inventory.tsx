@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -73,6 +74,7 @@ export default function InventoryScreen() {
   const [errors, setErrors] = useState<FormErrors>(EMPTY_ERRORS);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDateLoading, setIsDateLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const insets = useSafeAreaInsets();
@@ -99,6 +101,15 @@ export default function InventoryScreen() {
     return () => {
       isMounted = false;
     };
+  }, [loadInventoryByDate, selectedDate]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadInventoryByDate(selectedDate);
+    } finally {
+      setRefreshing(false);
+    }
   }, [loadInventoryByDate, selectedDate]);
 
   const inventoryData = useMemo(() => currentInventory, [currentInventory]);
@@ -408,6 +419,9 @@ export default function InventoryScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Package size={48} color={colors.textTertiary} />
@@ -611,7 +625,7 @@ export default function InventoryScreen() {
 
       {showDatePicker && (
         <DateTimePicker
-          value={new Date(selectedDate)}
+          value={dayjs(selectedDate).toDate()}
           mode="date"
           display="default"
           onChange={(event, date) => {
@@ -653,7 +667,7 @@ const createStyles = (colors: ThemeColors) =>
     dateText: {
       fontSize: FONT_SIZE.lg,
       fontWeight: "700",
-      color: colors.text,
+      color: colors.primary,
     },
     dayName: {
       fontSize: FONT_SIZE.sm,

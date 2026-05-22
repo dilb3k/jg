@@ -10,7 +10,7 @@ interface StoredSnapshot extends Omit<DailySnapshot, 'items'> {
 export const getSnapshotByDate = async (date: string): Promise<DailySnapshot | null> => {
   const data = await AsyncStorage.getItem(STORAGE_KEY);
   const snapshots: StoredSnapshot[] = data ? JSON.parse(data) : [];
-  const found = snapshots.find(s => s.date === date && !s.isDeleted);
+  const found = snapshots.find(s => s.date === date);
   if (!found) return null;
   return { ...found, items: JSON.parse(found.items) };
 };
@@ -19,7 +19,7 @@ export const getSnapshotsRange = async (from: string, to: string): Promise<Daily
   const data = await AsyncStorage.getItem(STORAGE_KEY);
   const snapshots: StoredSnapshot[] = data ? JSON.parse(data) : [];
   return snapshots
-    .filter(s => s.date >= from && s.date <= to && !s.isDeleted)
+    .filter(s => s.date >= from && s.date <= to)
     .map(s => ({ ...s, items: JSON.parse(s.items) as DailySnapshotItem[] }));
 };
 
@@ -48,8 +48,7 @@ export const deleteSnapshotByLocalId = async (localId: string): Promise<void> =>
   const snapshots: StoredSnapshot[] = data ? JSON.parse(data) : [];
   const index = snapshots.findIndex(s => s.localId === localId);
   if (index !== -1) {
-    snapshots[index].isDeleted = true;
-    snapshots[index].updatedAt = new Date().toISOString();
+    snapshots.splice(index, 1);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(snapshots));
   }
 };
@@ -74,7 +73,6 @@ export const getAllSnapshots = async (): Promise<DailySnapshot[]> => {
   const data = await AsyncStorage.getItem(STORAGE_KEY);
   const snapshots: StoredSnapshot[] = data ? JSON.parse(data) : [];
   return snapshots
-    .filter(s => !s.isDeleted)
     .sort((a, b) => b.date.localeCompare(a.date))
     .map(s => ({ ...s, items: JSON.parse(s.items) as DailySnapshotItem[] }));
 };

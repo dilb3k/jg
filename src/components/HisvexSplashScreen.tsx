@@ -2,358 +2,445 @@ import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   Animated,
   Dimensions,
   StatusBar,
   Easing,
-  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { SPACING } from "../constants";
 
 const { width, height } = Dimensions.get("window");
 
 const C = {
-  bg: "#0A0718",
-  bgMid: "#110D2E",
+  bg: "#070512",
+  bgMid: "#0F0A2E",
+  bgDeep: "#0C0820",
   primary: "#7C3AED",
-  primaryDark: "#4C1D95",
+  mid: "#5B21B6",
+  deep: "#4C1D95",
   accent: "#A78BFA",
-  accentLight: "#C4B5FD",
+  accentDim: "rgba(167,139,250,0.65)",
   white: "#FFFFFF",
-  green: "#34D399",
-  cardBg: "rgba(255,255,255,0.06)",
-  cardBorder: "rgba(167,139,250,0.2)",
+  glass: "rgba(124,58,237,0.12)",
+  glassB: "rgba(124,58,237,0.35)",
 } as const;
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
-interface SplashLogoProps {
-  scale: Animated.Value;
-  opacity: Animated.Value;
-}
-
-function SplashLogo({ scale, opacity }: SplashLogoProps) {
-  return (
-    <Animated.View
-    >
-      <Image
-        source={require("../../assets/logo-splash.png")}
-        style={styles.logoImage}
-        resizeMode="cover"
-      />
-    </Animated.View>
-  );
-}
-
-interface StatCardProps {
-  value: string;
-  label: string;
-  change: string;
-}
-
-function StatCard({ value, label, change }: StatCardProps) {
-  return (
-    <View style={styles.statCard}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statChange}>{change}</Text>
-    </View>
-  );
-}
-
-interface ParticleProps {
+// ─── Sparkle dot ────────────────────────────────────────────────────────────
+function Sparkle({
+  x,
+  y,
+  delay,
+  size = 5,
+}: {
   x: number;
-  startY: number;
-  size: number;
-  duration: number;
+  y: number;
   delay: number;
-}
-
-function Particle({ x, startY, size, duration, delay }: ParticleProps) {
-  const anim = useRef(new Animated.Value(0)).current;
+  size?: number;
+}) {
+  const op = useRef(new Animated.Value(0)).current;
+  const sc = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const animation = Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.delay(delay),
-        Animated.timing(anim, {
-          toValue: 1,
-          duration,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-        // Reset instantly before looping
-        Animated.timing(anim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
+        Animated.parallel([
+          Animated.timing(op, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(sc, {
+            toValue: 1,
+            duration: 600,
+            easing: Easing.out(Easing.back(2)),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(op, {
+            toValue: 0,
+            duration: 700,
+            useNativeDriver: true,
+          }),
+          Animated.timing(sc, {
+            toValue: 0,
+            duration: 700,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.delay(800),
       ]),
     );
-
-    animation.start();
-
-    // ✅ FIX: stop loop on unmount to prevent memory leak
-    return () => animation.stop();
-  }, [anim, delay, duration]);
-
-  const translateY = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -130],
-  });
-
-  const particleOpacity = anim.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.7, 0.5, 0],
-  });
+    loop.start();
+    return () => loop.stop();
+  }, []);
 
   return (
     <Animated.View
       style={{
         position: "absolute",
         left: x,
-        top: startY,
+        top: y,
         width: size,
         height: size,
         borderRadius: size / 2,
         backgroundColor: C.accent,
-        transform: [{ translateY }],
-        opacity: particleOpacity,
+        opacity: op,
+        transform: [{ scale: sc }],
       }}
     />
   );
 }
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
-
-interface HisvexSplashScreenProps {
+// ─── Main ────────────────────────────────────────────────────────────────────
+export default function HisvexSplashScreen({
+  onFinish,
+}: {
   onFinish?: () => void;
-}
+}) {
+  const screenOpacity = useRef(new Animated.Value(0)).current;
 
-export default function HisvexSplashScreen({ onFinish }: HisvexSplashScreenProps) {
-  const iconScale    = useRef(new Animated.Value(0.2)).current;
-  const iconOpacity  = useRef(new Animated.Value(0)).current;
+  // Logo
+  const logoScale = useRef(new Animated.Value(0)).current;
+  const logoRotate = useRef(new Animated.Value(0)).current;
+  const logoPulse = useRef(new Animated.Value(1)).current;
+
+  // Brand text
+  const brandY = useRef(new Animated.Value(30)).current;
   const brandOpacity = useRef(new Animated.Value(0)).current;
-  const brandY       = useRef(new Animated.Value(30)).current;
-  const tagOpacity   = useRef(new Animated.Value(0)).current;
-  const cardsOpacity = useRef(new Animated.Value(0)).current;
-  const cardsY       = useRef(new Animated.Value(20)).current;
-  const loaderOpacity = useRef(new Animated.Value(0)).current;
-  // ✅ FIX: useNativeDriver:false animation — kept on JS thread (correct for width layout prop)
-  const progressWidth = useRef(new Animated.Value(0)).current;
-  const dot1 = useRef(new Animated.Value(0.3)).current;
-  const dot2 = useRef(new Animated.Value(0.3)).current;
-  const dot3 = useRef(new Animated.Value(0.3)).current;
-  const screenOpacity = useRef(new Animated.Value(1)).current;
 
-  // ✅ FIX: Store dot loop refs so we can stop them on unmount
-  const dotLoops = useRef<Animated.CompositeAnimation[]>([]);
-  // ✅ FIX: Store timer IDs to clear on unmount
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Tagline
+  const tagY = useRef(new Animated.Value(15)).current;
+  const tagOpacity = useRef(new Animated.Value(0)).current;
 
-  const pulseDot = (dot: Animated.Value, delay: number) =>
-    Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.timing(dot, {
-          toValue: 1,
-          duration: 350,
-          useNativeDriver: true,
-        }),
-        Animated.timing(dot, {
-          toValue: 0.3,
-          duration: 350,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
+  // Badge
+  const badgeOpacity = useRef(new Animated.Value(0)).current;
+  const badgeScale = useRef(new Animated.Value(0.8)).current;
+
+  // Progress
+  const barWidth = useRef(new Animated.Value(0)).current;
+
+  // Orbs
+  const orb1X = useRef(new Animated.Value(0)).current;
+  const orb1Y = useRef(new Animated.Value(0)).current;
+  const orb2X = useRef(new Animated.Value(0)).current;
+  const orb2Y = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Phase 1: Logo pop-in
-    Animated.parallel([
-      Animated.spring(iconScale, {
-        toValue: 1,
-        tension: 55,
-        friction: 6,
-        useNativeDriver: true,
-      }),
-      Animated.timing(iconOpacity, {
-        toValue: 1,
-        duration: 350,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      // Phase 2: Brand name slide up
+    // Ambient orb float
+    Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(orb1X, {
+            toValue: 18,
+            duration: 5000,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(orb1Y, {
+            toValue: -14,
+            duration: 6000,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(orb1X, {
+            toValue: 0,
+            duration: 5000,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(orb1Y, {
+            toValue: 0,
+            duration: 6000,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    ).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(orb2X, {
+            toValue: -14,
+            duration: 7000,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(orb2Y, {
+            toValue: 18,
+            duration: 5500,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(orb2X, {
+            toValue: 0,
+            duration: 7000,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(orb2Y, {
+            toValue: 0,
+            duration: 5500,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    ).start();
+
+    // Intro sequence
+    Animated.timing(screenOpacity, {
+      toValue: 1,
+      duration: 350,
+      useNativeDriver: true,
+    }).start(() => {
+      // Logo spin-in
       Animated.parallel([
-        Animated.timing(brandOpacity, {
+        Animated.spring(logoScale, {
           toValue: 1,
-          duration: 400,
+          tension: 36,
+          friction: 4,
           useNativeDriver: true,
         }),
-        Animated.spring(brandY, {
-          toValue: 0,
-          tension: 80,
-          friction: 8,
+        Animated.timing(logoRotate, {
+          toValue: 1,
+          duration: 650,
+          easing: Easing.out(Easing.back(1.4)),
           useNativeDriver: true,
         }),
       ]).start(() => {
-        // Phase 3: Tagline fade
-        Animated.timing(tagOpacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
-
-        // Phase 4: Stat cards
-        const t1 = setTimeout(() => {
-          Animated.parallel([
-            Animated.timing(cardsOpacity, {
-              toValue: 1,
-              duration: 400,
+        // Logo idle pulse
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(logoPulse, {
+              toValue: 1.06,
+              duration: 1200,
+              easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
-            Animated.spring(cardsY, {
+            Animated.timing(logoPulse, {
+              toValue: 1,
+              duration: 1200,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+            }),
+          ]),
+        ).start();
+
+        // Brand name
+        Animated.parallel([
+          Animated.timing(brandOpacity, {
+            toValue: 1,
+            duration: 380,
+            useNativeDriver: true,
+          }),
+          Animated.spring(brandY, {
+            toValue: 0,
+            tension: 90,
+            friction: 10,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          // Tagline
+          Animated.parallel([
+            Animated.timing(tagOpacity, {
+              toValue: 1,
+              duration: 320,
+              useNativeDriver: true,
+            }),
+            Animated.spring(tagY, {
               toValue: 0,
-              tension: 70,
-              friction: 8,
+              tension: 80,
+              friction: 9,
               useNativeDriver: true,
             }),
           ]).start();
-        }, 200);
-        timers.current.push(t1);
 
-        // Phase 5: Loader + progress
-        const t2 = setTimeout(() => {
-          Animated.timing(loaderOpacity, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }).start();
+          // Badge
+          setTimeout(() => {
+            Animated.parallel([
+              Animated.timing(badgeOpacity, {
+                toValue: 1,
+                duration: 280,
+                useNativeDriver: true,
+              }),
+              Animated.spring(badgeScale, {
+                toValue: 1,
+                tension: 100,
+                friction: 8,
+                useNativeDriver: true,
+              }),
+            ]).start();
+          }, 150);
 
-          // Store loops so we can stop them
-          const l1 = pulseDot(dot1, 0);
-          const l2 = pulseDot(dot2, 200);
-          const l3 = pulseDot(dot3, 400);
-          dotLoops.current = [l1, l2, l3];
-          l1.start();
-          l2.start();
-          l3.start();
+          // Progress bar
+          setTimeout(() => {
+            Animated.timing(barWidth, {
+              toValue: 1,
+              duration: 1600,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: false,
+            }).start();
+          }, 250);
 
-          Animated.timing(progressWidth, {
-            toValue: 1,
-            duration: 1800,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: false, // ✅ Must be false — animating layout `width`
-          }).start();
-        }, 500);
-        timers.current.push(t2);
-
-        // Phase 6: Fade out and finish
-        const t3 = setTimeout(() => {
-          Animated.timing(screenOpacity, {
-            toValue: 0,
-            duration: 450,
-            useNativeDriver: true,
-          }).start(() => onFinish?.());
-        }, 2900);
-        timers.current.push(t3);
+          // Fade out
+          setTimeout(() => {
+            Animated.timing(screenOpacity, {
+              toValue: 0,
+              duration: 420,
+              useNativeDriver: true,
+            }).start(() => onFinish?.());
+          }, 2800);
+        });
       });
     });
-
-    // ✅ FIX: Full cleanup on unmount
-    return () => {
-      timers.current.forEach(clearTimeout);
-      dotLoops.current.forEach((loop) => loop.stop());
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // ^ deps intentionally empty: all Animated.Values are stable refs;
-  //   including them would cause stale-closure lint noise without benefit.
 
-  const barW = progressWidth.interpolate({
+  const spin = logoRotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  const progressW = barWidth.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 160],
   });
-
-  const PARTICLES: ParticleProps[] = [
-    { x: width * 0.18, startY: height * 0.55, size: 3, duration: 3200, delay: 0 },
-    { x: width * 0.60, startY: height * 0.60, size: 2, duration: 2800, delay: 500 },
-    { x: width * 0.42, startY: height * 0.50, size: 2, duration: 3800, delay: 1100 },
-    { x: width * 0.78, startY: height * 0.58, size: 3, duration: 2500, delay: 800 },
-    { x: width * 0.12, startY: height * 0.65, size: 2, duration: 4000, delay: 300 },
-  ];
 
   return (
     <Animated.View style={[styles.root, { opacity: screenOpacity }]}>
       <StatusBar barStyle="light-content" backgroundColor={C.bg} translucent />
 
+      {/* Base gradient */}
       <LinearGradient
-        colors={[C.bg, C.bgMid, "#0D0B22"]}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
+        colors={[C.bg, C.bgMid, C.bgDeep, C.bg]}
+        locations={[0, 0.3, 0.65, 1]}
         style={StyleSheet.absoluteFill}
       />
 
+      {/* Grid overlay */}
+      <View style={styles.grid} pointerEvents="none" />
+
       {/* Ambient orbs */}
-      <View style={styles.orb1} />
-      <View style={styles.orb2} />
+      <Animated.View
+        style={[
+          styles.orb1,
+          { transform: [{ translateX: orb1X }, { translateY: orb1Y }] },
+        ]}
+      >
+        <LinearGradient
+          colors={["rgba(124,58,237,0.28)", "transparent"]}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
 
-      {/* Floating particles */}
-      {PARTICLES.map((p, i) => (
-        <Particle key={i} {...p} />
-      ))}
+      <Animated.View
+        style={[
+          styles.orb2,
+          { transform: [{ translateX: orb2X }, { translateY: orb2Y }] },
+        ]}
+      >
+        <LinearGradient
+          colors={["rgba(167,139,250,0.18)", "transparent"]}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
 
-      {/* Center content */}
-      <View style={styles.center}>
-        <SplashLogo scale={iconScale} opacity={iconOpacity} />
+      <Animated.View style={styles.orb3}>
+        <LinearGradient
+          colors={["rgba(91,33,182,0.22)", "transparent"]}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
 
+      {/* Sparkles */}
+      <Sparkle x={width * 0.14} y={height * 0.18} delay={500} />
+      <Sparkle x={width * 0.82} y={height * 0.23} delay={1000} size={4} />
+      <Sparkle x={width * 0.08} y={height * 0.58} delay={200} size={4} />
+      <Sparkle x={width * 0.88} y={height * 0.67} delay={1500} />
+      <Sparkle x={width * 0.06} y={height * 0.4} delay={800} size={3} />
+      <Sparkle x={width * 0.92} y={height * 0.44} delay={300} size={3} />
+
+      {/* ── Content ── */}
+      <View style={styles.content}>
+        {/* Logo */}
+        <Animated.Image
+          source={require("../../assets/Hisvex.png")}
+          style={[
+            styles.logoImage,
+            {
+              transform: [
+                { scale: Animated.multiply(logoScale, logoPulse) },
+                { rotate: spin },
+              ],
+            },
+          ]}
+          resizeMode="contain"
+        />
+
+        {/* Brand name */}
+        <Animated.View
+          style={{
+            opacity: brandOpacity,
+            transform: [{ translateY: brandY }],
+            flexDirection: "row",
+            marginBottom: 10,
+            marginTop: -16,
+          }}
+        >
+          <Text style={styles.brandHis}>His</Text>
+          <Text style={styles.brandVex}>vex</Text>
+        </Animated.View>
+
+        {/* Tagline */}
         <Animated.Text
           style={[
-            styles.brandName,
-            { opacity: brandOpacity, transform: [{ translateY: brandY }] },
+            styles.tagline,
+            { opacity: tagOpacity, transform: [{ translateY: tagY }] },
           ]}
         >
-          Hisvex
-        </Animated.Text>
-
-        <Animated.Text style={[styles.tagline, { opacity: tagOpacity }]}>
           Hisobni aniq boshqar
         </Animated.Text>
 
+        {/* Badge */}
         <Animated.View
           style={[
-            styles.statsRow,
-            { opacity: cardsOpacity, transform: [{ translateY: cardsY }] },
+            styles.badge,
+            {
+              opacity: badgeOpacity,
+              transform: [{ scale: badgeScale }],
+            },
           ]}
         >
-          <StatCard value="2.45M" label="Bugungi foyda" change="↑ 12%" />
-          <StatCard value="21"    label="Dalollar"       change="↑ 3"   />
-          <StatCard value="+350K" label="Savdo"          change="↑ 8%"  />
+          <Text style={styles.badgeText}>MOLIYAVIY BOSHQARUV</Text>
         </Animated.View>
       </View>
 
-      {/* Bottom loader */}
-      <Animated.View style={[styles.loaderSection, { opacity: loaderOpacity }]}>
-        <View style={styles.dotsRow}>
-          {([dot1, dot2, dot3] as Animated.Value[]).map((dot, i) => (
-            <Animated.View
-              key={i}
-              style={[styles.dot, { opacity: dot, transform: [{ scale: dot }] }]}
-            />
-          ))}
-        </View>
+      {/* ── Footer ── */}
+      <View style={styles.footer}>
         <View style={styles.progressTrack}>
-          <Animated.View style={[styles.progressFill, { width: barW }]} />
+          <Animated.View style={[styles.progressFill, { width: progressW }]}>
+            <LinearGradient
+              colors={[C.primary, C.accent, C.primary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
         </View>
-        <Text style={styles.versionText}>v1.0.0</Text>
-      </Animated.View>
+        <Text style={styles.version}>v1.0.0</Text>
+      </View>
     </Animated.View>
   );
 }
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root: {
@@ -361,148 +448,118 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
 
-  // ✅ FIX: removed `boxShadow` (web-only, not valid in RN StyleSheet)
-  //    Use `elevation` (Android) + `shadowColor/Offset/Opacity/Radius` (iOS)
+  // ── Background ──
+  grid: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.04,
+  },
+
   orb1: {
     position: "absolute",
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: C.primary,
-    opacity: 0.18,
+    width: 340,
+    height: 340,
+    borderRadius: 170,
     top: -80,
-    left: -80,
+    left: -70,
+    overflow: "hidden",
   },
   orb2: {
     position: "absolute",
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: C.accent,
-    opacity: 0.1,
-    bottom: 80,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    bottom: 90,
     right: -60,
+    overflow: "hidden",
+  },
+  orb3: {
+    position: "absolute",
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    top: "48%",
+    left: "50%",
+    marginLeft: -100,
+    marginTop: -100,
+    overflow: "hidden",
   },
 
-  center: {
+  // ── Content ──
+  content: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
-    paddingTop: 60,
   },
 
-  // ✅ FIX: removed `boxShadow` (invalid in RN); replaced with cross-platform shadow
-  // ✅ FIX: removed `inset` (CSS shorthand, not valid in RN)
-  // ✅ FIX: logoImage is now 100% of box (120×120) to avoid overflow
-  logoBox: {
-    width: 120,
-    height: 120,
-    borderRadius: 32,
-    marginBottom: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "rgba(167,139,250,0.35)",
-    overflow: "hidden",          // clip image to rounded corners
-    // Cross-platform glow approximation
-    ...Platform.select({
-      ios: {
-        shadowColor: C.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 12,
-      },
-    }),
-  },
-
-  // ✅ FIX: exact fit inside logoBox (was 126×126 overflowing 120×120 container)
+  // ── Logo ──
   logoImage: {
-    width: 120,
-    height: 120,
+    width: 220,
+    height: 220,
+    marginBottom: -SPACING.xxxl,
   },
 
-  brandName: {
-    fontSize: 42,
+  // ── Brand ──
+  brandHis: {
+    fontSize: 54,
+    fontWeight: "800",
+    color: C.primary,
+    letterSpacing: -1,
+  },
+  brandVex: {
+    fontSize: 54,
     fontWeight: "800",
     color: C.white,
-    letterSpacing: -0.5,
-    marginBottom: 8,
+    letterSpacing: -1,
   },
+
+  // ── Tagline ──
   tagline: {
-    fontSize: 15,
-    color: "rgba(196,181,253,0.8)",
-    letterSpacing: 0.4,
-    marginBottom: 40,
+    fontSize: 16,
+    color: "rgba(196,181,253,0.65)",
+    letterSpacing: 0.7,
+    marginBottom: 20,
   },
 
-  // ✅ FIX: `gap` requires RN ≥ 0.71. Added marginRight fallback for older versions.
-  statsRow: {
-    flexDirection: "row",
-    width: "100%",
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: C.cardBg,
+  // ── Badge ──
+  badge: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 100,
     borderWidth: 1,
-    borderColor: C.cardBorder,
-    borderRadius: 14,
-    padding: 12,
-    alignItems: "center",
-    marginHorizontal: 5, // replaces `gap: 10` for compatibility
+    borderColor: "rgba(124,58,237,0.4)",
+    backgroundColor: "rgba(124,58,237,0.1)",
   },
-  statValue: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: C.white,
-  },
-  statLabel: {
-    fontSize: 10,
-    color: "rgba(196,181,253,0.55)",
-    marginTop: 2,
-    textAlign: "center",
-  },
-  statChange: {
+  badgeText: {
     fontSize: 11,
-    color: C.green,
+    color: "rgba(167,139,250,0.75)",
+    letterSpacing: 1.5,
     fontWeight: "600",
-    marginTop: 3,
   },
 
-  loaderSection: {
+  // ── Footer ──
+  footer: {
+    position: "absolute",
+    bottom: 40,
+    alignSelf: "center",
     alignItems: "center",
-    paddingBottom: 52,
-  },
-  dotsRow: {
-    flexDirection: "row",
-    marginBottom: 14,
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: C.accent,
-    marginHorizontal: 4, // replaces `gap: 8`
+    gap: 10,
   },
   progressTrack: {
     width: 160,
-    height: 3,
-    backgroundColor: "rgba(167,139,250,0.15)",
+    height: 2,
+    backgroundColor: "rgba(167,139,250,0.1)",
     borderRadius: 2,
     overflow: "hidden",
-    marginBottom: 14,
   },
   progressFill: {
     height: "100%",
-    backgroundColor: C.accent,
     borderRadius: 2,
+    overflow: "hidden",
   },
-  versionText: {
+  version: {
     fontSize: 10,
-    color: "rgba(167,139,250,0.3)",
-    letterSpacing: 1,
+    color: "rgba(167,139,250,0.22)",
+    letterSpacing: 2,
   },
 });

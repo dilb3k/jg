@@ -1,4 +1,4 @@
-﻿import dayjs from "dayjs";
+import dayjs from "dayjs";
 import { BUSINESS_DAY_START_HOUR as DEFAULT_HOUR } from "../constants";
 
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;

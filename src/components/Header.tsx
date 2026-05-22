@@ -9,14 +9,14 @@ interface HeaderProps {
 
 export function Header({ title = 'Hisvex' }: HeaderProps) {
   const { colors } = useTheme();
-  const { isServerReachable } = useNetworkStatus();
+  const { isOnline } = useNetworkStatus();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
       <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
       <View style={styles.statusContainer}>
-        <View style={[styles.statusDot, { backgroundColor: isServerReachable ? colors.secondary : colors.danger }]} />
-        <Text style={[styles.statusText, { color: colors.textSecondary }]}>{isServerReachable ? 'Online' : 'Offline'}</Text>
+        <View style={[styles.statusDot, { backgroundColor: isOnline ? colors.secondary : colors.danger }]} />
+        <Text style={[styles.statusText, { color: colors.textSecondary }]}>{isOnline ? 'Online' : 'Offline'}</Text>
       </View>
     </View>
   );

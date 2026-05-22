@@ -1,48 +1,66 @@
-import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
 import dayjs from "dayjs";
 
-const EXPORT_DIR_KEY = "hisvex_export_directory_uri";
+const SAF_URI_KEY = "@hisvex_saf_uri";
 
-async function saveToAndroidDownloads(
-  content: string,
-  safeName: string,
-  mime: string,
-): Promise<string> {
-  const { StorageAccessFramework } = FileSystem;
-  let dirUri = await AsyncStorage.getItem(EXPORT_DIR_KEY);
-
-  if (!dirUri) {
-    const downloadsUri = StorageAccessFramework.getUriForDirectoryInRoot("Download");
-    const permission = await StorageAccessFramework.requestDirectoryPermissionsAsync(
-      downloadsUri,
-    );
-    if (!permission.granted) {
-      throw new Error("Download folder access denied");
-    }
-    dirUri = permission.directoryUri;
-    await AsyncStorage.setItem(EXPORT_DIR_KEY, dirUri);
-  }
-
-  const baseName = safeName.replace(/\.[^/.]+$/, "");
-  const fileUri = await StorageAccessFramework.createFileAsync(dirUri, baseName, mime);
-  await StorageAccessFramework.writeAsStringAsync(fileUri, content, {
-    encoding: FileSystem.EncodingType.UTF8,
-  });
-  return safeName;
+function getDefaultDir(): string {
+  const dir = FileSystem.documentDirectory;
+  if (!dir) throw new Error("Document directory unavailable");
+  return `${dir}Hisvex/`;
 }
 
-async function saveToAppDocuments(content: string, safeName: string): Promise<string> {
-  const dir = FileSystem.documentDirectory;
-  if (!dir) {
-    throw new Error("Document directory unavailable");
+async function ensureDefaultDir(): Promise<string> {
+  const dir = getDefaultDir();
+  const info = await FileSystem.getInfoAsync(dir);
+  if (!info.exists) {
+    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
   }
-  const path = `${dir}${safeName}`;
-  await FileSystem.writeAsStringAsync(path, content, {
+  return dir;
+}
+
+async function saveToHisvexDocs(
+  content: string,
+  safeName: string,
+): Promise<string> {
+  const fallback = await ensureDefaultDir();
+  const internalPath = `${fallback}${safeName}`;
+  await FileSystem.writeAsStringAsync(internalPath, content, {
     encoding: FileSystem.EncodingType.UTF8,
   });
-  return safeName;
+
+  // On Android, try external storage via SAF (one-time dialog)
+  if (Platform.OS === "android") {
+    try {
+      let safUri = await AsyncStorage.getItem(SAF_URI_KEY);
+      if (!safUri) {
+        const result =
+          await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (result.granted && result.directoryUri) {
+          safUri = result.directoryUri;
+          await AsyncStorage.setItem(SAF_URI_KEY, safUri);
+        }
+      }
+      if (safUri) {
+        const fileUri =
+          await FileSystem.StorageAccessFramework.createFileAsync(
+            safUri,
+            safeName.replace(/\.[^.]+$/, ""),
+            "text/csv",
+          );
+        await FileSystem.StorageAccessFramework.writeAsStringAsync(
+          fileUri,
+          content,
+          {
+            encoding: FileSystem.EncodingType.UTF8,
+          },
+        );
+      }
+    } catch {}
+  }
+
+  return internalPath;
 }
 
 export async function shareStatisticsFile(
@@ -51,16 +69,7 @@ export async function shareStatisticsFile(
   format: "csv" | "txt" = "csv",
 ): Promise<string> {
   const ext = format === "csv" ? "csv" : "txt";
-  const mime = format === "csv" ? "text/csv" : "text/plain";
   const safeName = `${filenameBase}-${dayjs().format("YYYY-MM-DD_HH-mm")}.${ext}`;
-
-  if (Platform.OS === "android") {
-    try {
-      return await saveToAndroidDownloads(content, safeName, mime);
-    } catch {
-      return saveToAppDocuments(content, safeName);
-    }
-  }
-
-  return saveToAppDocuments(content, safeName);
+  const fullPath = await saveToHisvexDocs(content, safeName);
+  return fullPath;
 }

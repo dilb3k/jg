@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -7,6 +7,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,7 +16,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Trash2, UserPlus, History } from "lucide-react-native";
+import { Trash2, UserPlus, History, Pencil } from "lucide-react-native";
 
 import {
   SPACING,
@@ -40,6 +41,7 @@ export default function DebtorsScreen() {
   const [debtors, setDebtors] = useState<Debtor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [offlineMessage, setOfflineMessage] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [addName, setAddName] = useState("");
@@ -54,6 +56,13 @@ export default function DebtorsScreen() {
   const [adjustAmount, setAdjustAmount] = useState("");
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [adjustError, setAdjustError] = useState("");
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editErrors, setEditErrors] = useState<{ name: string }>({ name: "" });
 
   const loadDebtors = useCallback(async () => {
     try {
@@ -73,9 +82,24 @@ export default function DebtorsScreen() {
     }
   }, [showToast, t]);
 
+  const loadDebtorsRef = useRef(loadDebtors);
+
+  useEffect(() => {
+    loadDebtorsRef.current = loadDebtors;
+  }, [loadDebtors]);
+
   useEffect(() => {
     loadDebtors();
   }, [loadDebtors]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadDebtorsRef.current();
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   const resetAddForm = () => {
     setAddName("");
@@ -172,6 +196,43 @@ export default function DebtorsScreen() {
     }
 
     doAdjust(operation);
+  };
+
+  const openEdit = (debtor: Debtor) => {
+    setEditName(debtor.name);
+    setEditPhone(debtor.phone || "");
+    setEditNotes(debtor.notes || "");
+    setEditErrors({ name: "" });
+    setShowEditModal(true);
+  };
+
+  const validateEditForm = (): boolean => {
+    if (!editName.trim()) {
+      setEditErrors({ name: t("nameRequired") });
+      return false;
+    }
+    setEditErrors({ name: "" });
+    return true;
+  };
+
+  const handleEdit = async () => {
+    if (!selectedDebtor || !validateEditForm()) return;
+    setIsEditing(true);
+    try {
+      const updated = await apiClient.updateDebtor(selectedDebtor.id, {
+        name: editName.trim(),
+        phone: editPhone.trim() || undefined,
+        notes: editNotes.trim() || undefined,
+      });
+      setSelectedDebtor(updated);
+      setShowEditModal(false);
+      await loadDebtors();
+      showToast(t("debtorSaved"), "success");
+    } catch (err: any) {
+      showToast(err.message || t("error"), "error");
+    } finally {
+      setIsEditing(false);
+    }
   };
 
   const handleDelete = (debtor: Debtor) => {
@@ -407,11 +468,18 @@ export default function DebtorsScreen() {
               <Text style={styles.backText}>{t("back")}</Text>
             </TouchableOpacity>
             <Text style={styles.modalTitle}>{t("adjustDebt")}</Text>
-            <TouchableOpacity
-              onPress={() => selectedDebtor && handleDelete(selectedDebtor)}
-            >
-              <Trash2 size={20} color={colors.danger} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: SPACING.md }}>
+              <TouchableOpacity
+                onPress={() => selectedDebtor && openEdit(selectedDebtor)}
+              >
+                <Pencil size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => selectedDebtor && handleDelete(selectedDebtor)}
+              >
+                <Trash2 size={20} color={colors.danger} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {selectedDebtor && (
@@ -494,6 +562,81 @@ export default function DebtorsScreen() {
           )}
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <KeyboardAvoidingView
+          style={[styles.modalContainer, { paddingTop: insets.top }]}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowEditModal(false)}>
+              <Text style={styles.backText}>{t("back")}</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>{t("editDebtor")}</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+
+          <ScrollView
+            style={styles.modalContent}
+            contentContainerStyle={styles.modalBody}
+            keyboardShouldPersistTaps="always"
+          >
+            <Text style={styles.label}>{t("debtorName")}</Text>
+            <TextInput
+              style={[styles.input, editErrors.name ? styles.inputError : null]}
+              placeholder={t("enterName")}
+              placeholderTextColor={colors.textTertiary}
+              value={editName}
+              onChangeText={(v) => { setEditName(v); if (editErrors.name) setEditErrors({ name: "" }); }}
+              autoCapitalize="words"
+            />
+            {editErrors.name ? <Text style={styles.errorText}>{editErrors.name}</Text> : null}
+
+            <Text style={styles.label}>{t("phoneNumber")}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder={t("phoneNumber")}
+              placeholderTextColor={colors.textTertiary}
+              value={editPhone}
+              onChangeText={setEditPhone}
+              keyboardType="phone-pad"
+            />
+
+            <Text style={styles.label}>{t("debtNotesOrExtra")}</Text>
+            <TextInput
+              style={[styles.input, styles.notesInput]}
+              placeholder={t("debtNotesOrExtra")}
+              placeholderTextColor={colors.textTertiary}
+              value={editNotes}
+              onChangeText={setEditNotes}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+
+            <TouchableOpacity
+              style={[
+                styles.saveButton,
+                (!editName.trim() || isEditing) && styles.saveButtonDisabled,
+              ]}
+              onPress={handleEdit}
+              disabled={isEditing}
+            >
+              {isEditing ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={styles.saveButtonText}>{t("save")}</Text>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -570,7 +713,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     cardDate: {
       fontSize: FONT_SIZE.xs,
-      color: colors.textTertiary,
+      color: colors.primary,
       marginTop: 2,
     },
     cardAmount: {
@@ -754,7 +897,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     historyDate: {
       fontSize: FONT_SIZE.xs,
-      color: colors.textTertiary,
+      color: colors.primary,
       marginTop: 2,
     },
     historyAmount: {

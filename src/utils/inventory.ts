@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   InventorySummary,
   InventoryWithProduct,
   InventoryMetrics,
@@ -26,9 +26,7 @@ export const formatWholeNumber = (value: number): string =>
 export const formatMoney = (value: number): string =>
   `${value.toLocaleString("uz-UZ")} so'm`;
 
-import { formatInputAmount as _f, parseFormattedAmount as _p } from "./formatters";
-export const formatInputAmount = _f;
-export const parseFormattedAmount = _p;
+export { formatInputAmount, parseFormattedAmount } from "./formatters";
 
 export const hasValidationErrors = (
   errors: ProductValidationErrors,
@@ -251,7 +249,10 @@ const aggregateItemsByProduct = (
     totalProfit += profit;
   }
 
-  const totalStart = totalCurrent + totalSold;
+  let totalStart = 0;
+  for (const [, latestEntry] of productLatestEntry) {
+    totalStart += latestEntry.startQuantity ?? 0;
+  }
 
   return {
     start: totalStart,
@@ -330,6 +331,7 @@ function getItemPrices(item: InventoryWithProduct) {
 export function buildProductStatisticsRows(
   items: InventoryWithProduct[],
   catalog: Product[] = [],
+  includeCatalogFallback = true,
 ): ProductStatisticsRow[] {
   const uniqueByProductAndDate = new Map<string, InventoryWithProduct>();
 
@@ -381,7 +383,7 @@ export function buildProductStatisticsRows(
     const metrics = getInventoryMetrics(latest);
     const { buyPrice, sellPrice } = getItemPrices(latest);
     const totals = productTotals.get(productId)!;
-    const jami = Math.max(latest.startQuantity ?? 0, metrics.remaining + totals.sold);
+    const jami = (latest.startQuantity ?? 0) + totals.sold;
     const abarot = jami * sellPrice;
     const olinganNarxJami = jami * buyPrice;
 
@@ -402,26 +404,28 @@ export function buildProductStatisticsRows(
     });
   }
 
-  const includedIds = new Set(rows.map((r) => r.productId));
-  for (const product of catalog) {
-    if (product.isDeleted || includedIds.has(product.localId)) continue;
+  if (includeCatalogFallback) {
+    const includedIds = new Set(rows.map((r) => r.productId));
+    for (const product of catalog) {
+      if (includedIds.has(product.localId)) continue;
 
-    const jami = product.quantity ?? 0;
-    rows.push({
-      productId: product.localId,
-      name: product.name,
-      buyPrice: product.buyPrice,
-      sellPrice: product.sellPrice,
-      jami,
-      qoldi: jami,
-      sotildi: 0,
-      olinganNarxiSold: 0,
-      sotilganNarx: 0,
-      tozaFoyda: 0,
-      abarot: jami * product.sellPrice,
-      olinganNarxJami: jami * product.buyPrice,
-      foyda: jami * (product.sellPrice - product.buyPrice),
-    });
+      const jami = product.quantity ?? 0;
+      rows.push({
+        productId: product.localId,
+        name: product.name,
+        buyPrice: product.buyPrice,
+        sellPrice: product.sellPrice,
+        jami,
+        qoldi: jami,
+        sotildi: 0,
+        olinganNarxiSold: 0,
+        sotilganNarx: 0,
+        tozaFoyda: 0,
+        abarot: jami * product.sellPrice,
+        olinganNarxJami: jami * product.buyPrice,
+        foyda: jami * (product.sellPrice - product.buyPrice),
+      });
+    }
   }
 
   rows.sort((a, b) => a.name.localeCompare(b.name, "uz"));

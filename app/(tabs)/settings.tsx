@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -20,6 +21,7 @@ import {
   MessageCircle,
   Info,
   ChevronRight,
+  Lock,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import dayjs from "dayjs";
@@ -56,6 +58,9 @@ export default function SettingsScreen() {
   const { theme, setTheme, language, setLanguage } = useTheme();
   const userTier = user?.tier ?? "tekin";
   const setBusinessDayHour = useStore((state) => state.setBusinessDayHour);
+  const blockCode = useStore((state) => state.blockCode);
+  const setBlockCode = useStore((state) => state.setBlockCode);
+  const showToast = useStore((state) => state.showToast);
 
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -63,6 +68,39 @@ export default function SettingsScreen() {
   const [showBusinessDayModal, setShowBusinessDayModal] = useState(false);
   const [editingHour, setEditingHour] = useState(() => getBusinessDayStartHour());
   const [confirmStep, setConfirmStep] = useState(false);
+
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [blockInput, setBlockInput] = useState("");
+  const [blockInputConfirm, setBlockInputConfirm] = useState("");
+  const [blockError, setBlockError] = useState("");
+
+  const openBlockModal = () => {
+    setBlockInput("");
+    setBlockInputConfirm("");
+    setBlockError("");
+    setShowBlockModal(true);
+  };
+
+  const handleSaveBlockCode = async () => {
+    if (blockInput.length !== 4 || !/^\d{4}$/.test(blockInput)) {
+      setBlockError(t("enter4DigitCode"));
+      return;
+    }
+    if (!blockCode && blockInput !== blockInputConfirm) {
+      setBlockError(t("codesDoNotMatch"));
+      return;
+    }
+    const wasSet = !!blockCode;
+    await setBlockCode(blockInput);
+    setShowBlockModal(false);
+    showToast(wasSet ? t("blockCodeChanged") : t("blockCodeSet"), "success");
+  };
+
+  const handleRemoveBlockCode = async () => {
+    await setBlockCode(null);
+    setShowBlockModal(false);
+    showToast(t("blockCodeRemoved"), "success");
+  };
 
   const LANGUAGES = [
     { code: "uz", label: t("lang_uz") },
@@ -312,6 +350,27 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
 
+        {/* Block code */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Lock size={18} color={colors.textSecondary} />
+            <Text style={styles.sectionTitle}>{t("blockCodeTitle")}</Text>
+          </View>
+          <Pressable style={styles.businessDayCard} onPress={openBlockModal}>
+            <View style={styles.businessDayTimeRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.businessDayValue}>
+                  {blockCode ? t("blockCodeOn") : t("blockCodeOff")}
+                </Text>
+                <Text style={[styles.businessDayLabel, { marginTop: 2 }]}>
+                  {t("blockCodeHint")}
+                </Text>
+              </View>
+              <ChevronRight size={18} color={colors.textTertiary} />
+            </View>
+          </Pressable>
+        </View>
+
         {/* Support */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -353,6 +412,72 @@ export default function SettingsScreen() {
         visible={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
       />
+
+      {/* Block code modal */}
+      <Modal
+        visible={showBlockModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowBlockModal(false)}
+      >
+        <Pressable
+          style={[styles.blockOverlay, { backgroundColor: colors.overlay }]}
+          onPress={() => setShowBlockModal(false)}
+        >
+          <Pressable
+            style={[styles.blockCard, { backgroundColor: colors.surface }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Lock size={32} color={colors.primary} />
+            <Text style={[styles.blockTitle, { color: colors.text }]}>
+              {blockCode ? t("changeBlockCodeTitle") : t("setBlockCodeTitle")}
+            </Text>
+            <Text style={[styles.blockDesc, { color: colors.textSecondary }]}>
+              {blockCode ? t("enterNew4Digit") : t("protectCodeDesc")}
+            </Text>
+            <TextInput
+              style={[styles.blockInput, { color: colors.text, borderColor: blockError ? colors.danger : colors.border, backgroundColor: colors.surfaceSecondary }]}
+              placeholder="0000"
+              placeholderTextColor={colors.textTertiary}
+              keyboardType="number-pad"
+              maxLength={4}
+              value={blockInput}
+              onChangeText={(v) => { setBlockInput(v.replace(/\D/g, "")); if (blockError) setBlockError(""); }}
+              autoFocus
+            />
+            {!blockCode ? (
+              <TextInput
+                style={[styles.blockInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceSecondary }]}
+                placeholder={t("repeatCode")}
+                placeholderTextColor={colors.textTertiary}
+                keyboardType="number-pad"
+                maxLength={4}
+                value={blockInputConfirm}
+                onChangeText={(v) => setBlockInputConfirm(v.replace(/\D/g, ""))}
+              />
+            ) : null}
+            {blockError ? (
+              <Text style={{ color: colors.danger, fontSize: FONT_SIZE.sm, fontWeight: "600" }}>{blockError}</Text>
+            ) : null}
+            <View style={styles.blockActions}>
+              {blockCode ? (
+                <>
+                  <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.danger }]} onPress={handleRemoveBlockCode}>
+                    <Text style={styles.blockBtnText}>{t("delete")}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.primary }]} onPress={handleSaveBlockCode}>
+                    <Text style={styles.blockBtnText}>{t("update")}</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.primary, flex: 1 }]} onPress={handleSaveBlockCode}>
+                  <Text style={styles.blockBtnText}>{t("save")}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Business Day Modal */}
       <Modal
@@ -942,5 +1067,54 @@ const createStyles = (colors: ThemeColors) =>
     confirmBtnText: {
       fontSize: FONT_SIZE.lg,
       fontWeight: "600",
+    },
+    blockOverlay: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: SPACING.xl,
+    },
+    blockCard: {
+      width: "100%",
+      maxWidth: 360,
+      borderRadius: BORDER_RADIUS.xl,
+      padding: SPACING.xl,
+      alignItems: "center",
+      gap: SPACING.md,
+    },
+    blockTitle: {
+      fontSize: FONT_SIZE.lg,
+      fontWeight: "700",
+    },
+    blockDesc: {
+      fontSize: FONT_SIZE.sm,
+      textAlign: "center",
+    },
+    blockInput: {
+      width: "100%",
+      borderWidth: 1.5,
+      borderRadius: BORDER_RADIUS.md,
+      paddingVertical: SPACING.md,
+      textAlign: "center",
+      fontSize: FONT_SIZE.lg,
+      fontWeight: "600",
+      letterSpacing: 2,
+    },
+    blockActions: {
+      flexDirection: "row",
+      gap: SPACING.sm,
+      width: "100%",
+      marginTop: SPACING.xs,
+    },
+    blockBtnAction: {
+      flex: 1,
+      paddingVertical: SPACING.md,
+      borderRadius: BORDER_RADIUS.md,
+      alignItems: "center",
+    },
+    blockBtnText: {
+      color: "#ffffff",
+      fontSize: FONT_SIZE.md,
+      fontWeight: "700",
     },
   });

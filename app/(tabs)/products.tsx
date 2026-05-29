@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -94,14 +94,15 @@ export default function ProductsScreen() {
 
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
 
+  // Block code is managed in Settings. Here we only consume it to protect
+  // editing. `unlocked` is a per-session flag toggled via the lock button.
   const blockCode = useStore((s) => s.blockCode);
-  const setBlockCodeStore = useStore((s) => s.setBlockCode);
-  const [showBlockModal, setShowBlockModal] = useState(false);
-  const [blockInput, setBlockInput] = useState("");
-  const [blockInputConfirm, setBlockInputConfirm] = useState("");
-  const [blockStep, setBlockStep] = useState<"set" | "change" | "remove">("set");
+  const [unlocked, setUnlocked] = useState(false);
   const [showPinVerify, setShowPinVerify] = useState(false);
   const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState("");
+  const pinActionRef = useRef<(() => void) | null>(null);
+  const locked = !!blockCode && !unlocked;
 
   const findDuplicateBarcode = useCallback(
     (barcode: string, excludeId?: string) =>
@@ -180,6 +181,19 @@ export default function ProductsScreen() {
     setShowRestockModal(false);
     setRestockProduct(null);
     setRestockQty("");
+  };
+
+  // Ask for the block code, then run `action` on success. Used by the unlock
+  // button and by saving an edited product while locked.
+  const requirePin = (action: () => void) => {
+    if (blockCode) {
+      pinActionRef.current = action;
+      setPinInput("");
+      setPinError("");
+      setShowPinVerify(true);
+    } else {
+      action();
+    }
   };
 
   const openEdit = (item: Product) => {
@@ -312,49 +326,68 @@ export default function ProductsScreen() {
     }
     if (!validate()) return;
 
-    if (blockCode && editingProduct) {
-      setShowPinVerify(true);
-      setPinInput("");
+    // Block protection applies only when editing an existing product while the
+    // screen is locked. Saving then asks for the code; creating is free.
+    if (editingProduct && locked) {
+      requirePin(() => execSave());
       return;
     }
 
     await execSave();
   };
 
+  // Verifies the entered block code, then runs the pending gated action.
+  // Errors render inline (not as a toast, which would sit behind the modal).
   const handleConfirmPin = () => {
     if (pinInput === blockCode) {
       setShowPinVerify(false);
       setPinInput("");
-      execSave();
+      setPinError("");
+      const action = pinActionRef.current;
+      pinActionRef.current = null;
+      action?.();
     } else {
-      showToast("Blok kod noto'g'ri", "error");
+      setPinError(t("blockCodeWrong"));
       setPinInput("");
     }
   };
 
-  const handleSetBlockCode = async () => {
-    if (blockInput.length !== 4 || !/^\d{4}$/.test(blockInput)) {
-      showToast("4 xonali raqam kiriting", "error");
-      return;
-    }
-    if (!blockCode && blockInput !== blockInputConfirm) {
-      showToast("Kodlar bir xil emas", "error");
-      return;
-    }
-    await setBlockCodeStore(blockInput);
-    setShowBlockModal(false);
-    setBlockInput("");
-    setBlockInputConfirm("");
-    showToast(blockCode ? "Blok kod o'zgartirildi" : "Blok kod o'rnatildi", "success");
+  const dismissPin = () => {
+    setShowPinVerify(false);
+    setPinError("");
   };
 
-  const handleRemoveBlockCode = async () => {
-    await setBlockCodeStore(null);
-    setShowBlockModal(false);
-    setBlockInput("");
-    setBlockInputConfirm("");
-    showToast("Blok kod o'chirildi", "success");
-  };
+  // Shared PIN entry card. Rendered as an in-modal overlay while the product
+  // form is open (avoids stacking two native modals, which freezes iOS), and
+  // inside a standalone modal otherwise.
+  const renderPinCard = () => (
+    <Pressable style={[styles.blockCard, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+      <Lock size={32} color={colors.warning} />
+      <Text style={[styles.blockTitle, { color: colors.text }]}>{t("enterBlockCode")}</Text>
+      <Text style={[styles.blockDesc, { color: colors.textSecondary }]}>{t("unlockFormDesc")}</Text>
+      <TextInput
+        style={[styles.blockInput, { color: colors.text, borderColor: pinError ? colors.danger : colors.border, backgroundColor: colors.surfaceSecondary }]}
+        placeholder="0000"
+        placeholderTextColor={colors.textTertiary}
+        keyboardType="number-pad"
+        maxLength={4}
+        value={pinInput}
+        onChangeText={(v) => { setPinInput(v.replace(/\D/g, "")); if (pinError) setPinError(""); }}
+        autoFocus
+      />
+      {pinError ? (
+        <Text style={{ color: colors.danger, fontSize: FONT_SIZE.sm, fontWeight: "600" }}>{pinError}</Text>
+      ) : null}
+      <View style={styles.blockActions}>
+        <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.surfaceSecondary, flex: 1 }]} onPress={dismissPin}>
+          <Text style={[styles.blockBtnText, { color: colors.text }]}>{t("cancel")}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.primary, flex: 1 }]} onPress={handleConfirmPin}>
+          <Text style={styles.blockBtnText}>{t("confirm")}</Text>
+        </TouchableOpacity>
+      </View>
+    </Pressable>
+  );
 
   const handleRestock = async () => {
     if (!restockProduct || !restockQty) return;
@@ -470,23 +503,23 @@ export default function ProductsScreen() {
         <Pressable
           style={[
             styles.blockBtn,
-            { backgroundColor: blockCode ? colors.warning + "20" : colors.surfaceSecondary, borderColor: blockCode ? colors.warning : colors.border },
+            { backgroundColor: locked ? colors.warning + "20" : colors.surfaceSecondary, borderColor: locked ? colors.warning : colors.border },
           ]}
           onPress={() => {
-            if (blockCode) {
-              setBlockStep("change");
-              setBlockInput("");
-              setBlockInputConfirm("");
-              setShowBlockModal(true);
+            // No code yet → direct the user to Settings to set one.
+            if (!blockCode) {
+              showToast(t("setBlockCodeInSettings"), "info");
+              return;
+            }
+            // Locking needs no code; unlocking asks for the block code.
+            if (unlocked) {
+              setUnlocked(false);
             } else {
-              setBlockStep("set");
-              setBlockInput("");
-              setBlockInputConfirm("");
-              setShowBlockModal(true);
+              requirePin(() => setUnlocked(true));
             }
           }}
         >
-          {blockCode ? (
+          {locked ? (
             <Lock size={18} color={colors.warning} />
           ) : (
             <Unlock size={18} color={colors.textTertiary} />
@@ -773,6 +806,17 @@ export default function ProductsScreen() {
               )}
             </Pressable>
           </View>
+
+          {/* In-modal PIN overlay (saving an edit while locked) — avoids a
+              second native modal which freezes iOS. */}
+          {showPinVerify && (
+            <Pressable
+              style={[styles.pinOverlay, { backgroundColor: colors.overlay }]}
+              onPress={dismissPin}
+            >
+              {renderPinCard()}
+            </Pressable>
+          )}
         </KeyboardAvoidingView>
       </Modal>
 
@@ -964,87 +1008,17 @@ export default function ProductsScreen() {
         />
       )}
 
-      {/* Block code modal */}
-      <Modal visible={showBlockModal} transparent animationType="fade" onRequestClose={() => setShowBlockModal(false)}>
-        <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={() => setShowBlockModal(false)}>
-          <Pressable style={[styles.blockCard, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
-            <Lock size={32} color={colors.primary} />
-            <Text style={[styles.blockTitle, { color: colors.text }]}>
-              {blockCode ? "Blok kodni o'zgartirish" : "Blok kod o'rnatish"}
-            </Text>
-            <Text style={[styles.blockDesc, { color: colors.textSecondary }]}>
-              {blockCode
-                ? "Yangi 4 xonali raqam kiriting"
-                : "Mahsulotni tahrirlashda himoya kodi (4 xonali)"}
-            </Text>
-            <TextInput
-              style={[styles.blockInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceSecondary }]}
-              placeholder="0000"
-              placeholderTextColor={colors.textTertiary}
-              keyboardType="number-pad"
-              maxLength={4}
-              value={blockInput}
-              onChangeText={(v) => setBlockInput(v.replace(/\D/g, ""))}
-            />
-            {!blockCode ? (
-              <TextInput
-                style={[styles.blockInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceSecondary }]}
-                placeholder="Kodni takrorlang"
-                placeholderTextColor={colors.textTertiary}
-                keyboardType="number-pad"
-                maxLength={4}
-                value={blockInputConfirm}
-                onChangeText={(v) => setBlockInputConfirm(v.replace(/\D/g, ""))}
-              />
-            ) : null}
-            <View style={styles.blockActions}>
-              {blockCode ? (
-                <>
-                  <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.danger }]} onPress={handleRemoveBlockCode}>
-                    <Text style={styles.blockBtnText}>{t("delete")}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.primary }]} onPress={handleSetBlockCode}>
-                    <Text style={styles.blockBtnText}>{t("update")}</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.primary, flex: 1 }]} onPress={handleSetBlockCode}>
-                  <Text style={styles.blockBtnText}>{t("save")}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* PIN verify modal */}
-      <Modal visible={showPinVerify} transparent animationType="fade" onRequestClose={() => setShowPinVerify(false)}>
-        <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={() => setShowPinVerify(false)}>
-          <Pressable style={[styles.blockCard, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
-            <Lock size={32} color={colors.warning} />
-            <Text style={[styles.blockTitle, { color: colors.text }]}>{t("enterBlockCode")}</Text>
-            <Text style={[styles.blockDesc, { color: colors.textSecondary }]}>
-              Mahsulotni saqlash uchun himoya kodini kiriting
-            </Text>
-            <TextInput
-              style={[styles.blockInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceSecondary }]}
-              placeholder="0000"
-              placeholderTextColor={colors.textTertiary}
-              keyboardType="number-pad"
-              maxLength={4}
-              value={pinInput}
-              onChangeText={(v) => setPinInput(v.replace(/\D/g, ""))}
-              autoFocus
-            />
-            <View style={styles.blockActions}>
-              <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.surfaceSecondary, flex: 1 }]} onPress={() => setShowPinVerify(false)}>
-                <Text style={[styles.blockBtnText, { color: colors.text }]}>{t("cancel")}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.primary, flex: 1 }]} onPress={handleConfirmPin}>
-                <Text style={styles.blockBtnText}>{t("confirm")}</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
+      {/* Standalone PIN modal — only when the product form is closed (e.g.
+          unlocking via the lock button). The edit-save case is handled by the
+          in-modal overlay above to avoid stacking two native modals on iOS. */}
+      <Modal
+        visible={showPinVerify && !showProductModal}
+        transparent
+        animationType="fade"
+        onRequestClose={dismissPin}
+      >
+        <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={dismissPin}>
+          {renderPinCard()}
         </Pressable>
       </Modal>
     </View>
@@ -1336,6 +1310,13 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: "center",
       padding: SPACING.xl,
     },
+    pinOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: SPACING.xl,
+      zIndex: 100,
+    },
     deleteModal: {
       backgroundColor: colors.surface,
       padding: SPACING.lg,
@@ -1419,9 +1400,9 @@ const createStyles = (colors: ThemeColors) =>
     blockInput: {
       width: "100%",
       textAlign: "center",
-      fontSize: FONT_SIZE.xxl,
-      fontWeight: "800",
-      letterSpacing: 8,
+      fontSize: FONT_SIZE.lg,
+      fontWeight: "600",
+      letterSpacing: 2,
       paddingVertical: SPACING.md,
       borderRadius: BORDER_RADIUS.lg,
       borderWidth: 0.5,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Tabs, useRouter } from "expo-router";
+import { Redirect, Tabs, useRouter } from "expo-router";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import {
   BarChart3,
+  ChevronLeft,
   ClipboardList,
   Package,
   Home,
@@ -117,8 +118,7 @@ function HeaderRefreshButton({ colors, t }: { colors: any; t: any }) {
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, logout } = useAuthStore();
-  const userTier = user?.tier ?? "tekin";
+  const { user, isAuthenticated, logout } = useAuthStore();
   const isSuperAdmin = user?.role?.toLowerCase() === "superadmin";
   const [showOfflineWarning, setShowOfflineWarning] = useState(false);
   const { colors } = useTheme();
@@ -144,6 +144,12 @@ export default function TabLayout() {
     }
   }, [justWentOffline]);
 
+  // Protected layout: never mount a tab screen (and its data fetch) before
+  // auth is resolved — prevents the "/" -> products error -> "/login" flash.
+  if (!isAuthenticated || !user) {
+    return <Redirect href="/login" />;
+  }
+
   const initialRouteName = isSuperAdmin ? "users" : "products";
 
   return (
@@ -159,6 +165,17 @@ export default function TabLayout() {
           headerRight: () => (
             <View style={styles.headerRight}>
               <HeaderRefreshButton colors={colors} t={t} />
+              <TouchableOpacity
+                style={[
+                  styles.refreshButton,
+                  { backgroundColor: colors.background, borderColor: colors.border },
+                ]}
+                onPress={() => router.push("/(tabs)/settings")}
+                activeOpacity={0.8}
+                accessibilityLabel={t("settings")}
+              >
+                <Settings size={18} color={colors.primary} />
+              </TouchableOpacity>
             </View>
           ),
            tabBarStyle: {
@@ -246,8 +263,17 @@ export default function TabLayout() {
           name="settings"
           options={{
             title: t("settings"),
-            tabBarIcon: ({ focused }) => (
-              <TabIcon name="settings" focused={focused} colors={colors} />
+            // Moved out of the tab bar — opened from the header gear icon.
+            href: null,
+            headerLeft: () => (
+              <TouchableOpacity
+                style={styles.headerBackButton}
+                onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)"))}
+                activeOpacity={0.8}
+                accessibilityLabel={t("back")}
+              >
+                <ChevronLeft size={24} color={colors.text} />
+              </TouchableOpacity>
             ),
           }}
         />
@@ -272,6 +298,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   headerRight: { flexDirection: "row", alignItems: "center", marginRight: 4 },
+  headerBackButton: { paddingHorizontal: 12, paddingVertical: 6, marginLeft: 4 },
   refreshButton: {
     width: 36,
     height: 36,

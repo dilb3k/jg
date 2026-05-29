@@ -269,7 +269,10 @@ export const useStore = create<AppState>((set, get) => ({
     set({
       user: normalized,
       isAuthenticated: !!normalized,
-      blockCode: normalized?.blockCode ?? null,
+      // Preserve the existing block code when the refreshed user object does
+      // not carry one (e.g. on refresh / getMe). This stops the lock from
+      // silently opening after a refresh. It is cleared explicitly on logout.
+      blockCode: (normalized as any)?.blockCode ?? get().blockCode ?? null,
     });
     if (normalized && typeof normalized.businessDayStartHour === 'number' && normalized.businessDayStartHour >= 0 && normalized.businessDayStartHour <= 23) {
       setBusinessDayStartHour(normalized.businessDayStartHour);
@@ -277,12 +280,24 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   setBlockCode: async (code) => {
+    // Persist locally first so the lock survives logout and app restart,
+    // independent of the (best-effort) server sync below.
+    try {
+      if (code) {
+        await secureStorage.setItemAsync(STORAGE_KEYS.BLOCK_CODE, code);
+      } else {
+        await secureStorage.deleteItemAsync(STORAGE_KEYS.BLOCK_CODE);
+      }
+    } catch {
+      // local persistence is best-effort
+    }
+    set({ blockCode: code });
     try {
       const result = await apiClient.updateMe({ blockCode: code });
       if (result.token) {
         await secureStorage.setItemAsync(STORAGE_KEYS.USER_TOKEN, result.token);
       }
-      set({ blockCode: code, user: result.user ?? get().user });
+      set({ user: result.user ?? get().user });
     } catch {
       // Server update is best-effort
     }
@@ -305,6 +320,8 @@ export const useStore = create<AppState>((set, get) => ({
     set({
       user: null,
       isAuthenticated: false,
+      // Block code is a device-level edit lock — it persists across logout
+      // (stored locally) so it is not lost when the admin signs out.
       products: [],
       currentInventory: [],
       snapshots: [],
@@ -326,6 +343,12 @@ export const useStore = create<AppState>((set, get) => ({
         if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 23) {
           setBusinessDayStartHour(parsed);
         }
+      }
+
+      // Restore the device-level block code (persists across logout/restart).
+      const savedBlockCode = await secureStorage.getItemAsync(STORAGE_KEYS.BLOCK_CODE);
+      if (savedBlockCode) {
+        set({ blockCode: savedBlockCode });
       }
 
       const pendingHourStr = await secureStorage.getItemAsync(STORAGE_KEYS.PENDING_BUSINESS_DAY_HOUR);

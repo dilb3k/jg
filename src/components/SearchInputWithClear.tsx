@@ -1,7 +1,7 @@
 import { StyleSheet, TextInput, TouchableOpacity, View, type TextInputProps } from "react-native";
 import { Search, X } from "lucide-react-native";
 
-import { SPACING, type ThemeColors } from "../theme";
+import { FONT_FAMILY, SPACING, type ThemeColors } from "../theme";
 
 type Props = TextInputProps & {
   colors: ThemeColors;
@@ -69,6 +69,8 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.sm,
     fontSize: 15,
+    fontFamily: FONT_FAMILY.regular,
+    letterSpacing: 0,
     borderWidth: 0,
     borderBottomWidth: 0,
     outlineWidth: 0,

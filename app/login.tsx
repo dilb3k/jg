@@ -20,6 +20,7 @@ import { BUSINESS_DAY_START_HOUR, STORAGE_KEYS } from "../src/constants";
 import { useI18n } from "../src/i18n";
 import { SPACING, FONT_SIZE, BORDER_RADIUS } from "../src/theme";
 import { useStore } from "../src/store";
+import { formatPhone, isCompletePhone, PHONE_PREFIX } from "../src/utils/phone";
 
 const C = {
   bg: "#070512",
@@ -46,7 +47,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [username, setUsername] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState(PHONE_PREFIX);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +64,7 @@ export default function LoginScreen() {
     }
 
     if (!isLoginMode) {
-      if (!phoneNumber.trim()) {
+      if (!isCompletePhone(phoneNumber)) {
         setError(t("enterPhonePassword"));
         return;
       }
@@ -237,10 +238,11 @@ export default function LoginScreen() {
                   placeholder={t("phoneNumberPlaceholder")}
                   placeholderTextColor={C.textTertiary}
                   value={phoneNumber}
-                  onChangeText={setPhoneNumber}
+                  onChangeText={(v) => setPhoneNumber(formatPhone(v))}
                   onFocus={() => setFocusedField("phone")}
                   onBlur={() => setFocusedField(null)}
                   keyboardType="phone-pad"
+                  maxLength={17}
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
@@ -366,6 +368,11 @@ const styles = StyleSheet.create({
     borderColor: C.border,
     backgroundColor: "rgba(255,255,255,0.03)",
     padding: SPACING.lg,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 8,
   },
   tabs: {
     flexDirection: "row",
@@ -416,6 +423,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: SPACING.sm,
     backgroundColor: C.primary,
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 6,
   },
   submitText: {
     fontSize: FONT_SIZE.md,

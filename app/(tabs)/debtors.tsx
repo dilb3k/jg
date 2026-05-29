@@ -31,23 +31,7 @@ import { formatMoney, formatInputAmount, parseFormattedAmount } from "../../src/
 import { apiClient, canReachServer } from "../../src/api/client";
 import { useStore } from "../../src/store";
 import type { Debtor, DebtHistory } from "../../src/types";
-
-const formatPhone = (text: string) => {
-  const digits = text.replace(/\D/g, "").slice(0, 12);
-  if (digits.length === 0) return "+998";
-  let r = "+" + digits.slice(0, 3);
-  if (digits.length > 3) r += " " + digits.slice(3, 5);
-  if (digits.length > 5) r += " " + digits.slice(5, 8);
-  if (digits.length > 8) r += " " + digits.slice(8, 10);
-  if (digits.length > 10) r += " " + digits.slice(10, 12);
-  return r;
-};
-
-const displayPhone = (phone: string) => {
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length === 0) return phone;
-  return formatPhone(digits);
-};
+import { formatPhone, displayPhone } from "../../src/utils/phone";
 
 export default function DebtorsScreen() {
   const { colors } = useTheme();

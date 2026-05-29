@@ -56,7 +56,7 @@ const EMPTY_ERRORS: FormErrors = {
 };
 
 export default function InventoryScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -88,6 +88,9 @@ export default function InventoryScreen() {
   const [isDateLoading, setIsDateLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  // iOS shows the picker inside a modal with explicit confirm; this holds the
+  // in-progress selection until the user taps "Done".
+  const [tempPickerDate, setTempPickerDate] = useState<Date>(() => new Date());
   const [searchQuery, setSearchQuery] = useState("");
   const insets = useSafeAreaInsets();
 
@@ -342,7 +345,10 @@ export default function InventoryScreen() {
 
         <TouchableOpacity
           style={styles.dateDisplay}
-          onPress={() => setShowDatePicker(true)}
+          onPress={() => {
+            setTempPickerDate(dayjs(selectedDate).toDate());
+            setShowDatePicker(true);
+          }}
         >
           <Text style={styles.dateText}>
             {dayjs(selectedDate).format("DD MMM YYYY")}
@@ -643,18 +649,63 @@ export default function InventoryScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {showDatePicker && (
+      {/* Android: native dialog fires once on confirm/dismiss. */}
+      {showDatePicker && Platform.OS !== "ios" && (
         <DateTimePicker
           value={dayjs(selectedDate).toDate()}
           mode="date"
           display="default"
+          maximumDate={dayjs(getBusinessDate()).toDate()}
           onChange={(event, date) => {
             setShowDatePicker(false);
-            if (date) {
+            if (event.type === "set" && date) {
               setSelectedDate(dayjs(date).format("YYYY-MM-DD"));
             }
           }}
         />
+      )}
+
+      {/* iOS: inline picker inside a confirmable bottom sheet. */}
+      {Platform.OS === "ios" && (
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <TouchableOpacity
+            style={styles.pickerOverlay}
+            activeOpacity={1}
+            onPress={() => setShowDatePicker(false)}
+          >
+            <TouchableOpacity activeOpacity={1} style={styles.pickerSheet}>
+              <View style={styles.pickerHeader}>
+                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                  <Text style={styles.pickerCancel}>{t("cancel")}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowDatePicker(false);
+                    setSelectedDate(dayjs(tempPickerDate).format("YYYY-MM-DD"));
+                  }}
+                >
+                  <Text style={styles.pickerDone}>{t("confirm")}</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={tempPickerDate}
+                mode="date"
+                display="spinner"
+                themeVariant={isDark ? "dark" : "light"}
+                maximumDate={dayjs(getBusinessDate()).toDate()}
+                onChange={(_event, date) => {
+                  if (date) setTempPickerDate(date);
+                }}
+                style={styles.iosPicker}
+              />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
       )}
     </View>
   );
@@ -1043,5 +1094,38 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.white,
       fontWeight: "700",
       fontSize: FONT_SIZE.md,
+    },
+    pickerOverlay: {
+      flex: 1,
+      justifyContent: "flex-end",
+      backgroundColor: colors.overlay,
+    },
+    pickerSheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: BORDER_RADIUS.xl,
+      borderTopRightRadius: BORDER_RADIUS.xl,
+      paddingBottom: SPACING.xl,
+    },
+    pickerHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.md,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    pickerCancel: {
+      fontSize: FONT_SIZE.md,
+      color: colors.textSecondary,
+      fontWeight: "600",
+    },
+    pickerDone: {
+      fontSize: FONT_SIZE.md,
+      color: colors.primary,
+      fontWeight: "700",
+    },
+    iosPicker: {
+      alignSelf: "center",
     },
   });

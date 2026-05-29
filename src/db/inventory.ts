@@ -58,8 +58,8 @@ export const getInventoryWithProduct = async (date: string): Promise<(InventoryE
       let currentQty = product.quantity || 0;
 
     if (prevInv) {
-      startQty = prevInv.currentQuantity;
-      currentQty = prevInv.currentQuantity;
+      startQty = product.quantity ?? prevInv.currentQuantity;
+      currentQty = product.quantity ?? prevInv.currentQuantity;
     }
 
       const newEntry: InventoryEntry = {
@@ -143,7 +143,7 @@ export const syncTodayInventoryWithProducts = async (): Promise<void> => {
 
     if (index === -1) {
       const prevInv = prevEntries.find((e) => e.productId === product.localId);
-      const prevQty = prevInv ? prevInv.currentQuantity : 0;
+      const prevQty = product.quantity ?? (prevInv ? prevInv.currentQuantity : 0);
 
       const newEntry: InventoryEntry = {
         id: undefined,

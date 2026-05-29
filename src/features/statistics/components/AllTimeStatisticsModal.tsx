@@ -11,9 +11,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import dayjs from "dayjs";
 import { X } from "lucide-react-native";
 
-import { apiClient } from "../../../api/client";
 import { formatMoney, getInventoryTotals } from "../../../utils/inventory";
 import { createStatisticsStyles } from "../styles";
+import { useStore } from "../../../store";
 import { useTheme } from "../../../store/themeStore";
 import { useI18n } from "../../../i18n";
 import { DatePickerModal } from "./DatePickerModal";
@@ -67,7 +67,10 @@ export function AllTimeStatisticsModal({
   const fetchForRange = useCallback(async (from: string, to: string) => {
     setLoading(true);
     try {
-      const result = await apiClient.getInventoryWithProducts({ from, to });
+      await useStore.getState().loadInventoryRange(from, to);
+      const cacheKey = `${from}_${to}`;
+      const cached = useStore.getState().inventoryRangeCache[cacheKey];
+      const result = cached ?? { items: [], summary: undefined };
       const s = result.summary;
       if (s) {
         setTotals({

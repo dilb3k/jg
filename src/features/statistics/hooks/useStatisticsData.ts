@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import dayjs from "dayjs";
 
-import { apiClient } from "../../../api/client";
+import { useStore } from "../../../store";
 import type {
   InventorySummary,
   InventoryWithProduct,
@@ -65,29 +65,31 @@ function buildAllProductPeriodStats(
     stats.set(p.localId, { sold: 0, profit: 0 });
   });
 
-  snapshots.forEach((snapshot) => {
-    snapshot.items.forEach((item) => {
-      if (!namesById.has(item.productId)) {
-        namesById.set(item.productId, item.productName);
+  if (inventoryItems.length > 0) {
+    inventoryItems.forEach((item) => {
+      const id = item.productId || item.product?.localId;
+      if (!id) return;
+      if (!namesById.has(id)) {
+        namesById.set(id, item.product?.name || "Noma'lum");
       }
-      const current = stats.get(item.productId) ?? { sold: 0, profit: 0 };
-      current.sold += item.sold;
-      current.profit += item.profit;
-      stats.set(item.productId, current);
+      const current = stats.get(id) ?? { sold: 0, profit: 0 };
+      current.sold += item.sold ?? 0;
+      current.profit += item.realizedProfit ?? 0;
+      stats.set(id, current);
     });
-  });
-
-  inventoryItems.forEach((item) => {
-    const id = item.productId || item.product?.localId;
-    if (!id) return;
-    if (!namesById.has(id)) {
-      namesById.set(id, item.product?.name || item.name || "Noma'lum");
-    }
-    const current = stats.get(id) ?? { sold: 0, profit: 0 };
-    current.sold += item.sold ?? 0;
-    current.profit += item.realizedProfit ?? 0;
-    stats.set(id, current);
-  });
+  } else {
+    snapshots.forEach((snapshot) => {
+      snapshot.items.forEach((item) => {
+        if (!namesById.has(item.productId)) {
+          namesById.set(item.productId, item.productName);
+        }
+        const current = stats.get(item.productId) ?? { sold: 0, profit: 0 };
+        current.sold += item.sold;
+        current.profit += item.profit;
+        stats.set(item.productId, current);
+      });
+    });
+  }
 
   return Array.from(stats.entries()).map(([id, totals]) => ({
     id,
@@ -110,6 +112,7 @@ export function useStatisticsData({
     [period, selectedDate],
   );
 
+  const inventoryCacheVersion = useStore((s) => s.inventoryCacheVersion);
   const [inventoryRange, setInventoryRange] = useState<{
     items: InventoryWithProduct[];
     summary?: InventorySummary;
@@ -119,17 +122,29 @@ export function useStatisticsData({
 
   const fetchInventory = useCallback(async () => {
     const fetchId = ++fetchIdRef.current;
-    setInventoryRange(null);
-    setInventoryAttempted(false);
+    const cacheKey = `${periodDateRange.from}_${periodDateRange.to}`;
+
+    const cached = useStore.getState().inventoryRangeCache[cacheKey];
+    if (cached) {
+      const today = dayjs().format("YYYY-MM-DD");
+      if (periodDateRange.to < today || cached.fetchedAt > Date.now() - 30000) {
+        setInventoryRange({ items: cached.items, summary: cached.summary });
+        setInventoryAttempted(true);
+        return;
+      }
+    }
 
     if (!isPayed) {
+      setInventoryRange(null);
       setInventoryAttempted(true);
       return;
     }
+
     try {
-      const result = await apiClient.getInventoryWithProducts(periodDateRange);
+      await useStore.getState().loadInventoryRange(periodDateRange.from, periodDateRange.to);
       if (fetchId !== fetchIdRef.current) return;
-      setInventoryRange(result);
+      const cached = useStore.getState().inventoryRangeCache[cacheKey];
+      setInventoryRange(cached ? { items: cached.items, summary: cached.summary } : null);
     } catch {
       if (fetchId !== fetchIdRef.current) return;
       setInventoryRange(null);
@@ -137,7 +152,7 @@ export function useStatisticsData({
       if (fetchId !== fetchIdRef.current) return;
       setInventoryAttempted(true);
     }
-  }, [periodDateRange, isPayed, snapshots, products]);
+  }, [periodDateRange, isPayed, inventoryCacheVersion]); // eslint-disable-line
 
   useEffect(() => {
     void fetchInventory();

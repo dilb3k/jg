@@ -21,7 +21,7 @@
       }
     },
     "android": {
-      "package": "com.dilbek.mediaapp",
+      "package": "com.hisvex.app",
       "versionCode": 1,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {

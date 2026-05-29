@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,15 +11,36 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
 import { apiClient } from "../src/api/client";
 import * as secureStorage from "../src/utils/secureStorage";
 import { BUSINESS_DAY_START_HOUR, STORAGE_KEYS } from "../src/constants";
-import { useTheme } from "../src/store/themeStore";
 import { useI18n } from "../src/i18n";
 import { SPACING, FONT_SIZE, BORDER_RADIUS } from "../src/theme";
 import { useStore } from "../src/store";
+
+const C = {
+  bg: "#070512",
+  bgMid: "#0F0A2E",
+  bgDeep: "#0C0820",
+  primary: "#7C3AED",
+  accent: "#A78BFA",
+  accentDim: "rgba(167,139,250,0.65)",
+  white: "#FFFFFF",
+  glass: "rgba(124,58,237,0.12)",
+  glassB: "rgba(124,58,237,0.35)",
+  surface: "rgba(255,255,255,0.04)",
+  border: "rgba(167,139,250,0.15)",
+  borderFocus: "#7C3AED",
+  text: "rgba(255,255,255,0.9)",
+  textSecondary: "rgba(167,139,250,0.65)",
+  textTertiary: "rgba(167,139,250,0.3)",
+  danger: "#EF4444",
+  dangerBg: "rgba(239,68,68,0.1)",
+  dangerBorder: "rgba(239,68,68,0.25)",
+};
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -28,9 +50,8 @@ export default function LoginScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
-
-  const { colors } = useTheme();
   const { t } = useI18n();
   const setUser = useStore((state) => state.setUser);
 
@@ -94,185 +115,168 @@ export default function LoginScreen() {
     }
   };
 
+  const inputStyle = (field: string) => [
+    styles.input,
+    {
+      backgroundColor: C.surface,
+      borderColor: focusedField === field ? C.borderFocus : C.border,
+      color: C.text,
+    },
+  ];
+
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior="padding"
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
+      <LinearGradient
+        colors={[C.bg, C.bgMid, C.bgDeep, C.bg]}
+        locations={[0, 0.3, 0.65, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="always"
         bounces={false}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.logoContainer}>
+        <View style={styles.logoSection}>
           <Image
             source={require("../assets/Hisvex.png")}
             style={styles.logoImage}
             resizeMode="contain"
           />
-          <Text style={[styles.title, { color: colors.text }]}>
-            {"Hisvex"}
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          <View style={styles.brandRow}>
+            <Text style={styles.brandHis}>His</Text>
+            <Text style={styles.brandVex}>vex</Text>
+          </View>
+          <Text style={styles.tagline}>
             {isLoginMode ? t("signInToSystem") : t("createAccount")}
           </Text>
         </View>
 
-        <View style={styles.modeSwitch}>
-          <TouchableOpacity
-            style={[
-              styles.modeButton,
-              isLoginMode && [styles.modeButtonActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
-              { borderColor: colors.border },
-            ]}
-            onPress={() => {
-              setIsLoginMode(true);
-              setError(null);
-            }}
-          >
-            <Text
+        <View style={styles.card}>
+          <View style={styles.tabs}>
+            <TouchableOpacity
               style={[
-                styles.modeButtonText,
-                isLoginMode && { color: colors.white, fontWeight: "700" },
-                { color: isLoginMode ? colors.white : colors.text },
+                styles.tab,
+                isLoginMode && { borderBottomColor: C.primary, borderBottomWidth: 2 },
               ]}
+              onPress={() => {
+                setIsLoginMode(true);
+                setError(null);
+              }}
+              activeOpacity={0.7}
             >
-              {t("signIn")}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.modeButton,
-              !isLoginMode && [styles.modeButtonActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
-              { borderColor: colors.border },
-            ]}
-            onPress={() => {
-              setIsLoginMode(false);
-              setError(null);
-            }}
-          >
-            <Text
-              style={[
-                styles.modeButtonText,
-                !isLoginMode && { color: colors.white, fontWeight: "700" },
-                { color: !isLoginMode ? colors.white : colors.text },
-              ]}
-            >
-              {t("signUp")}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.form}>
-          {error ? (
-            <View
-              style={[
-                styles.errorContainer,
-                {
-                  backgroundColor: colors.danger + "15",
-                  borderColor: colors.danger + "40",
-                },
-              ]}
-            >
-              <Text style={[styles.errorText, { color: colors.danger }]}>
-                {error}
-              </Text>
-            </View>
-          ) : null}
-
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              {t("username")}
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
-              ]}
-              placeholder={t("loginPlaceholder")}
-              placeholderTextColor={colors.textTertiary}
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              {t("password")}
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
-              ]}
-              placeholder={t("passwordPlaceholder")}
-              placeholderTextColor={colors.textTertiary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          {!isLoginMode && (
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                {t("confirmPassword")}
-              </Text>
-              <TextInput
+              <Text
                 style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
+                  styles.tabText,
+                  { color: isLoginMode ? C.primary : C.textTertiary },
+                  isLoginMode && { fontWeight: "700" },
                 ]}
-                placeholder={t("confirmPasswordPlaceholder")}
-                placeholderTextColor={colors.textTertiary}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
+              >
+                {t("signIn")}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                !isLoginMode && { borderBottomColor: C.primary, borderBottomWidth: 2 },
+              ]}
+              onPress={() => {
+                setIsLoginMode(false);
+                setError(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: !isLoginMode ? C.primary : C.textTertiary },
+                  !isLoginMode && { fontWeight: "700" },
+                ]}
+              >
+                {t("signUp")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.form}>
+            {error ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t("loginLabel")}</Text>
+              <TextInput
+                style={inputStyle("login")}
+                placeholder={t("loginPlaceholder")}
+                placeholderTextColor={C.textTertiary}
+                value={username}
+                onChangeText={setUsername}
+                onFocus={() => setFocusedField("login")}
+                onBlur={() => setFocusedField(null)}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t("password")}</Text>
+              <TextInput
+                style={inputStyle("password")}
+                placeholder={t("passwordPlaceholder")}
+                placeholderTextColor={C.textTertiary}
+                value={password}
+                onChangeText={setPassword}
+                onFocus={() => setFocusedField("password")}
+                onBlur={() => setFocusedField(null)}
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
               />
             </View>
-          )}
 
-          <TouchableOpacity
-            style={[
-              styles.loginButton,
-              { backgroundColor: colors.primary },
-              isLoading && styles.loginButtonDisabled,
-            ]}
-            onPress={handleAuth}
-            disabled={isLoading}
-            activeOpacity={0.85}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color={colors.white} />
-            ) : (
-              <Text style={[styles.loginButtonText, { color: colors.white }]}>
-                {isLoginMode ? t("signIn") : t("signUp")}
-              </Text>
+            {!isLoginMode && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>{t("confirmPassword")}</Text>
+                <TextInput
+                  style={inputStyle("confirm")}
+                  placeholder={t("confirmPasswordPlaceholder")}
+                  placeholderTextColor={C.textTertiary}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  onFocus={() => setFocusedField("confirm")}
+                  onBlur={() => setFocusedField(null)}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
             )}
-          </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.submitButton, isLoading && { opacity: 0.7 }]}
+              onPress={handleAuth}
+              disabled={isLoading}
+              activeOpacity={0.85}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color={C.white} />
+              ) : (
+                <Text style={styles.submitText}>
+                  {isLoginMode ? t("signIn") : t("signUp")}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: colors.textTertiary }]}>
+          <Text style={styles.footerText}>
             {isLoginMode ? t("noAccountSwitch") : t("haveAccountSwitch")}
           </Text>
           <TouchableOpacity
@@ -280,8 +284,9 @@ export default function LoginScreen() {
               setIsLoginMode(!isLoginMode);
               setError(null);
             }}
+            activeOpacity={0.7}
           >
-            <Text style={[styles.footerLink, { color: colors.primary }]}>
+            <Text style={styles.footerLink}>
               {isLoginMode ? t("signUpHere") : t("signInHere")}
             </Text>
           </TouchableOpacity>
@@ -299,95 +304,114 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: SPACING.xl,
+    paddingTop: 100,
     paddingBottom: SPACING.xl,
   },
-  logoContainer: {
+  logoSection: {
     alignItems: "center",
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.xl,
   },
   logoImage: {
-    width: 200,
-    height: 200,
-    marginBottom: -SPACING.xxl *2,
+    width: 180,
+    height: 180,
+    marginBottom: -SPACING.xxl,
   },
-  title: {
-    fontSize: FONT_SIZE.title,
-    fontWeight: "700",
+  brandRow: {
+    flexDirection: "row",
     marginBottom: SPACING.xs,
   },
-  subtitle: {
-    fontSize: FONT_SIZE.md,
-    marginBottom: SPACING.xxl,
+  brandHis: {
+    fontSize: 40,
+    fontWeight: "800",
+    color: C.primary,
+    letterSpacing: -0.5,
   },
-  modeSwitch: {
+  brandVex: {
+    fontSize: 40,
+    fontWeight: "800",
+    color: C.white,
+    letterSpacing: -0.5,
+  },
+  tagline: {
+    fontSize: FONT_SIZE.md,
+    color: C.accentDim,
+    letterSpacing: 0.5,
+  },
+  card: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    padding: SPACING.lg,
+  },
+  tabs: {
     flexDirection: "row",
-    gap: SPACING.sm,
     marginBottom: SPACING.lg,
+    gap: SPACING.xl,
   },
-  modeButton: {
-    flex: 1,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    alignItems: "center",
+  tab: {
+    paddingBottom: SPACING.sm,
   },
-  modeButtonActive: {
-    borderWidth: 1,
-  },
-  modeButtonText: {
-    fontSize: FONT_SIZE.md,
+  tabText: {
+    fontSize: FONT_SIZE.lg,
     fontWeight: "600",
   },
   form: {
     gap: SPACING.md,
   },
-  errorContainer: {
+  errorBox: {
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     borderWidth: 1,
+    backgroundColor: C.dangerBg,
+    borderColor: C.dangerBorder,
   },
   errorText: {
     fontSize: FONT_SIZE.sm,
     textAlign: "center",
+    fontWeight: "500",
+    color: C.danger,
   },
   inputGroup: {
     gap: SPACING.xs,
   },
-  label: {
+  inputLabel: {
     fontSize: FONT_SIZE.sm,
     fontWeight: "600",
+    color: C.textSecondary,
+    marginLeft: 2,
   },
   input: {
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     fontSize: FONT_SIZE.md,
-    borderWidth: 1,
+    borderWidth: 1.5,
   },
-  loginButton: {
+  submitButton: {
     padding: SPACING.lg,
     borderRadius: BORDER_RADIUS.md,
     alignItems: "center",
     marginTop: SPACING.sm,
+    backgroundColor: C.primary,
   },
-  loginButtonDisabled: {
-    opacity: 0.7,
-  },
-  loginButtonText: {
+  submitText: {
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
+    color: C.white,
   },
   footer: {
-    marginTop: SPACING.xl,
+    marginTop: SPACING.xxl,
     alignItems: "center",
     gap: SPACING.xs,
   },
   footerText: {
     fontSize: FONT_SIZE.sm,
+    color: C.textTertiary,
     textAlign: "center",
   },
   footerLink: {
     fontSize: FONT_SIZE.md,
     fontWeight: "700",
+    color: C.primary,
   },
 });

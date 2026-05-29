@@ -30,7 +30,8 @@ import type {
   ProductInput,
 } from "../types";
 
-let latestInventoryLoadRequest = 0;
+const inventoryLoadRequestCounters: Record<string, number> = {};
+const lastInventoryLoadTime: Record<string, number> = {};
 const inflightKeys = new Set<string>();
 let toastTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -99,6 +100,34 @@ const stripUndefined = <T extends Record<string, any>>(obj: T): Partial<T> => {
   return result;
 };
 
+const applyDashboard = (
+  set: (partial: Partial<AppState>) => void,
+  get: () => AppState,
+  dashboard: {
+    products: Product[];
+    inventory: InventoryWithProduct[];
+    inventorySummary?: InventorySummary;
+    snapshot: DailySnapshot | null;
+  },
+) => {
+  const today = getBusinessDate();
+  set({
+    products: dashboard.products,
+    currentInventory: dashboard.inventory,
+    inventorySummary: dashboard.inventorySummary ?? null,
+    snapshots: dashboard.snapshot ? [dashboard.snapshot] : [],
+    selectedDate: today,
+    inventoryPerDateCache: {
+      ...get().inventoryPerDateCache,
+      [today]: {
+        items: dashboard.inventory,
+        summary: dashboard.inventorySummary,
+        fetchedAt: Date.now(),
+      },
+    },
+  });
+};
+
 interface AppState {
   // Auth state
   user: AuthUser | null;
@@ -109,6 +138,23 @@ interface AppState {
   currentInventory: InventoryWithProduct[];
   inventorySummary: InventorySummary | null;
   snapshots: DailySnapshot[];
+  inventoryPerDateCache: Record<
+    string,
+    {
+      items: InventoryWithProduct[];
+      summary?: InventorySummary;
+      fetchedAt: number;
+    }
+  >;
+  inventoryRangeCache: Record<
+    string,
+    {
+      items: InventoryWithProduct[];
+      summary?: InventorySummary;
+      fetchedAt: number;
+    }
+  >;
+  inventoryCacheVersion: number;
   isLoading: boolean;
   error: string | null;
   deviceId: string;
@@ -120,9 +166,11 @@ interface AppState {
     message: string;
     type: "success" | "error" | "info";
   };
+  blockCode: string | null;
 
   // Auth actions
   setUser: (user: AuthUser | null) => void;
+  setBlockCode: (code: string | null) => Promise<void>;
   logout: () => Promise<void>;
 
   // App actions
@@ -147,6 +195,7 @@ interface AppState {
     note?: string,
   ) => Promise<void>;
 
+  loadInventoryRange: (from: string, to: string) => Promise<void>;
   loadSnapshots: (from?: string, to?: string) => Promise<void>;
   applySales: (
     date: string,
@@ -156,7 +205,15 @@ interface AppState {
     period: "daily" | "weekly" | "monthly" | "yearly",
     date?: string,
   ) => StatisticsData;
-  buildAndSaveSnapshot: (date: string) => Promise<void>;
+
+  cacheInventoryRange: (
+    key: string,
+    data: {
+      items: InventoryWithProduct[];
+      summary?: InventorySummary;
+    },
+  ) => void;
+  invalidateInventoryRangeCache: () => void;
 
   syncNow: () => Promise<void>;
   setSearchQuery: (query: string) => void;
@@ -177,6 +234,9 @@ export const useStore = create<AppState>((set, get) => ({
   currentInventory: [],
   inventorySummary: null,
   snapshots: [],
+  inventoryPerDateCache: {},
+  inventoryRangeCache: {},
+  inventoryCacheVersion: 0,
   isLoading: false,
   error: null,
   deviceId: "",
@@ -193,6 +253,7 @@ export const useStore = create<AppState>((set, get) => ({
     message: "",
     type: "info" as "success" | "error" | "info",
   },
+  blockCode: null,
 
   // Auth actions
   setUser: (user) => {
@@ -205,9 +266,25 @@ export const useStore = create<AppState>((set, get) => ({
               : (user as any).isPayed ?? false,
         }
       : user;
-    set({ user: normalized, isAuthenticated: !!normalized });
+    set({
+      user: normalized,
+      isAuthenticated: !!normalized,
+      blockCode: normalized?.blockCode ?? null,
+    });
     if (normalized && typeof normalized.businessDayStartHour === 'number' && normalized.businessDayStartHour >= 0 && normalized.businessDayStartHour <= 23) {
       setBusinessDayStartHour(normalized.businessDayStartHour);
+    }
+  },
+
+  setBlockCode: async (code) => {
+    try {
+      const result = await apiClient.updateMe({ blockCode: code });
+      if (result.token) {
+        await secureStorage.setItemAsync(STORAGE_KEYS.USER_TOKEN, result.token);
+      }
+      set({ blockCode: code, user: result.user ?? get().user });
+    } catch {
+      // Server update is best-effort
     }
   },
 
@@ -290,15 +367,20 @@ export const useStore = create<AppState>((set, get) => ({
         },
       });
 
-      await get().loadProducts();
+      try {
+        const dashboard = await apiClient.getDashboard();
+        applyDashboard(set, get, dashboard);
+      } catch {
+        await get().loadProducts();
 
-      const authedUser = get().user;
-      const isPaidOrSuper =
-        authedUser?.role?.toLowerCase() === "superadmin" || authedUser?.isPayed;
-      await Promise.all([
-        get().loadInventoryByDate(businessDate),
-        isPaidOrSuper ? get().loadSnapshots() : Promise.resolve(),
-      ]);
+        const authedUser = get().user;
+        const isPaidOrSuper =
+          authedUser?.role?.toLowerCase() === "superadmin" || authedUser?.isPayed;
+        await Promise.all([
+          get().loadInventoryByDate(businessDate),
+          isPaidOrSuper ? get().loadSnapshots() : Promise.resolve(),
+        ]);
+      }
     } catch (error: any) {
       set((state) => ({
         error: error.message || "Boshlashda xatolik yuz berdi",
@@ -381,16 +463,24 @@ export const useStore = create<AppState>((set, get) => ({
       buyPrice: Number(input.buyPrice),
       sellPrice: Number(input.sellPrice),
       image: sanitizeProductImage(input.image),
+      barcodes: input.barcodes,
       updatedAt: now,
       createdAt: now,
     };
 
     const created = await apiClient.createProduct(product);
 
-    await Promise.all([
-      get().loadProducts(),
-      get().loadInventoryByDate(get().selectedDate || getBusinessDate()),
-    ]);
+    get().invalidateInventoryRangeCache();
+
+    try {
+      const dashboard = await apiClient.getDashboard();
+      applyDashboard(set, get, dashboard);
+    } catch {
+      await Promise.all([
+        get().loadProducts(),
+        get().loadInventoryByDate(get().selectedDate || getBusinessDate()),
+      ]);
+    }
 
     return created;
   },
@@ -436,10 +526,17 @@ export const useStore = create<AppState>((set, get) => ({
       ),
     }));
 
-    await Promise.all([
-      get().loadProducts(),
-      get().loadInventoryByDate(get().selectedDate || getBusinessDate()),
-    ]);
+    get().invalidateInventoryRangeCache();
+
+    try {
+      const dashboard = await apiClient.getDashboard();
+      applyDashboard(set, get, dashboard);
+    } catch {
+      await Promise.all([
+        get().loadProducts(),
+        get().loadInventoryByDate(get().selectedDate || getBusinessDate()),
+      ]);
+    }
   },
 
   deleteProduct: async (localId) => {
@@ -461,16 +558,23 @@ export const useStore = create<AppState>((set, get) => ({
         ),
       }));
 
-      await Promise.all([
-        get().loadProducts(),
-        get().loadInventoryByDate(get().selectedDate || getBusinessDate()),
-      ]);
+      get().invalidateInventoryRangeCache();
     } catch (error: any) {
       set((state) => ({
         error: error.message || "Mahsulot o'chirilmadi",
         syncStatus: setOnlineStatus(state.syncStatus, false),
       }));
       throw error;
+    }
+
+    try {
+      const dashboard = await apiClient.getDashboard();
+      applyDashboard(set, get, dashboard);
+    } catch {
+      await Promise.all([
+        get().loadProducts(),
+        get().loadInventoryByDate(get().selectedDate || getBusinessDate()),
+      ]);
     }
   },
 
@@ -482,18 +586,35 @@ export const useStore = create<AppState>((set, get) => ({
   loadInventoryByDate: async (date) => {
     const dateKey = `inv:${date}`;
     if (inflightKeys.has(dateKey)) return;
+    const now = Date.now();
+    const lastLoad = lastInventoryLoadTime[dateKey];
+    const cached = get().inventoryPerDateCache[date];
+    if (lastLoad && now - lastLoad < 30000 && cached) return;
     inflightKeys.add(dateKey);
     try {
-      const requestId = ++latestInventoryLoadRequest;
+      const prev = inventoryLoadRequestCounters[dateKey] ?? 0;
+      const requestId = prev + 1;
+      inventoryLoadRequestCounters[dateKey] = requestId;
       const result = await apiClient.getInventoryWithProducts({ date });
 
-      if (requestId !== latestInventoryLoadRequest) {
+      if (requestId !== inventoryLoadRequestCounters[dateKey]) {
         return;
       }
 
+      lastInventoryLoadTime[dateKey] = Date.now();
+      const today = getBusinessDate();
+
       set((state) => ({
-        currentInventory: result.items,
-        inventorySummary: result.summary ?? null,
+        inventoryPerDateCache: {
+          ...state.inventoryPerDateCache,
+          [date]: {
+            items: result.items,
+            summary: result.summary ?? undefined,
+            fetchedAt: Date.now(),
+          },
+        },
+        currentInventory: date === today ? result.items : state.currentInventory,
+        inventorySummary: date === today ? (result.summary ?? null) : state.inventorySummary,
         selectedDate: date,
         syncStatus: setOnlineStatus(state.syncStatus, true),
       }));
@@ -565,18 +686,23 @@ export const useStore = create<AppState>((set, get) => ({
               startQuantity: quantity,
               currentQuantity: quantity - soldSoFar,
               updatedAt: now,
-              product: { ...e.product, quantity: quantity, updatedAt: now },
+              product: { ...e.product, quantity: quantity - soldSoFar, updatedAt: now },
             }
           : e,
       ),
     }));
 
-    await Promise.all([
-      get().loadProducts(),
-      get().loadInventoryByDate(date),
-    ]);
+    get().invalidateInventoryRangeCache();
 
-    await get().buildAndSaveSnapshot(date);
+    try {
+      const dashboard = await apiClient.getDashboard();
+      applyDashboard(set, get, dashboard);
+    } catch {
+      await Promise.all([
+        get().loadProducts(),
+        get().loadInventoryByDate(date),
+      ]);
+    }
   },
 
   setCurrentQuantity: async (productId, date, quantity, note) => {
@@ -633,12 +759,30 @@ export const useStore = create<AppState>((set, get) => ({
       ),
     }));
 
-    await Promise.all([
-      get().loadProducts(),
-      get().loadInventoryByDate(date),
-    ]);
+    get().invalidateInventoryRangeCache();
 
-    await get().buildAndSaveSnapshot(date);
+    try {
+      const dashboard = await apiClient.getDashboard();
+      applyDashboard(set, get, dashboard);
+    } catch {
+      await Promise.all([
+        get().loadProducts(),
+        get().loadInventoryByDate(date),
+      ]);
+    }
+  },
+
+  loadInventoryRange: async (from, to) => {
+    const cacheKey = `${from}_${to}`;
+    try {
+      const result = await apiClient.getInventoryWithProducts({ from, to });
+      get().cacheInventoryRange(cacheKey, {
+        items: result.items,
+        summary: result.summary,
+      });
+    } catch {
+      // range fetch is best-effort
+    }
   },
 
   loadSnapshots: async (from, to) => {
@@ -680,72 +824,49 @@ export const useStore = create<AppState>((set, get) => ({
       throw new Error("O'tgan kunlar uchun savdo kiritib bo'lmaydi!");
     }
 
-    let { deviceId, currentInventory } = get();
+    let { deviceId } = get();
     if (!deviceId) {
       deviceId = uuidv4();
       await secureStorage.setItemAsync(STORAGE_KEYS.DEVICE_ID, deviceId);
       set({ deviceId });
     }
-    const salesByProduct = new Map<string, number>();
 
-    for (const line of lines) {
-      if (line.quantity <= 0) continue;
-      salesByProduct.set(
-        line.productId,
-        (salesByProduct.get(line.productId) ?? 0) + line.quantity,
-      );
-    }
+    const validLines = lines.filter((l) => l.quantity > 0);
+    if (!validLines.length) return;
 
-    const items: { productId: string; currentQuantity: number; note?: string }[] = [];
+    const result = await apiClient.applySales(date, deviceId, validLines);
 
-    for (const [productId, totalQuantity] of salesByProduct) {
-      const entry =
-        currentInventory.find(
-          (e) => e.productId === productId && e.date === date,
-        ) ??
-        currentInventory.find((e) => e.productId === productId);
-      if (!entry) {
-        const product = get().products.find((p) => p.localId === productId);
-        if (!product) continue;
-        const now = new Date().toISOString();
-        const newEntry: InventoryEntry = {
-          localId: `${date}-${product.localId}`,
-          deviceId: deviceId,
-          productId: product.localId,
-          date,
-          startQuantity: totalQuantity,
-          currentQuantity: Math.max(0, product.quantity - totalQuantity),
-          note: "",
-          updatedAt: now,
-          createdAt: now,
-        };
-        await apiClient.startDayInventory(deviceId, [{
-          productId: newEntry.productId,
-          startQuantity: newEntry.startQuantity,
-          currentQuantity: newEntry.currentQuantity,
-          localId: newEntry.localId,
-          createdAt: newEntry.createdAt,
-          updatedAt: newEntry.updatedAt,
-        }], date);
-        continue;
+    {
+      const today = getBusinessDate();
+      if (date === today) {
+        set((state) => {
+          const soldMap = new Map(result.items.map((i) => [i.productId, i]));
+          return {
+            currentInventory: state.currentInventory.map(
+              (entry) => soldMap.get(entry.productId) ?? entry,
+            ),
+            snapshots: result.snapshot
+              ? state.snapshots.some((s) => s.date === date)
+                ? state.snapshots.map((s) => (s.date === date ? result.snapshot! : s))
+                : [...state.snapshots, result.snapshot]
+              : state.snapshots,
+            selectedDate: date,
+          };
+        });
       }
-      const newCurrent = Math.max(0, entry.currentQuantity - totalQuantity);
-      if (newCurrent === entry.currentQuantity) continue;
-      items.push({
-        productId,
-        currentQuantity: newCurrent,
-        note: entry.note,
-      });
     }
 
-    if (!items.length) return;
+    get().invalidateInventoryRangeCache();
 
-    await apiClient.bulkUpdateInventory(deviceId, items, date);
-
-    await Promise.all([get().loadProducts(), get().loadInventoryByDate(date)]);
-
-    await get().buildAndSaveSnapshot(date);
-    await get().loadSnapshots();
+    try {
+      const dashboard = await apiClient.getDashboard();
+      applyDashboard(set, get, dashboard);
+    } catch {
+      await Promise.all([
+        get().loadProducts(),
+        get().loadInventoryByDate(date),
+      ]);
+    }
   },
 
   getStatistics: (period, date) => {
@@ -807,69 +928,22 @@ export const useStore = create<AppState>((set, get) => ({
     };
   },
 
-  buildAndSaveSnapshot: async (date) => {
-    const { deviceId, snapshots } = get();
-    const inventory = (await apiClient.getInventoryWithProducts({ date })).items;
-    const existing =
-      snapshots.find((snapshot) => snapshot.date === date) || null;
 
-    const historicalPrices = new Map(
-      (existing?.items || []).map((item) => [
-        item.productId,
-        {
-          buyPrice: item.buyPrice,
-          sellPrice: item.sellPrice,
-        },
-      ]),
-    );
 
-    const items = inventory
-      .map((entry) => {
-        const sold = Math.max(entry.startQuantity - entry.currentQuantity, 0);
-        const previousPrices = historicalPrices.get(entry.productId);
-        const buyPrice = entry.product.buyPrice ?? previousPrices?.buyPrice ?? 0;
-        const sellPrice = entry.product.sellPrice ?? previousPrices?.sellPrice ?? 0;
+  cacheInventoryRange: (key, data) => {
+    set((state) => ({
+      inventoryRangeCache: {
+        ...state.inventoryRangeCache,
+        [key]: { ...data, fetchedAt: Date.now() },
+      },
+    }));
+  },
 
-        return {
-          productId: entry.productId,
-          productName: entry.product.name,
-          sold,
-          buyPrice,
-          sellPrice,
-          revenue: sold * sellPrice,
-          profit: sold * (sellPrice - buyPrice),
-        };
-      })
-      .filter((item) => item.sold > 0);
-
-    const now = new Date().toISOString();
-    const snapshot: DailySnapshot = {
-      id: existing?.id || uuidv4(),
-      localId: existing?.localId || `snapshot-${date}-${deviceId}`,
-      deviceId,
-      date,
-      totalRevenue: items.reduce((sum, item) => sum + item.revenue, 0),
-      totalProfit: items.reduce((sum, item) => sum + item.profit, 0),
-      totalSoldItems: items.reduce((sum, item) => sum + item.sold, 0),
-      items,
-      updatedAt: now,
-      createdAt: existing?.createdAt || now,
-    };
-
-    const savedSnapshot = await apiClient.createDailySnapshot(snapshot);
-
-    set((state) => {
-      const existingIndex = state.snapshots.findIndex(
-        (s) => s.date === date,
-      );
-      const newSnapshots = [...state.snapshots];
-      if (existingIndex >= 0) {
-        newSnapshots[existingIndex] = savedSnapshot;
-      } else {
-        newSnapshots.push(savedSnapshot);
-      }
-      return { snapshots: newSnapshots };
-    });
+  invalidateInventoryRangeCache: () => {
+    set((state) => ({
+      inventoryRangeCache: {},
+      inventoryCacheVersion: state.inventoryCacheVersion + 1,
+    }));
   },
 
   syncNow: async () => {
@@ -911,11 +985,18 @@ export const useStore = create<AppState>((set, get) => ({
         },
       }));
 
-      await Promise.all([
-        get().loadProducts(),
-        get().loadInventoryByDate(selectedDate || getBusinessDate()),
-        get().loadSnapshots(),
-      ]);
+      get().invalidateInventoryRangeCache();
+
+      try {
+        const dashboard = await apiClient.getDashboard();
+        applyDashboard(set, get, dashboard);
+      } catch {
+        await Promise.all([
+          get().loadProducts(),
+          get().loadInventoryByDate(selectedDate || getBusinessDate()),
+          get().loadSnapshots(),
+        ]);
+      }
     } catch (error: any) {
       const pendingCount = await getSyncQueueCount();
       set((state) => ({

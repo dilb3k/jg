@@ -369,26 +369,6 @@ class ApiClient {
     }
   }
 
-  async getProduct(id: string): Promise<Product> {
-    if (!canReachServer()) {
-      const product = await dbProducts.getProductByLocalId(id);
-      if (product) return product;
-      throw new Error("Mahsulot topilmadi (oflayn rejim)");
-    }
-
-    try {
-      const response = await this.client.get<ApiResponse<Product>>(
-        `/products/${id}`,
-      );
-      const product = this.unwrap(response);
-      return { ...product, image: resolveImageUrl(product.image) };
-    } catch (error) {
-      const product = await dbProducts.getProductByLocalId(id);
-      if (product) return product;
-      throw error;
-    }
-  }
-
   async createProduct(product: Product): Promise<Product> {
     await dbProducts.createProduct(product);
     await dbInventory.syncTodayInventoryWithProducts();
@@ -413,6 +393,7 @@ class ApiClient {
         sellPrice: product.sellPrice,
         image: product.image,
         localId: product.localId,
+        barcodes: product.barcodes,
         createdAt: product.createdAt,
         updatedAt: product.updatedAt,
       });
@@ -447,11 +428,12 @@ class ApiClient {
       await dbInventory.syncTodayInventoryWithProducts();
 
       if (quantityChanged) {
+        const qty = product.quantity!;
         const today = getBusinessDate();
         const allInv = await dbInventory.getAllInventoryEntries();
         const todayEntry = allInv.find((e) => e.productId === id && e.date === today);
         if (todayEntry) {
-          const delta = product.quantity - existing.quantity;
+          const delta = qty - existing.quantity;
           todayEntry.startQuantity = (todayEntry.startQuantity ?? 0) + delta;
           todayEntry.currentQuantity = (todayEntry.currentQuantity ?? 0) + delta;
           todayEntry.updatedAt = new Date().toISOString();
@@ -531,39 +513,6 @@ class ApiClient {
         data: { localId: id },
         createdAt: new Date().toISOString(),
       });
-    }
-  }
-
-  async getInventory(date?: string, from?: string, to?: string): Promise<{ entries: InventoryEntry[]; summary?: InventorySummary }> {
-    if (!canReachServer()) {
-      const result = date ? await dbInventory.getInventoryByDate(date) : [];
-      return { entries: result };
-    }
-
-    try {
-      const params: Record<string, string> = {};
-      if (from) params.from = from;
-      if (to) params.to = to;
-      if (date && !from && !to) {
-        params.from = date;
-        params.to = date;
-      }
-
-      const response = await this.client.get<ApiResponse<BackendInventoryResponse>>(
-        "/inventory",
-        { params },
-      );
-      const data = this.unwrap(response);
-      const effectiveDate = date || from || "";
-      const { entries, summary } = parseBackendInventory(data, effectiveDate, "");
-      if (entries.length > 0) {
-        await dbInventory.saveInventoryEntries(entries);
-      }
-      return { entries, summary: summary as InventorySummary | undefined };
-    } catch (err) {
-      console.error("API getInventory failed, falling back to local:", err);
-      const result = date ? await dbInventory.getInventoryByDate(date) : [];
-      return { entries: result };
     }
   }
 
@@ -710,30 +659,37 @@ class ApiClient {
       }
 
       const [inventoryResult, resolvedProducts] = await Promise.all([
-        this.getInventory(date, from, to),
+        (async () => {
+          if (!canReachServer()) {
+            const result = date ? await dbInventory.getInventoryByDate(date) : [];
+            return { entries: result };
+          }
+          try {
+            const params: Record<string, string> = {};
+            if (from) params.from = from;
+            if (to) params.to = to;
+            if (date && !from && !to) {
+              params.from = date;
+              params.to = date;
+            }
+            const invResponse = await this.client.get<ApiResponse<BackendInventoryResponse>>("/inventory", { params });
+            const invData = this.unwrap(invResponse);
+            const effectiveDate = date || from || "";
+            const { entries, summary } = parseBackendInventory(invData, effectiveDate, "");
+            if (entries.length > 0) {
+              await dbInventory.saveInventoryEntries(entries);
+            }
+            return { entries, summary: summary as InventorySummary | undefined };
+          } catch (err) {
+            console.error("API getInventory failed, falling back to local:", err);
+            const result = date ? await dbInventory.getInventoryByDate(date) : [];
+            return { entries: result };
+          }
+        })(),
         products ? Promise.resolve(products) : this.getProducts(),
       ]);
 
       return { items: joinInventoryWithProducts(inventoryResult.entries, resolvedProducts), summary: inventoryResult.summary };
-    }
-  }
-
-  async getInventoryRange(from: string, to: string): Promise<InventoryEntry[]> {
-    if (!canReachServer()) {
-      return dbInventory.getInventoryRange(from, to);
-    }
-
-    try {
-      const response = await this.client.get<ApiResponse<InventoryEntry[]>>(
-        "/inventory/range",
-        { params: { from, to } },
-      );
-      const entries = this.unwrap(response);
-      await dbInventory.saveInventoryEntries(entries);
-      return entries;
-    } catch (error) {
-      console.error("API getInventoryRange failed, falling back to local:", error);
-      return dbInventory.getInventoryRange(from, to);
     }
   }
 
@@ -838,28 +794,6 @@ class ApiClient {
     }
   }
 
-  async getDailySnapshot(date: string): Promise<DailySnapshot> {
-    if (!canReachServer()) {
-      const snapshot = await dbSnapshots.getSnapshotByDate(date);
-      if (snapshot) return snapshot;
-      throw new Error("Snapshot topilmadi (oflayn rejim)");
-    }
-
-    try {
-      const response = await this.client.get<ApiResponse<DailySnapshot>>(
-        "/snapshots/daily",
-        { params: { date } },
-      );
-      const snapshot = this.unwrap(response);
-      await dbSnapshots.updateSnapshot(snapshot);
-      return snapshot;
-    } catch (error) {
-      const snapshot = await dbSnapshots.getSnapshotByDate(date);
-      if (snapshot) return snapshot;
-      throw error;
-    }
-  }
-
   async getSnapshotsRange(from: string, to: string): Promise<DailySnapshot[]> {
     if (!canReachServer()) {
       return dbSnapshots.getSnapshotsRange(from, to);
@@ -876,38 +810,6 @@ class ApiClient {
     } catch (err) {
       console.error("API getSnapshotsRange failed, falling back to local:", err);
       return dbSnapshots.getSnapshotsRange(from, to);
-    }
-  }
-
-  async createDailySnapshot(snapshot: DailySnapshot): Promise<DailySnapshot> {
-    await dbSnapshots.updateSnapshot(snapshot);
-
-    if (!canReachServer()) {
-      await dbSyncQueue.addToSyncQueue({
-        id: snapshot.localId,
-        entityType: "snapshot",
-        operation: "upsert",
-        data: snapshot,
-        createdAt: new Date().toISOString(),
-      });
-      return snapshot;
-    }
-
-    try {
-      const response = await this.client.post<ApiResponse<DailySnapshot>>(
-        "/snapshots/daily",
-        snapshot,
-      );
-      return this.unwrap(response);
-    } catch {
-      await dbSyncQueue.addToSyncQueue({
-        id: snapshot.localId,
-        entityType: "snapshot",
-        operation: "upsert",
-        data: snapshot,
-        createdAt: new Date().toISOString(),
-      });
-      return snapshot;
     }
   }
 
@@ -1073,7 +975,7 @@ class ApiClient {
     return this.unwrap(response);
   }
 
-  async updateMe(payload: { businessDayStartHour: number }): Promise<{ user: AuthUser; token: string }> {
+  async updateMe(payload: { businessDayStartHour?: number; blockCode?: string | null }): Promise<{ user: AuthUser; token: string }> {
     const response = await this.client.put<ApiResponse<{ user: AuthUser; token: string }>>("/auth/me", payload);
     return this.unwrap(response);
   }
@@ -1195,6 +1097,38 @@ class ApiClient {
       throw new Error("Qarzdorni o'chirish uchun server kerak");
     }
     await this.client.delete(`/debtors/${id}`);
+  }
+
+  async applySales(date: string, deviceId: string, lines: { productId: string; quantity: number }[]): Promise<{
+    items: InventoryWithProduct[];
+    snapshot: DailySnapshot | null;
+  }> {
+    if (!canReachServer()) {
+      throw new Error("Savdoni amalga oshirish uchun server kerak");
+    }
+    const response = await this.client.post<ApiResponse<{
+      items: InventoryWithProduct[];
+      snapshot: DailySnapshot | null;
+    }>>("/inventory/sales", { date, deviceId, lines });
+    return this.unwrap(response);
+  }
+
+  async getDashboard(): Promise<{
+    products: Product[];
+    inventory: InventoryWithProduct[];
+    inventorySummary?: InventorySummary;
+    snapshot: DailySnapshot | null;
+  }> {
+    if (!canReachServer()) {
+      throw new Error("Dashboard ma'lumotlarini yuklash uchun server kerak");
+    }
+    const response = await this.client.get<ApiResponse<{
+      products: Product[];
+      inventory: InventoryWithProduct[];
+      inventorySummary?: InventorySummary;
+      snapshot: DailySnapshot | null;
+    }>>("/inventory/dashboard");
+    return this.unwrap(response);
   }
 }
 

@@ -7,9 +7,9 @@ export const translations = {
   uz: {
     // Auth
     login: "Kirish",
-    username: "Login",
+    loginLabel: "Login",
     password: "Parol",
-    loginPlaceholder: "Loginingizni kiriting",
+    loginPlaceholder: "Loginni kiriting",
     passwordPlaceholder: "Parolingizni kiriting",
     loginError: "Login xatoligi",
     registerError: "Ro'yxatdan o'tishda xatolik",
@@ -229,7 +229,7 @@ export const translations = {
     importantInfo: "Muhim ma'lumot",
     adminInfo:
       "Yangi admin faqat mahsulot va ombor bilan ishlay oladi. Adminlar ro'yxatini faqat superAdmin ko'ra oladi.",
-     loginPlaceholder_Admin: "Admin loginini kiriting",
+     loginPlaceholder_Admin: "Admin telefon raqamini kiriting",
      passwordPlaceholder_Admin: "Parolni kiriting (kamida 6 belgi)",
      passwordLength: "Parol kamida 6 ta belgidan iborat bo'lishi kerak",
      confirmCreate: "Yaratish",
@@ -405,7 +405,7 @@ export const translations = {
   ru: {
     // Auth
     login: "Вход",
-    username: "Логин",
+    loginLabel: "Логин",
     password: "Пароль",
     loginPlaceholder: "Введите логин",
     passwordPlaceholder: "Введите пароль",
@@ -627,7 +627,7 @@ export const translations = {
     importantInfo: "Важная информация",
     adminInfo:
       "Новый админ может работать только с продуктами и складом. Список админов видит только супер-админ.",
-     loginPlaceholder_Admin: "Введите логин администратора",
+     loginPlaceholder_Admin: "Введите телефон администратора",
      passwordPlaceholder_Admin: "Введите пароль (минимум 6 символов)",
      passwordLength: "Пароль должен содержать минимум 6 символов",
      confirmCreate: "Создать",

@@ -17,7 +17,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
-import { Package, Pencil, Plus, Trash2 } from "lucide-react-native";
+import { Package, Pencil, Plus, Trash2, Scan, X, Lock, Unlock } from "lucide-react-native";
+import { BarcodeScannerModal } from "../../src/components/BarcodeScannerModal";
 
 import {
   SPACING,
@@ -26,6 +27,7 @@ import {
   type ThemeColors,
 } from "../../src/theme";
 import { useProductsScreenStore, useAuthStore } from "../../src/store/selectors";
+import { useStore } from "../../src/store";
 import { SearchInputWithClear } from "../../src/components/SearchInputWithClear";
 import { useTheme } from "../../src/store/themeStore";
 import { useI18n } from "../../src/i18n";
@@ -45,6 +47,7 @@ const EMPTY_FORM = {
   buyPrice: "",
   sellPrice: "",
   image: undefined as string | undefined,
+  barcodes: [] as string[],
 };
 
 const EMPTY_ERRORS = {
@@ -88,6 +91,23 @@ export default function ProductsScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+
+  const blockCode = useStore((s) => s.blockCode);
+  const setBlockCodeStore = useStore((s) => s.setBlockCode);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [blockInput, setBlockInput] = useState("");
+  const [blockInputConfirm, setBlockInputConfirm] = useState("");
+  const [blockStep, setBlockStep] = useState<"set" | "change" | "remove">("set");
+  const [showPinVerify, setShowPinVerify] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+
+  const findDuplicateBarcode = useCallback(
+    (barcode: string, excludeId?: string) =>
+      products.find((p) => p.barcodes?.includes(barcode) && p.localId !== excludeId),
+    [products],
+  );
+
   const [showRestockModal, setShowRestockModal] = useState(false);
   const [restockProduct, setRestockProduct] = useState<Product | null>(null);
   const [restockQty, setRestockQty] = useState("");
@@ -112,6 +132,16 @@ export default function ProductsScreen() {
       setIsListLoading(false);
     }
   }, [loadProducts, products.length]);
+
+  const sortedProducts = useMemo(
+    () =>
+      [...products].sort((a, b) => {
+        const ia = a.displayIndex ?? 0;
+        const ib = b.displayIndex ?? 0;
+        return ia !== ib ? ia - ib : a.name.localeCompare(b.name);
+      }),
+    [products],
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -164,6 +194,7 @@ export default function ProductsScreen() {
       buyPrice: item.buyPrice ? formatInputAmount(String(item.buyPrice)) : "",
       sellPrice: item.sellPrice ? formatInputAmount(String(item.sellPrice)) : "",
       image: item.image,
+      barcodes: item.barcodes ?? [],
     });
     setShowProductModal(true);
   };
@@ -203,18 +234,24 @@ export default function ProductsScreen() {
     return !hasValidationErrors(nextErrors);
   };
 
-  const handleSave = async () => {
-    if (!canManageProducts) {
-      showToast(t("premiumProductsLocked"), "error");
-      return;
+  const execSave = useCallback(async () => {
+    const barcodes = form.barcodes.filter(Boolean);
+    if (barcodes.length) {
+      for (const code of barcodes) {
+        const dup = findDuplicateBarcode(code, editingProduct?.localId);
+        if (dup) {
+          showToast(`"${dup.name}" allaqachon bu (${code}) barcode dan foydalanmoqda`, "error");
+          return false;
+        }
+      }
     }
-    if (!validate()) return;
 
     const payload: Record<string, unknown> = {
       name: form.name.trim(),
       quantity: Number(form.quantity || 0),
       buyPrice: parseFormattedAmount(form.buyPrice),
       sellPrice: parseFormattedAmount(form.sellPrice),
+      barcodes,
     };
 
     if (form.image !== undefined && form.image !== editingProduct?.image) {
@@ -230,11 +267,64 @@ export default function ProductsScreen() {
       }
       closeProductModal();
       showToast(t("productSaved"), "success");
+      return true;
     } catch (error: any) {
       showToast(error.message || t("error"), "error");
+      return false;
     } finally {
       setIsSubmitting(false);
     }
+  }, [form, editingProduct, findDuplicateBarcode, showToast, updateProduct, createProduct, closeProductModal, t]);
+
+  const handleSave = async () => {
+    if (!canManageProducts) {
+      showToast(t("premiumProductsLocked"), "error");
+      return;
+    }
+    if (!validate()) return;
+
+    if (blockCode && editingProduct) {
+      setShowPinVerify(true);
+      setPinInput("");
+      return;
+    }
+
+    await execSave();
+  };
+
+  const handleConfirmPin = () => {
+    if (pinInput === blockCode) {
+      setShowPinVerify(false);
+      setPinInput("");
+      execSave();
+    } else {
+      showToast("Blok kod noto'g'ri", "error");
+      setPinInput("");
+    }
+  };
+
+  const handleSetBlockCode = async () => {
+    if (blockInput.length !== 4 || !/^\d{4}$/.test(blockInput)) {
+      showToast("4 xonali raqam kiriting", "error");
+      return;
+    }
+    if (!blockCode && blockInput !== blockInputConfirm) {
+      showToast("Kodlar bir xil emas", "error");
+      return;
+    }
+    await setBlockCodeStore(blockInput);
+    setShowBlockModal(false);
+    setBlockInput("");
+    setBlockInputConfirm("");
+    showToast(blockCode ? "Blok kod o'zgartirildi" : "Blok kod o'rnatildi", "success");
+  };
+
+  const handleRemoveBlockCode = async () => {
+    await setBlockCodeStore(null);
+    setShowBlockModal(false);
+    setBlockInput("");
+    setBlockInputConfirm("");
+    showToast("Blok kod o'chirildi", "success");
   };
 
   const handleRestock = async () => {
@@ -349,6 +439,31 @@ export default function ProductsScreen() {
           containerStyle={{ flex: 1 }}
         />
         <Pressable
+          style={[
+            styles.blockBtn,
+            { backgroundColor: blockCode ? colors.warning + "20" : colors.surfaceSecondary, borderColor: blockCode ? colors.warning : colors.border },
+          ]}
+          onPress={() => {
+            if (blockCode) {
+              setBlockStep("change");
+              setBlockInput("");
+              setBlockInputConfirm("");
+              setShowBlockModal(true);
+            } else {
+              setBlockStep("set");
+              setBlockInput("");
+              setBlockInputConfirm("");
+              setShowBlockModal(true);
+            }
+          }}
+        >
+          {blockCode ? (
+            <Lock size={18} color={colors.warning} />
+          ) : (
+            <Unlock size={18} color={colors.textTertiary} />
+          )}
+        </Pressable>
+        <Pressable
           style={[styles.addBtn, !canManageProducts && styles.addBtnDisabled]}
           onPress={openCreate}
         >
@@ -383,11 +498,10 @@ export default function ProductsScreen() {
       {isListLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>{t("loading")}</Text>
         </View>
       ) : (
         <FlatList
-          data={products}
+          data={sortedProducts}
           keyExtractor={(item) => item.localId}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
@@ -571,6 +685,43 @@ export default function ProductsScreen() {
                 <Text style={styles.imagePlaceholder}>{t("addImage")}</Text>
               )}
             </TouchableOpacity>
+
+            <View style={[styles.barcodeSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.barcodeHeader}>
+                <Scan size={20} color={colors.primary} />
+                <Text style={[styles.barcodeLabel, { color: colors.textSecondary }]}>Barcodes</Text>
+                <TouchableOpacity
+                  style={[styles.barcodeAddBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => setShowBarcodeScanner(true)}
+                >
+                  <Plus size={16} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+              {form.barcodes.length > 0 ? (
+                <View style={styles.barcodeList}>
+                  {form.barcodes.map((code, index) => (
+                    <View key={index} style={[styles.barcodeChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+                      <Text style={[styles.barcodeChipText, { color: colors.text }]}>{code}</Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setForm((prev) => ({
+                            ...prev,
+                            barcodes: prev.barcodes.filter((_, i) => i !== index),
+                          }));
+                        }}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <X size={14} color={colors.textTertiary} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={[styles.barcodePlaceholder, { color: colors.textTertiary }]}>
+                  Barcode ni skaner qilish
+                </Text>
+              )}
+            </View>
           </ScrollView>
 
           <View style={styles.modalFooter}>
@@ -754,6 +905,115 @@ export default function ProductsScreen() {
           </Pressable>
         </Modal>
       ) : null}
+
+      {showBarcodeScanner && (
+        <BarcodeScannerModal
+          visible
+          manualCapture
+          onClose={() => setShowBarcodeScanner(false)}
+          onBarcodeDetected={(data) => {
+            setForm((prev) => ({
+              ...prev,
+              barcodes: prev.barcodes.includes(data) ? prev.barcodes : [...prev.barcodes, data],
+            }));
+            setShowBarcodeScanner(false);
+          }}
+          conflictCheck={(barcode, onResult) => {
+            const dup = findDuplicateBarcode(barcode, editingProduct?.localId);
+            if (dup) {
+              onResult({ conflictName: dup.name });
+            } else {
+              onResult(null);
+            }
+          }}
+          colors={colors}
+          message="Barcode ni ramka ichiga joylashtiring"
+        />
+      )}
+
+      {/* Block code modal */}
+      <Modal visible={showBlockModal} transparent animationType="fade" onRequestClose={() => setShowBlockModal(false)}>
+        <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={() => setShowBlockModal(false)}>
+          <Pressable style={[styles.blockCard, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+            <Lock size={32} color={colors.primary} />
+            <Text style={[styles.blockTitle, { color: colors.text }]}>
+              {blockCode ? "Blok kodni o'zgartirish" : "Blok kod o'rnatish"}
+            </Text>
+            <Text style={[styles.blockDesc, { color: colors.textSecondary }]}>
+              {blockCode
+                ? "Yangi 4 xonali raqam kiriting"
+                : "Mahsulotni tahrirlashda himoya kodi (4 xonali)"}
+            </Text>
+            <TextInput
+              style={[styles.blockInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceSecondary }]}
+              placeholder="0000"
+              placeholderTextColor={colors.textTertiary}
+              keyboardType="number-pad"
+              maxLength={4}
+              value={blockInput}
+              onChangeText={(v) => setBlockInput(v.replace(/\D/g, ""))}
+            />
+            {!blockCode ? (
+              <TextInput
+                style={[styles.blockInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceSecondary }]}
+                placeholder="Kodni takrorlang"
+                placeholderTextColor={colors.textTertiary}
+                keyboardType="number-pad"
+                maxLength={4}
+                value={blockInputConfirm}
+                onChangeText={(v) => setBlockInputConfirm(v.replace(/\D/g, ""))}
+              />
+            ) : null}
+            <View style={styles.blockActions}>
+              {blockCode ? (
+                <>
+                  <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.danger }]} onPress={handleRemoveBlockCode}>
+                    <Text style={styles.blockBtnText}>O'chirish</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.primary }]} onPress={handleSetBlockCode}>
+                    <Text style={styles.blockBtnText}>Yangilash</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.primary, flex: 1 }]} onPress={handleSetBlockCode}>
+                  <Text style={styles.blockBtnText}>Saqlash</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* PIN verify modal */}
+      <Modal visible={showPinVerify} transparent animationType="fade" onRequestClose={() => setShowPinVerify(false)}>
+        <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={() => setShowPinVerify(false)}>
+          <Pressable style={[styles.blockCard, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+            <Lock size={32} color={colors.warning} />
+            <Text style={[styles.blockTitle, { color: colors.text }]}>Blok kodni kiriting</Text>
+            <Text style={[styles.blockDesc, { color: colors.textSecondary }]}>
+              Mahsulotni saqlash uchun himoya kodini kiriting
+            </Text>
+            <TextInput
+              style={[styles.blockInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceSecondary }]}
+              placeholder="0000"
+              placeholderTextColor={colors.textTertiary}
+              keyboardType="number-pad"
+              maxLength={4}
+              value={pinInput}
+              onChangeText={(v) => setPinInput(v.replace(/\D/g, ""))}
+              autoFocus
+            />
+            <View style={styles.blockActions}>
+              <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.surfaceSecondary, flex: 1 }]} onPress={() => setShowPinVerify(false)}>
+                <Text style={[styles.blockBtnText, { color: colors.text }]}>Bekor qilish</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.primary, flex: 1 }]} onPress={handleConfirmPin}>
+                <Text style={styles.blockBtnText}>Tasdiqlash</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -769,12 +1029,14 @@ const createStyles = (colors: ThemeColors) =>
       gap: SPACING.sm,
     },
     addBtn: {
-      width: 44,
-      height: 44,
+      width: 48,
+      height: 48,
       backgroundColor: colors.primary,
       justifyContent: "center",
       alignItems: "center",
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
+      boxShadow: "0px 4px 12px rgba(139, 92, 246, 0.35)",
+      elevation: 4,
     },
     addBtnDisabled: { opacity: 0.45 },
 
@@ -782,7 +1044,7 @@ const createStyles = (colors: ThemeColors) =>
       marginHorizontal: SPACING.lg,
       marginBottom: SPACING.sm,
       padding: SPACING.md,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       borderWidth: 1,
     },
     premiumBannerText: { fontSize: FONT_SIZE.sm, fontWeight: "600", textAlign: "center" },
@@ -792,7 +1054,7 @@ const createStyles = (colors: ThemeColors) =>
       marginBottom: SPACING.sm,
       paddingVertical: SPACING.sm,
       paddingHorizontal: SPACING.md,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       borderWidth: 1,
       flexDirection: "row",
       alignItems: "center",
@@ -812,7 +1074,6 @@ const createStyles = (colors: ThemeColors) =>
     limitText: { fontSize: FONT_SIZE.xs, fontWeight: "600" },
 
     loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-    loadingText: { marginTop: SPACING.md, color: colors.textSecondary, fontSize: FONT_SIZE.md },
 
     list: {
       paddingHorizontal: SPACING.lg,
@@ -822,10 +1083,12 @@ const createStyles = (colors: ThemeColors) =>
     row: {
       backgroundColor: colors.surface,
       marginBottom: SPACING.sm,
-      borderRadius: BORDER_RADIUS.lg,
-      borderWidth: 1,
+      borderRadius: BORDER_RADIUS.xl,
+      borderWidth: 0.5,
       borderColor: colors.border,
       overflow: "hidden",
+      boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.04)",
+      elevation: 2,
     },
     rowMain: {
       flexDirection: "row",
@@ -834,9 +1097,9 @@ const createStyles = (colors: ThemeColors) =>
       gap: SPACING.sm,
     },
     imgBox: {
-      width: 56,
-      height: 56,
-      borderRadius: BORDER_RADIUS.sm,
+      width: 52,
+      height: 52,
+      borderRadius: BORDER_RADIUS.lg,
       backgroundColor: colors.surfaceSecondary,
       justifyContent: "center",
       alignItems: "center",
@@ -849,19 +1112,17 @@ const createStyles = (colors: ThemeColors) =>
     metaText: { fontSize: FONT_SIZE.xs, color: colors.textSecondary, marginTop: 2 },
     statusRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
     statusDot: { width: 6, height: 6, borderRadius: 3 },
-    statusText: { fontSize: FONT_SIZE.xs, fontWeight: "500" },
+    statusText: { fontSize: FONT_SIZE.xs, fontWeight: "600" },
     priceCol: { width: 72, alignItems: "center" },
     price: { fontSize: FONT_SIZE.xs, fontWeight: "700", color: colors.text },
     priceMuted: { fontSize: FONT_SIZE.xs, color: colors.textSecondary },
 
-    // ✅ FIX: rowActions — Edit on LEFT, Plus/Restock on RIGHT
     rowActions: {
       flexDirection: "row",
-      borderTopWidth: 1,
+      borderTopWidth: 0.5,
       borderTopColor: colors.border,
     },
 
-    // ✅ FIX: editBtn now flex:1 on left side, with label text
     editBtn: {
       flex: 1,
       flexDirection: "row",
@@ -870,7 +1131,7 @@ const createStyles = (colors: ThemeColors) =>
       gap: SPACING.xs,
       paddingVertical: SPACING.md,
       backgroundColor: colors.surfaceSecondary,
-      borderRightWidth: 1,
+      borderRightWidth: 0.5,
       borderRightColor: colors.border,
     },
     editBtnDisabled: { opacity: 0.5 },
@@ -879,7 +1140,6 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: "600",
     },
 
-    // ✅ FIX: restockBtn is now flex:1 on the right side
     restockBtn: {
       flex: 1,
       flexDirection: "row",
@@ -891,11 +1151,11 @@ const createStyles = (colors: ThemeColors) =>
     },
     restockBtnLabel: { color: colors.white, fontWeight: "700", fontSize: FONT_SIZE.sm },
 
-    emptyContainer: { alignItems: "center", marginTop: SPACING.xxxl },
+    emptyContainer: { alignItems: "center", marginTop: SPACING.xxxl, marginBottom: SPACING.xxxl },
     empty: { textAlign: "center", color: colors.textTertiary, marginTop: SPACING.md },
     costPreview: {
-      borderRadius: BORDER_RADIUS.md,
-      borderWidth: 1,
+      borderRadius: BORDER_RADIUS.lg,
+      borderWidth: 0.5,
       padding: SPACING.md,
       marginBottom: SPACING.md,
       gap: SPACING.sm,
@@ -910,12 +1170,12 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: "space-between",
       alignItems: "center",
       padding: SPACING.lg,
-      borderBottomWidth: 1,
+      borderBottomWidth: 0.5,
       borderBottomColor: colors.border,
       backgroundColor: colors.surface,
     },
-    backText: { fontSize: FONT_SIZE.md, color: colors.primary },
-    modalTitle: { fontSize: FONT_SIZE.lg, fontWeight: "600", color: colors.text },
+    backText: { fontSize: FONT_SIZE.md, color: colors.primary, fontWeight: "600" },
+    modalTitle: { fontSize: FONT_SIZE.lg, fontWeight: "700", color: colors.text },
     headerSpacer: { width: 60 },
     headerDeleteBtn: {
       width: 36,
@@ -931,25 +1191,31 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       justifyContent: "space-between",
       padding: SPACING.lg,
-      borderTopWidth: 1,
+      paddingBottom: SPACING.xl,
+      borderTopWidth: 0.5,
       borderTopColor: colors.border,
       backgroundColor: colors.surface,
+      gap: SPACING.md,
     },
     backButton: {
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-      borderRadius: 10,
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: BORDER_RADIUS.lg,
       backgroundColor: colors.surfaceSecondary,
-      borderWidth: 1,
+      borderWidth: 0.5,
       borderColor: colors.border,
+      alignItems: "center",
     },
-    label: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, marginBottom: SPACING.xs },
+    label: { fontSize: FONT_SIZE.sm, fontWeight: "600", color: colors.textSecondary, marginBottom: SPACING.xs },
     input: {
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceSecondary,
       padding: SPACING.md,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       marginBottom: SPACING.sm,
       color: colors.text,
+      borderWidth: 0.5,
+      borderColor: colors.border,
+      fontSize: FONT_SIZE.md,
     },
     inputError: { borderWidth: 1, borderColor: colors.danger },
     err: { color: colors.danger, fontSize: FONT_SIZE.sm, marginTop: -4, marginBottom: SPACING.sm },
@@ -957,39 +1223,47 @@ const createStyles = (colors: ThemeColors) =>
       height: 160,
       justifyContent: "center",
       alignItems: "center",
-      backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.md,
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: BORDER_RADIUS.lg,
       marginTop: SPACING.md,
       overflow: "hidden",
+      borderWidth: 0.5,
+      borderColor: colors.border,
     },
     preview: { width: "100%", height: "100%" },
     imagePlaceholder: { color: colors.textSecondary, fontSize: FONT_SIZE.md },
     save: {
+      flex: 1,
       backgroundColor: colors.secondary,
-      padding: SPACING.lg,
-      borderRadius: BORDER_RADIUS.md,
+      paddingVertical: 14,
+      borderRadius: BORDER_RADIUS.lg,
       alignItems: "center",
-      minWidth: 120,
+      boxShadow: "0px 4px 12px rgba(16, 185, 129, 0.3)",
+      elevation: 3,
     },
     saveRestock: {
+      flex: 1,
       backgroundColor: colors.secondary,
-      padding: SPACING.lg,
-      borderRadius: BORDER_RADIUS.md,
+      paddingVertical: 14,
+      borderRadius: BORDER_RADIUS.lg,
       alignItems: "center",
-      minWidth: 140,
+      boxShadow: "0px 4px 12px rgba(16, 185, 129, 0.3)",
+      elevation: 3,
     },
-    saveDisabled: { opacity: 0.6 },
+    saveDisabled: { opacity: 0.5 },
     saveText: { color: colors.white, fontWeight: "700", fontSize: FONT_SIZE.md },
     restockInfoCard: {
       backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.lg,
+      borderRadius: BORDER_RADIUS.xl,
       padding: SPACING.md,
       marginBottom: SPACING.lg,
+      borderWidth: 0.5,
+      borderColor: colors.border,
     },
-    restockImage: { width: "100%", height: 160, borderRadius: BORDER_RADIUS.md, marginBottom: SPACING.md },
+    restockImage: { width: "100%", height: 160, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md },
     restockNoImage: {
       height: 100,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       backgroundColor: colors.surfaceSecondary,
       justifyContent: "center",
       alignItems: "center",
@@ -999,21 +1273,23 @@ const createStyles = (colors: ThemeColors) =>
     restockPrices: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, marginTop: SPACING.xs },
     restockCurrent: { fontSize: FONT_SIZE.md, fontWeight: "600", color: colors.text, marginTop: SPACING.sm },
     restockInput: {
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceSecondary,
       padding: SPACING.md,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       fontSize: FONT_SIZE.xl,
       fontWeight: "700",
       color: colors.text,
       marginBottom: SPACING.lg,
-      borderWidth: 1,
+      borderWidth: 0.5,
       borderColor: colors.border,
     },
     previewCard: {
       backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       padding: SPACING.md,
       gap: SPACING.sm,
+      borderWidth: 0.5,
+      borderColor: colors.border,
     },
     previewTitle: { fontSize: FONT_SIZE.md, fontWeight: "700", color: colors.text },
     previewDivider: { height: 1, marginVertical: SPACING.xs },
@@ -1025,30 +1301,109 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.overlay,
       justifyContent: "center",
       alignItems: "center",
-      padding: SPACING.lg,
+      padding: SPACING.xl,
     },
     deleteModal: {
       backgroundColor: colors.surface,
       padding: SPACING.lg,
-      borderRadius: BORDER_RADIUS.lg,
+      borderRadius: BORDER_RADIUS.xl,
       width: "100%",
-      maxWidth: 360,
+      maxWidth: 340,
     },
     deleteTitle: { fontSize: FONT_SIZE.lg, fontWeight: "700", color: colors.text, marginBottom: SPACING.sm },
-    deleteText: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, marginBottom: SPACING.lg },
+    deleteText: { fontSize: FONT_SIZE.sm, color: colors.textSecondary, marginBottom: SPACING.lg, lineHeight: 20 },
     deleteActions: { flexDirection: "row", justifyContent: "flex-end", gap: SPACING.sm },
     cancel: {
       paddingVertical: SPACING.sm,
       paddingHorizontal: SPACING.md,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       backgroundColor: colors.surfaceSecondary,
     },
     cancelText: { color: colors.text, fontWeight: "600" },
     confirm: {
       paddingVertical: SPACING.sm,
       paddingHorizontal: SPACING.md,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       backgroundColor: colors.danger,
     },
     confirmText: { color: colors.white, fontWeight: "700" },
+
+    barcodeSection: {
+      padding: SPACING.md,
+      borderRadius: BORDER_RADIUS.lg,
+      borderWidth: 0.5,
+      marginTop: SPACING.md,
+    },
+    barcodeHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SPACING.sm,
+    },
+    barcodeLabel: { fontSize: FONT_SIZE.sm, fontWeight: "600", flex: 1 },
+    barcodeAddBtn: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    barcodeList: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: SPACING.xs,
+      marginTop: SPACING.sm,
+    },
+    barcodeChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SPACING.xs,
+      paddingVertical: SPACING.xs,
+      paddingHorizontal: SPACING.sm,
+      borderRadius: BORDER_RADIUS.full,
+      borderWidth: 0.5,
+    },
+    barcodeChipText: { fontSize: FONT_SIZE.xs, fontWeight: "600" },
+    barcodePlaceholder: { fontSize: FONT_SIZE.sm, marginTop: SPACING.xs },
+
+    blockBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: BORDER_RADIUS.lg,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 0.5,
+    },
+    blockCard: {
+      width: "100%",
+      maxWidth: 320,
+      borderRadius: BORDER_RADIUS.xl,
+      padding: SPACING.xl,
+      alignItems: "center",
+      gap: SPACING.md,
+    },
+    blockTitle: { fontSize: FONT_SIZE.lg, fontWeight: "700", textAlign: "center" },
+    blockDesc: { fontSize: FONT_SIZE.sm, textAlign: "center", lineHeight: 20 },
+    blockInput: {
+      width: "100%",
+      textAlign: "center",
+      fontSize: FONT_SIZE.xxl,
+      fontWeight: "800",
+      letterSpacing: 8,
+      paddingVertical: SPACING.md,
+      borderRadius: BORDER_RADIUS.lg,
+      borderWidth: 0.5,
+    },
+    blockActions: {
+      flexDirection: "row",
+      gap: SPACING.sm,
+      width: "100%",
+      marginTop: SPACING.sm,
+    },
+    blockBtnAction: {
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: BORDER_RADIUS.lg,
+      alignItems: "center",
+    },
+    blockBtnText: { color: "#ffffff", fontWeight: "700", fontSize: FONT_SIZE.md },
   });

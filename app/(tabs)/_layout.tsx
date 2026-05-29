@@ -15,7 +15,6 @@ import {
   RefreshCw,
   Settings,
   Users,
-  Lock,
   HandCoins,
   ShoppingCart,
 } from "lucide-react-native";
@@ -32,16 +31,14 @@ const TabIcon = ({
   name,
   focused,
   colors,
-  isLocked = false,
 }: {
   name: string;
   focused: boolean;
   colors: any;
-  isLocked?: boolean;
 }) => {
   const active = colors.primary;
   const inactive = colors.textTertiary;
-  const color = isLocked ? inactive : (focused ? active : inactive);
+  const color = focused ? active : inactive;
   const size = 22;
 
   let IconComponent;
@@ -77,11 +74,6 @@ const TabIcon = ({
   return (
     <View style={styles.iconContainer}>
       <IconComponent size={size} color={color} />
-      {isLocked && (
-        <View style={[styles.lockBadge, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
-          <Lock size={10} color="rgba(255,255,255,0.7)" />
-        </View>
-      )}
     </View>
   );
 };
@@ -164,8 +156,8 @@ export default function TabLayout() {
           headerShown: true,
           freezeOnBlur: true,
           lazy: true,
-          headerStyle: { backgroundColor: colors.surface },
-          headerTitleStyle: { color: colors.text, fontWeight: "600" },
+          headerStyle: { backgroundColor: colors.surface, elevation: 0, boxShadow: '0px 0.5px 0px rgba(0,0,0,0.08)' },
+          headerTitleStyle: { color: colors.text, fontWeight: "600", fontSize: 17 },
           headerRight: () => (
             <View style={styles.headerRight}>
               <HeaderRefreshButton colors={colors} t={t} />
@@ -174,9 +166,11 @@ export default function TabLayout() {
            tabBarStyle: {
                backgroundColor: colors.surface,
                borderTopColor: colors.border,
-              height: 70 + insets.bottom,
+               borderTopWidth: 0.5,
+              height: 68 + insets.bottom,
               paddingBottom: Math.max(insets.bottom, 8),
-              paddingTop: 8,
+              paddingTop: 6,
+              elevation: 0,
             },
             tabBarActiveTintColor: colors.primary,
             tabBarInactiveTintColor: colors.textTertiary,
@@ -281,28 +275,16 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   headerRight: { flexDirection: "row", alignItems: "center", marginRight: 4 },
   refreshButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     marginRight: 8,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
+    borderWidth: 0.5,
   },
   iconContainer: {
     position: "relative",
-  },
-  lockBadge: {
-    position: "absolute",
-    top: -6,
-    right: -8,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.1)",
   },
   syncOverlay: {
     ...StyleSheet.absoluteFillObject,

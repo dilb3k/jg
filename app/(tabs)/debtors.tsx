@@ -18,6 +18,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Trash2, UserPlus, History, Pencil } from "lucide-react-native";
 
+import { SearchInputWithClear } from "../../src/components/SearchInputWithClear";
+
 import {
   SPACING,
   FONT_SIZE,
@@ -31,6 +33,23 @@ import { apiClient, canReachServer } from "../../src/api/client";
 import { useStore } from "../../src/store";
 import type { Debtor, DebtHistory } from "../../src/types";
 
+const formatPhone = (text: string) => {
+  const digits = text.replace(/\D/g, "").slice(0, 12);
+  if (digits.length === 0) return "+998";
+  let r = "+" + digits.slice(0, 3);
+  if (digits.length > 3) r += " " + digits.slice(3, 5);
+  if (digits.length > 5) r += " " + digits.slice(5, 8);
+  if (digits.length > 8) r += " " + digits.slice(8, 10);
+  if (digits.length > 10) r += " " + digits.slice(10, 12);
+  return r;
+};
+
+const displayPhone = (phone: string) => {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 0) return phone;
+  return formatPhone(digits);
+};
+
 export default function DebtorsScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
@@ -42,6 +61,7 @@ export default function DebtorsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [offlineMessage, setOfflineMessage] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [addName, setAddName] = useState("");
@@ -104,7 +124,7 @@ export default function DebtorsScreen() {
   const resetAddForm = () => {
     setAddName("");
     setAddAmount("");
-    setAddPhone("");
+    setAddPhone("+998");
     setAddNotes("");
     setAddErrors({ name: "", amount: "" });
   };
@@ -260,6 +280,16 @@ export default function DebtorsScreen() {
     );
   };
 
+  const filteredDebtors = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return debtors;
+    return debtors.filter(
+      (d) =>
+        d.name.toLowerCase().includes(q) ||
+        (d.phone && d.phone.replace(/\D/g, "").includes(q.replace(/\D/g, ""))),
+    );
+  }, [debtors, searchQuery]);
+
   const totalDebt = useMemo(
     () => debtors.reduce((sum, d) => sum + d.amount, 0),
     [debtors],
@@ -309,8 +339,19 @@ export default function DebtorsScreen() {
             </Text>
           </View>
 
+          <View style={styles.searchRow}>
+            <SearchInputWithClear
+              colors={colors}
+              placeholder={t("search")}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
           <FlatList
-            data={debtors}
+            data={filteredDebtors}
             keyExtractor={(item) => item.id}
             renderItem={({ item, index }) => (
               <TouchableOpacity
@@ -325,7 +366,7 @@ export default function DebtorsScreen() {
                   <View style={styles.cardInfo}>
                     <Text style={styles.cardName}>{item.name}</Text>
                     {item.phone ? (
-                      <Text style={styles.cardPhone}>{item.phone}</Text>
+                      <Text style={styles.cardPhone}>{displayPhone(item.phone)}</Text>
                     ) : null}
                     <Text style={styles.cardDate}>
                       {new Date(item.createdAt).toLocaleDateString()}
@@ -340,7 +381,9 @@ export default function DebtorsScreen() {
             contentContainerStyle={styles.list}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>{t("noDebtors")}</Text>
+                <Text style={styles.emptyText}>
+                  {searchQuery.trim() ? t("noProductsFound") : t("noDebtors")}
+                </Text>
               </View>
             }
           />
@@ -408,11 +451,12 @@ export default function DebtorsScreen() {
             <Text style={styles.label}>{t("phoneNumber")}</Text>
             <TextInput
               style={styles.input}
-              placeholder={t("phoneNumber")}
+              placeholder="+998"
               placeholderTextColor={colors.textTertiary}
               value={addPhone}
-              onChangeText={setAddPhone}
+              onChangeText={(v) => setAddPhone(formatPhone(v))}
               keyboardType="phone-pad"
+              maxLength={17}
             />
 
             <Text style={styles.label}>{t("debtNotesOrExtra")}</Text>
@@ -492,7 +536,7 @@ export default function DebtorsScreen() {
                 <View style={styles.detailHeader}>
                   <Text style={styles.detailName}>{selectedDebtor.name}</Text>
                   {selectedDebtor.phone ? (
-                    <Text style={styles.detailPhone}>{selectedDebtor.phone}</Text>
+                    <Text style={styles.detailPhone}>{displayPhone(selectedDebtor.phone)}</Text>
                   ) : null}
                   {selectedDebtor.notes ? (
                     <Text style={styles.detailNotes}>{selectedDebtor.notes}</Text>
@@ -601,11 +645,12 @@ export default function DebtorsScreen() {
             <Text style={styles.label}>{t("phoneNumber")}</Text>
             <TextInput
               style={styles.input}
-              placeholder={t("phoneNumber")}
+              placeholder="+998"
               placeholderTextColor={colors.textTertiary}
               value={editPhone}
-              onChangeText={setEditPhone}
+              onChangeText={(v) => setEditPhone(formatPhone(v))}
               keyboardType="phone-pad"
+              maxLength={17}
             />
 
             <Text style={styles.label}>{t("debtNotesOrExtra")}</Text>
@@ -652,24 +697,33 @@ const createStyles = (colors: ThemeColors) =>
     summaryCard: {
       backgroundColor: colors.primary,
       margin: SPACING.lg,
-      padding: SPACING.lg,
-      borderRadius: BORDER_RADIUS.lg,
+      marginBottom: SPACING.sm,
+      padding: SPACING.xl,
+      borderRadius: BORDER_RADIUS.xl,
       alignItems: "center",
+      boxShadow: "0px 6px 20px rgba(139, 92, 246, 0.3)",
+      elevation: 4,
     },
     summaryLabel: {
       fontSize: FONT_SIZE.sm,
       color: colors.white + "CC",
       marginBottom: SPACING.xs,
+      fontWeight: "500",
     },
     summaryValue: {
-      fontSize: FONT_SIZE.xxxl,
+      fontSize: FONT_SIZE.title,
       fontWeight: "800",
       color: colors.white,
+      letterSpacing: 0.5,
     },
     summaryCount: {
       marginTop: SPACING.xs,
       fontSize: FONT_SIZE.sm,
       color: colors.white + "AA",
+    },
+    searchRow: {
+      paddingHorizontal: SPACING.lg,
+      marginBottom: SPACING.sm,
     },
     list: { padding: SPACING.lg, paddingTop: 0, paddingBottom: 100 },
     card: {
@@ -677,9 +731,13 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: "center",
       justifyContent: "space-between",
       backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.lg,
+      borderRadius: BORDER_RADIUS.xl,
       padding: SPACING.md,
       marginBottom: SPACING.sm,
+      borderWidth: 0.5,
+      borderColor: colors.border,
+      boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.04)",
+      elevation: 2,
     },
     cardLeft: {
       flexDirection: "row",
@@ -688,9 +746,9 @@ const createStyles = (colors: ThemeColors) =>
       flex: 1,
     },
     indexBadge: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
+      width: 34,
+      height: 34,
+      borderRadius: 17,
       backgroundColor: colors.surfaceSecondary,
       justifyContent: "center",
       alignItems: "center",
@@ -735,18 +793,21 @@ const createStyles = (colors: ThemeColors) =>
       left: 0,
       right: 0,
       padding: SPACING.lg,
+      paddingBottom: SPACING.xl,
       backgroundColor: colors.surface,
-      borderTopWidth: 1,
+      borderTopWidth: 0.5,
       borderTopColor: colors.border,
     },
     addButton: {
       backgroundColor: colors.primary,
       padding: SPACING.lg,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       alignItems: "center",
       flexDirection: "row",
       justifyContent: "center",
       gap: SPACING.sm,
+      boxShadow: "0px 4px 12px rgba(139, 92, 246, 0.3)",
+      elevation: 3,
     },
     addButtonText: {
       color: colors.white,
@@ -759,14 +820,14 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: "space-between",
       alignItems: "center",
       padding: SPACING.lg,
-      borderBottomWidth: 1,
+      borderBottomWidth: 0.5,
       borderBottomColor: colors.border,
       backgroundColor: colors.surface,
     },
-    backText: { fontSize: FONT_SIZE.md, color: colors.primary },
+    backText: { fontSize: FONT_SIZE.md, color: colors.primary, fontWeight: "600" },
     modalTitle: {
       fontSize: FONT_SIZE.lg,
-      fontWeight: "600",
+      fontWeight: "700",
       color: colors.text,
     },
     headerSpacer: { width: 60 },
@@ -779,17 +840,18 @@ const createStyles = (colors: ThemeColors) =>
       marginBottom: SPACING.xs,
     },
     input: {
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceSecondary,
       padding: SPACING.md,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       marginBottom: SPACING.md,
       fontSize: FONT_SIZE.md,
       color: colors.text,
-      borderWidth: 1,
+      borderWidth: 0.5,
       borderColor: colors.border,
     },
     inputError: {
       borderColor: colors.danger,
+      borderWidth: 1,
     },
     errorText: {
       color: colors.danger,
@@ -800,11 +862,13 @@ const createStyles = (colors: ThemeColors) =>
     saveButton: {
       backgroundColor: colors.secondary,
       padding: SPACING.lg,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       alignItems: "center",
       marginTop: SPACING.sm,
+      boxShadow: "0px 4px 12px rgba(16, 185, 129, 0.3)",
+      elevation: 3,
     },
-    saveButtonDisabled: { opacity: 0.6 },
+    saveButtonDisabled: { opacity: 0.5 },
     saveButtonText: {
       color: colors.white,
       fontSize: FONT_SIZE.md,
@@ -815,7 +879,7 @@ const createStyles = (colors: ThemeColors) =>
       marginBottom: SPACING.xl,
     },
     detailName: {
-      fontSize: FONT_SIZE.xl,
+      fontSize: FONT_SIZE.xxl,
       fontWeight: "700",
       color: colors.text,
       marginBottom: SPACING.xs,
@@ -831,18 +895,19 @@ const createStyles = (colors: ThemeColors) =>
       textAlign: "center",
       marginBottom: SPACING.md,
       paddingHorizontal: SPACING.md,
+      lineHeight: 20,
     },
     notesInput: {
       minHeight: 88,
     },
     detailAmountCard: {
       backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.lg,
+      borderRadius: BORDER_RADIUS.xl,
       padding: SPACING.lg,
       alignItems: "center",
       width: "100%",
-      borderWidth: 2,
-      borderColor: colors.danger + "40",
+      borderWidth: 1,
+      borderColor: colors.danger + "30",
     },
     detailAmountLabel: {
       fontSize: FONT_SIZE.sm,
@@ -872,7 +937,7 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       alignItems: "flex-start",
       paddingVertical: SPACING.md,
-      borderBottomWidth: 1,
+      borderBottomWidth: 0.5,
       borderBottomColor: colors.border,
     },
     historyDot: {
@@ -909,22 +974,23 @@ const createStyles = (colors: ThemeColors) =>
     adjustBar: {
       padding: SPACING.lg,
       paddingTop: SPACING.sm,
-      borderTopWidth: 1,
+      borderTopWidth: 0.5,
       borderTopColor: colors.border,
       backgroundColor: colors.surface,
     },
     adjustInput: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.surfaceSecondary,
       padding: SPACING.md,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       marginBottom: SPACING.xs,
       fontSize: FONT_SIZE.md,
       color: colors.text,
-      borderWidth: 1,
+      borderWidth: 0.5,
       borderColor: colors.border,
     },
     adjustInputError: {
       borderColor: colors.danger,
+      borderWidth: 1,
     },
     adjustErrorText: {
       color: colors.danger,
@@ -938,7 +1004,7 @@ const createStyles = (colors: ThemeColors) =>
     adjustBtn: {
       flex: 1,
       padding: SPACING.md,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       alignItems: "center",
     },
     adjustBtnAdd: {
@@ -956,8 +1022,8 @@ const createStyles = (colors: ThemeColors) =>
       marginHorizontal: SPACING.lg,
       marginTop: SPACING.lg,
       padding: SPACING.md,
-      borderRadius: BORDER_RADIUS.md,
-      borderWidth: 1,
+      borderRadius: BORDER_RADIUS.lg,
+      borderWidth: 0.5,
     },
     offlineBannerText: {
       fontSize: FONT_SIZE.sm,

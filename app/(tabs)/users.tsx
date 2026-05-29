@@ -410,7 +410,7 @@ export default function AdminsScreen() {
               <Text style={styles.infoText}>{t("adminInfo")}</Text>
             </View>
 
-            <Text style={styles.label}>{t("username")}</Text>
+            <Text style={styles.label}>{t("loginLabel")}</Text>
             <TextInput
               style={styles.input}
               placeholder={t("loginPlaceholder_Admin")}
@@ -510,7 +510,7 @@ export default function AdminsScreen() {
               </View>
             ) : null}
 
-            <Text style={styles.label}>{t("username")}</Text>
+            <Text style={styles.label}>{t("loginLabel")}</Text>
             <TextInput
               style={styles.input}
               placeholder={t("loginPlaceholder_Admin")}
@@ -608,7 +608,7 @@ export default function AdminsScreen() {
               {t("deleteUserTitle")}
             </Text>
             <Text style={[styles.deleteMessage, { color: colors.textSecondary }]}>
-              {t("deleteUserConfirm").replace("{username}", deleteTarget?.username || "")}
+              {t("deleteUserConfirm", { username: deleteTarget?.username || "" })}
             </Text>
 
             <View style={styles.deleteActions}>

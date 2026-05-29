@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuthStore } from "../store/selectors";
 import { useTheme } from "../store/themeStore";
-import { useI18n } from "../i18n";
+import { useI18n, type TranslationKey } from "../i18n";
 import { SPACING, FONT_SIZE, BORDER_RADIUS } from "../theme";
 
 type Props = {
@@ -212,7 +212,7 @@ const PlanCard = memo(function PlanCard({
   showSuperBadge?: boolean;
   onContact: () => void;
   colors: any;
-  getT: (key: string) => string;
+  getT: (key: TranslationKey, params?: Record<string, any>) => string;
 }) {
   const isActive = userTier === tier;
   return (

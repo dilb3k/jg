@@ -44,9 +44,9 @@ export interface ThemeColors {
 
 export const lightTheme: ThemeColors = {
   // Primary colors
-  primary: "#6D28D9",
-  primaryDark: "#5B21B6",
-  primaryLight: "#7C3AED",
+  primary: "#8B5CF6",
+  primaryDark: "#7C3AED",
+  primaryLight: "#A78BFA",
   
   // Secondary colors
   secondary: "#10b981",
@@ -60,10 +60,10 @@ export const lightTheme: ThemeColors = {
   success: "#22c55e",
   
   // Background colors
-  background: "#EBF1F6",
+  background: "#F0F2F5",
   surface: "#ffffff",
-  surfaceSecondary: "#f1f5f9",
-  surfaceHover: "#f8fafc",
+  surfaceSecondary: "#f4f5f7",
+  surfaceHover: "#fafbfc",
   
   // Text colors
   text: "#0f172a",
@@ -72,21 +72,21 @@ export const lightTheme: ThemeColors = {
   textInverse: "#ffffff",
   
   // Border colors
-  border: "#e2e8f0",
-  borderDark: "#cbd5e1",
+  border: "#e8ecf0",
+  borderDark: "#d0d5dd",
   
   // Special colors
   white: "#ffffff",
   black: "#000000",
-  overlay: "rgba(0, 0, 0, 0.5)",
-  shadow: "rgba(0, 0, 0, 0.1)",
+  overlay: "rgba(0, 0, 0, 0.4)",
+  shadow: "rgba(0, 0, 0, 0.08)",
 };
 
 export const darkTheme: ThemeColors = {
   // Primary colors
-  primary: "#7C3AED",
-  primaryDark: "#6D28D9",
-  primaryLight: "#8B5CF6",
+  primary: "#8B5CF6",
+  primaryDark: "#7C3AED",
+  primaryLight: "#A78BFA",
   
   // Secondary colors
   secondary: "#34d399",
@@ -100,10 +100,10 @@ export const darkTheme: ThemeColors = {
   success: "#4ade80",
   
   // Background colors
-  background: "#0f172a",
-  surface: "#1e293b",
-  surfaceSecondary: "#334155",
-  surfaceHover: "#475569",
+  background: "#0b1120",
+  surface: "#131c31",
+  surfaceSecondary: "#1a2640",
+  surfaceHover: "#223054",
   
   // Text colors
   text: "#f1f5f9",
@@ -112,14 +112,14 @@ export const darkTheme: ThemeColors = {
   textInverse: "#0f172a",
   
   // Border colors
-  border: "#334155",
-  borderDark: "#475569",
+  border: "#1e2a45",
+  borderDark: "#2a3a5c",
   
   // Special colors
   white: "#ffffff",
   black: "#000000",
   overlay: "rgba(0, 0, 0, 0.7)",
-  shadow: "rgba(0, 0, 0, 0.3)",
+  shadow: "rgba(0, 0, 0, 0.4)",
 };
 
 /**
@@ -173,32 +173,46 @@ export const SPACING = {
   xl: 20,
   xxl: 24,
   xxxl: 32,
+  massive: 40,
 };
 
 // Font size constants
 export const FONT_SIZE = {
-  xs: 10,
-  sm: 12,
-  md: 14,
-  lg: 16,
-  xl: 18,
-  xxl: 20,
-  xxxl: 24,
-  title: 28,
+  xs: 11,
+  sm: 13,
+  md: 15,
+  lg: 17,
+  xl: 19,
+  xxl: 22,
+  xxxl: 26,
+  title: 30,
 };
 
 // Border radius constants
 export const BORDER_RADIUS = {
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 18,
   full: 9999,
 };
 
-// Shadow configurations - using boxShadow instead of deprecated shadow* props
+// Shadow configurations - using boxShadow for modern RN, elevation for Android
 export const SHADOWS = {
-  sm: { boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)', elevation: 1 },
-  md: { boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)', elevation: 3 },
-  lg: { boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.15)', elevation: 5 },
+  sm: {
+    boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.06)',
+    elevation: 2,
+  },
+  md: {
+    boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.09)',
+    elevation: 4,
+  },
+  lg: {
+    boxShadow: '0px 6px 16px rgba(0, 0, 0, 0.12)',
+    elevation: 6,
+  },
+  xl: {
+    boxShadow: '0px 10px 30px rgba(0, 0, 0, 0.15)',
+    elevation: 8,
+  },
 };

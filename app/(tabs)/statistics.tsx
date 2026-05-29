@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Lock, MessageCircle, RefreshCw, Download, CalendarClock } from "lucide-react-native";
+import { useFocusEffect } from "expo-router";
+import { MessageCircle, RefreshCw, Download, CalendarClock } from "lucide-react-native";
 import dayjs from "dayjs";
 
 import { DatePickerModal } from "../../src/features/statistics/components/DatePickerModal";
@@ -82,10 +83,6 @@ export default function StatisticsScreen() {
       isPayed,
     });
 
-  useEffect(() => {
-    void fetchInventory();
-  }, [fetchInventory]);
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -94,6 +91,12 @@ export default function StatisticsScreen() {
       setRefreshing(false);
     }
   }, [fetchInventory]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void fetchInventory();
+    }, [fetchInventory]),
+  );
 
   const earliestSnapshotDate = useMemo(() => {
     if (!snapshots.length) return null;
@@ -199,44 +202,7 @@ export default function StatisticsScreen() {
   };
 
   if (!isPayed) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerFlex}>
-            <PeriodTabs period={period} onChange={setPeriod} />
-          </View>
-          <TouchableOpacity
-            style={styles.refreshButton}
-            onPress={handleRefreshUser}
-            disabled={refreshingUser}
-          >
-            {refreshingUser ? (
-              <ActivityIndicator size="small" color={colors.white} />
-            ) : (
-              <RefreshCw size={18} color={colors.white} />
-            )}
-          </TouchableOpacity>
-        </View>
-        <View style={styles.lockedContainer}>
-          <View style={[styles.lockedIconContainer, { backgroundColor: colors.primary + "15" }]}>
-            <Lock size={48} color={colors.primary} />
-          </View>
-          <Text style={[styles.lockedTitle, { color: colors.text }]}>
-            {t("paymentRequired")}
-          </Text>
-          <Text style={[styles.lockedMessage, { color: colors.textSecondary }]}>
-            {t("paymentRequiredMessage")}
-          </Text>
-          <TouchableOpacity
-            style={[styles.telegramButton, { backgroundColor: "#0088cc" }]}
-            onPress={() => Linking.openURL("https://t.me/dilbek7011")}
-          >
-            <MessageCircle size={20} color="#ffffff" />
-            <Text style={styles.telegramButtonText}>Telegram: @dilbek7011</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
+    return <View style={styles.container} />;
   }
 
   return (
@@ -300,7 +266,6 @@ export default function StatisticsScreen() {
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>{t("loading")}</Text>
         </View>
       ) : (
         <ScrollView

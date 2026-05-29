@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import dayjs from "dayjs";
 import { ChevronLeft, ChevronRight, Package } from "lucide-react-native";
+import { useFocusEffect } from "expo-router";
 import { SearchInputWithClear } from "../../src/components/SearchInputWithClear";
 
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -59,7 +60,9 @@ export default function InventoryScreen() {
   const { t } = useI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
+  const [selectedDate, setSelectedDate] = useState(() => getBusinessDate());
   const {
+    inventoryPerDateCache,
     currentInventory,
     inventorySummary,
     loadInventoryByDate,
@@ -67,8 +70,17 @@ export default function InventoryScreen() {
     showToast,
   } = useInventoryScreenStore();
 
+  const cachedForDate = inventoryPerDateCache[selectedDate];
+  const inventoryForDate = useMemo(
+    () => cachedForDate?.items ?? currentInventory,
+    [cachedForDate, currentInventory],
+  );
+  const summaryForDate = useMemo(
+    () => cachedForDate?.summary ?? inventorySummary,
+    [cachedForDate, inventorySummary],
+  );
+
   const [showModal, setShowModal] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(() => getBusinessDate());
   const [selectedProductId, setSelectedProductId] = useState("");
   const [currentQty, setCurrentQty] = useState("");
   const [errors, setErrors] = useState<FormErrors>(EMPTY_ERRORS);
@@ -82,26 +94,26 @@ export default function InventoryScreen() {
   const isReadOnly = isPastDate(selectedDate);
   const isFutureDate = isFutureBusinessDate(selectedDate);
 
-  useEffect(() => {
+  const loadForSelectedDate = useCallback(async () => {
     let isMounted = true;
-
-    const run = async () => {
-      setIsDateLoading(true);
-      try {
-        await loadInventoryByDate(selectedDate);
-      } finally {
-        if (isMounted) {
-          setIsDateLoading(false);
-        }
+    setIsDateLoading(true);
+    try {
+      await loadInventoryByDate(selectedDate);
+    } finally {
+      if (isMounted) {
+        setIsDateLoading(false);
       }
-    };
-
-    run();
-
+    }
     return () => {
       isMounted = false;
     };
-  }, [loadInventoryByDate, selectedDate]);
+  }, [selectedDate, loadInventoryByDate]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadForSelectedDate();
+    }, [loadForSelectedDate]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -112,7 +124,15 @@ export default function InventoryScreen() {
     }
   }, [loadInventoryByDate, selectedDate]);
 
-  const inventoryData = useMemo(() => currentInventory, [currentInventory]);
+  const inventoryData = useMemo(
+    () =>
+      [...inventoryForDate].sort((a, b) => {
+        const ia = a.product?.displayIndex ?? 0;
+        const ib = b.product?.displayIndex ?? 0;
+        return ia !== ib ? ia - ib : (a.product?.name ?? "").localeCompare(b.product?.name ?? "");
+      }),
+    [inventoryForDate],
+  );
 
   const displayedData = useMemo(() => {
     if (isFutureDate) return [];
@@ -125,8 +145,8 @@ export default function InventoryScreen() {
   }, [isFutureDate, inventoryData, searchQuery]);
 
   const totals = useMemo(
-    () => getInventoryTotals(inventoryData, inventorySummary),
-    [inventoryData, inventorySummary],
+    () => getInventoryTotals(inventoryData, summaryForDate),
+    [inventoryData, summaryForDate],
   );
 
   const selectedEntry = useMemo(
@@ -296,12 +316,10 @@ export default function InventoryScreen() {
           </View>
           <View style={styles.statsDivider} />
           <View style={styles.statItemGroup}>
-            <View style={styles.unitProfitRow}>
-              <Text style={styles.unitProfitLabel}>{t("unitProfit")}</Text>
-              <Text style={[styles.unitProfitValue, { color: colors.secondary }]}>
-                {formatMoney(item.product.sellPrice - item.product.buyPrice)}
-              </Text>
-            </View>
+            <Text style={styles.statsLabelSmall}>{t("unitProfit")}</Text>
+            <Text style={[styles.statValueProfit, { color: colors.secondary }]}>
+              {formatMoney(item.product.sellPrice - item.product.buyPrice)}
+            </Text>
             <Text style={[styles.statProfit, metrics.realizedProfit >= 0 ? { color: colors.secondary } : { color: colors.danger }]}>
               {t("profit")}: {formatMoney(metrics.realizedProfit)}
             </Text>
@@ -357,10 +375,8 @@ export default function InventoryScreen() {
       </View>
 
       {isDateLoading ? (
-        <View style={styles.loadingCard}>
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingTitle}>{t("loading")}</Text>
-          <Text style={styles.loadingText}>{t("loadingInventory")}</Text>
         </View>
       ) : null}
 
@@ -659,10 +675,12 @@ const createStyles = (colors: ThemeColors) =>
       borderRadius: BORDER_RADIUS.lg,
       justifyContent: "center",
       alignItems: "center",
-      borderWidth: 1,
+      borderWidth: 0.5,
       borderColor: colors.border,
+      boxShadow: "0px 2px 6px rgba(0, 0, 0, 0.04)",
+      elevation: 2,
     },
-    navButtonDisabled: { opacity: 0.55 },
+    navButtonDisabled: { opacity: 0.5 },
     dateDisplay: { alignItems: "center", flex: 1 },
     dateText: {
       fontSize: FONT_SIZE.lg,
@@ -676,14 +694,14 @@ const createStyles = (colors: ThemeColors) =>
     },
     badge: {
       marginTop: 6,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceSecondary,
       paddingHorizontal: SPACING.sm,
       paddingVertical: 4,
       borderRadius: BORDER_RADIUS.full,
-      borderWidth: 1,
+      borderWidth: 0.5,
       borderColor: colors.border,
     },
-    badgeText: { fontSize: FONT_SIZE.xs, color: colors.text },
+    badgeText: { fontSize: FONT_SIZE.xs, fontWeight: "600", color: colors.text },
 
     // Search
     searchRow: {
@@ -697,10 +715,12 @@ const createStyles = (colors: ThemeColors) =>
       marginHorizontal: SPACING.lg,
       marginBottom: SPACING.md,
       backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.lg,
+      borderRadius: BORDER_RADIUS.xl,
       padding: SPACING.md,
-      borderWidth: 1,
+      borderWidth: 0.5,
       borderColor: colors.border,
+      boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.04)",
+      elevation: 2,
     },
     summaryItem: { flex: 1, alignItems: "center" },
     summaryDivider: {
@@ -720,32 +740,19 @@ const createStyles = (colors: ThemeColors) =>
     },
 
     // Loading
-    loadingCard: {
-      margin: SPACING.lg,
-      backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.lg,
-      padding: SPACING.xl,
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
       alignItems: "center",
-      gap: SPACING.sm,
-    },
-    loadingTitle: {
-      fontSize: FONT_SIZE.md,
-      fontWeight: "700",
-      color: colors.text,
-    },
-    loadingText: {
-      fontSize: FONT_SIZE.sm,
-      color: colors.textSecondary,
-      textAlign: "center",
     },
 
     // Future notice
     futureNotice: {
       margin: SPACING.lg,
       backgroundColor: colors.warning + "10",
-      borderRadius: BORDER_RADIUS.lg,
+      borderRadius: BORDER_RADIUS.xl,
       padding: SPACING.lg,
-      borderWidth: 1,
+      borderWidth: 0.5,
       borderColor: colors.warning + "40",
     },
     futureNoticeTitle: {
@@ -755,7 +762,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     futureNoticeText: {
       fontSize: FONT_SIZE.sm,
-      color: colors.warning,
+      color: colors.textSecondary,
       lineHeight: 20,
       marginTop: SPACING.sm,
     },
@@ -777,11 +784,13 @@ const createStyles = (colors: ThemeColors) =>
     // Card
     card: {
       backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.lg,
+      borderRadius: BORDER_RADIUS.xl,
       padding: SPACING.md,
       marginBottom: SPACING.sm,
-      borderWidth: 1,
+      borderWidth: 0.5,
       borderColor: colors.border,
+      boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.04)",
+      elevation: 2,
     },
     cardTop: { marginBottom: SPACING.md },
     cardTitleRow: {
@@ -792,12 +801,12 @@ const createStyles = (colors: ThemeColors) =>
     productImage: {
       width: 44,
       height: 44,
-      borderRadius: BORDER_RADIUS.sm,
+      borderRadius: BORDER_RADIUS.lg,
     },
     noImageBox: {
       width: 44,
       height: 44,
-      borderRadius: BORDER_RADIUS.sm,
+      borderRadius: BORDER_RADIUS.lg,
       backgroundColor: colors.surfaceSecondary,
       justifyContent: "center",
       alignItems: "center",
@@ -836,7 +845,7 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: colors.surfaceSecondary,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       padding: SPACING.sm,
       marginBottom: SPACING.md,
     },
@@ -861,7 +870,7 @@ const createStyles = (colors: ThemeColors) =>
     statsRow: {
       flexDirection: "row",
       alignItems: "flex-start",
-      borderTopWidth: 1,
+      borderTopWidth: 0.5,
       borderTopColor: colors.border,
       paddingTop: SPACING.md,
     },
@@ -882,18 +891,8 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: "700",
       color: colors.text,
     },
-    unitProfitRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 2,
-      marginTop: 4,
-    },
-    unitProfitLabel: {
-      fontSize: FONT_SIZE.xs,
-      color: colors.textTertiary,
-    },
-    unitProfitValue: {
-      fontSize: FONT_SIZE.xs,
+    statValueProfit: {
+      fontSize: FONT_SIZE.sm,
       fontWeight: "700",
     },
     statProfit: {
@@ -909,11 +908,11 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: "space-between",
       alignItems: "center",
       padding: SPACING.lg,
-      borderBottomWidth: 1,
+      borderBottomWidth: 0.5,
       borderBottomColor: colors.border,
       backgroundColor: colors.surface,
     },
-    cancelText: { fontSize: FONT_SIZE.md, color: colors.textSecondary },
+    cancelText: { fontSize: FONT_SIZE.md, fontWeight: "600", color: colors.textSecondary },
     modalTitle: {
       fontSize: FONT_SIZE.lg,
       fontWeight: "700",
@@ -925,11 +924,13 @@ const createStyles = (colors: ThemeColors) =>
 
     infoBox: {
       backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       padding: SPACING.md,
       marginBottom: SPACING.lg,
       borderLeftWidth: 4,
       borderLeftColor: colors.primary,
+      borderWidth: 0.5,
+      borderColor: colors.border,
     },
     infoTitle: {
       fontSize: FONT_SIZE.md,
@@ -945,22 +946,25 @@ const createStyles = (colors: ThemeColors) =>
 
     readOnlyBox: {
       backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       padding: SPACING.md,
       gap: SPACING.sm,
+      borderWidth: 0.5,
+      borderColor: colors.border,
     },
     label: {
       fontSize: FONT_SIZE.sm,
+      fontWeight: "600",
       color: colors.textSecondary,
       marginBottom: SPACING.xs,
     },
     input: {
-      backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.md,
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: BORDER_RADIUS.lg,
       padding: SPACING.md,
       fontSize: FONT_SIZE.lg,
       color: colors.text,
-      borderWidth: 1,
+      borderWidth: 0.5,
       borderColor: colors.border,
     },
     inputError: { borderWidth: 1, borderColor: colors.danger },
@@ -972,20 +976,22 @@ const createStyles = (colors: ThemeColors) =>
     },
     errorBanner: {
       backgroundColor: colors.danger + "15",
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       padding: SPACING.sm,
       marginTop: SPACING.sm,
-      borderWidth: 1,
+      borderWidth: 0.5,
       borderColor: colors.danger + "40",
     },
     errorBannerText: { color: colors.danger, fontSize: FONT_SIZE.sm },
 
     previewCard: {
       backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       padding: SPACING.md,
       marginTop: SPACING.md,
       gap: SPACING.sm,
+      borderWidth: 0.5,
+      borderColor: colors.border,
     },
     previewTitle: {
       fontSize: FONT_SIZE.md,
@@ -1004,7 +1010,8 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       justifyContent: "space-between",
       padding: SPACING.lg,
-      borderTopWidth: 1,
+      paddingBottom: SPACING.xl,
+      borderTopWidth: 0.5,
       borderTopColor: colors.border,
       gap: SPACING.md,
       backgroundColor: colors.surface,
@@ -1013,16 +1020,20 @@ const createStyles = (colors: ThemeColors) =>
       flex: 1,
       paddingVertical: 14,
       backgroundColor: colors.surfaceSecondary,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       alignItems: "center",
+      borderWidth: 0.5,
+      borderColor: colors.border,
     },
-    backText: { fontWeight: "600", color: colors.text },
+    backText: { fontWeight: "600", color: colors.text, fontSize: FONT_SIZE.md },
     saveButton: {
       flex: 1,
       paddingVertical: 14,
       backgroundColor: colors.primary,
-      borderRadius: BORDER_RADIUS.md,
+      borderRadius: BORDER_RADIUS.lg,
       alignItems: "center",
+      boxShadow: "0px 4px 12px rgba(139, 92, 246, 0.3)",
+      elevation: 3,
     },
     saveButtonText: {
       color: colors.white,

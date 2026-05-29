@@ -18,6 +18,7 @@ export const useProductsScreenStore = () =>
 export const useInventoryScreenStore = () =>
   useStore(
     useShallow((state) => ({
+      inventoryPerDateCache: state.inventoryPerDateCache,
       currentInventory: state.currentInventory,
       inventorySummary: state.inventorySummary,
       loadInventoryByDate: state.loadInventoryByDate,

@@ -1,7 +1,7 @@
 import { StyleSheet, TextInput, TouchableOpacity, View, type TextInputProps } from "react-native";
-import { X } from "lucide-react-native";
+import { Search, X } from "lucide-react-native";
 
-import { BORDER_RADIUS, SPACING, type ThemeColors } from "../theme";
+import { SPACING, type ThemeColors } from "../theme";
 
 type Props = TextInputProps & {
   colors: ThemeColors;
@@ -22,26 +22,29 @@ export function SearchInputWithClear({
     <View
       style={[
         styles.wrap,
-        { backgroundColor: colors.surface, borderColor: colors.border },
+        { backgroundColor: colors.surfaceSecondary },
         containerStyle,
       ]}
     >
+      <Search size={16} color={colors.textTertiary} style={styles.searchIcon} />
       <TextInput
         {...rest}
         value={value}
         onChangeText={onChangeText}
         style={[styles.input, { color: colors.text }, style]}
         placeholderTextColor={colors.textTertiary}
+        selectionColor={colors.primary}
+        underlineColorAndroid="transparent"
       />
       {showClear ? (
         <TouchableOpacity
-          style={styles.clearBtn}
+          style={[styles.clearBtn, { backgroundColor: colors.surfaceHover }]}
           onPress={() => onChangeText?.("")}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityRole="button"
           accessibilityLabel="Clear"
         >
-          <X size={18} color={colors.textSecondary} />
+          <X size={14} color={colors.textSecondary} />
         </TouchableOpacity>
       ) : null}
     </View>
@@ -52,19 +55,28 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    paddingRight: SPACING.xs,
+    borderRadius: 12,
+    paddingRight: SPACING.sm,
     minHeight: 48,
+    overflow: "hidden",
+    borderWidth: 0,
+  },
+  searchIcon: {
+    marginLeft: SPACING.md,
   },
   input: {
     flex: 1,
     paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.md,
+    paddingHorizontal: SPACING.sm,
     fontSize: 15,
+    borderWidth: 0,
+    borderBottomWidth: 0,
+    outlineWidth: 0,
   },
   clearBtn: {
-    padding: SPACING.sm,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     justifyContent: "center",
     alignItems: "center",
   },

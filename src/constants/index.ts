@@ -26,7 +26,7 @@ export const COLORS = {
   overlay: "rgba(0, 0, 0, 0.5)",
 };
 
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://comp-bar-server-1.onrender.com/api';
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://comp-bar-server.onrender.com';
 // IMPORTANT: Must match BUSINESS_DAY_START_HOUR in bar-backend/backend/src/config/env.ts (default 0)
 export const BUSINESS_DAY_START_HOUR = Number(process.env.EXPO_PUBLIC_BUSINESS_DAY_START_HOUR) || 6;
 
@@ -41,6 +41,7 @@ export const STORAGE_KEYS = {
   BUSINESS_DAY_START_HOUR: 'business_day_start_hour',
   PENDING_BUSINESS_DAY_HOUR: 'pending_business_day_hour',
   BUSINESS_DAY_EFFECTIVE_FROM: 'business_day_effective_from',
+  BLOCK_CODE: 'block_code',
 };
 
 export const TABLE_NAMES = {

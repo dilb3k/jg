@@ -9,6 +9,7 @@ export interface Product {
   sellPrice: number;
   image?: string;
   displayIndex?: number;
+  barcodes?: string[];
   updatedAt: string;
   createdAt: string;
 }
@@ -156,6 +157,7 @@ export interface AuthUser {
   tier: SubscriptionTier;
   subscriptionEndDate?: string | null;
   businessDayStartHour?: number;
+  blockCode?: string | null;
   createdAt: string;
   updatedAt: string;
 }

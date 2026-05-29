@@ -950,10 +950,11 @@ class ApiClient {
   async register(
     username: string,
     password: string,
+    phone_number?: string,
   ): Promise<{ token: string; user: AuthUser }> {
     const response = await this.client.post<
       ApiResponse<{ token: string; user: AuthUser }>
-    >("/auth/register", { username, password });
+    >("/auth/register", { username, password, phone_number });
     return this.unwrap(response);
   }
 
@@ -989,11 +990,14 @@ class ApiClient {
     return this.unwrap(response);
   }
 
-  async createAdmin(username: string, password: string, tier?: "tekin" | "bor" | "pro"): Promise<AuthUser> {
+  async createAdmin(username: string, password: string, tier?: "tekin" | "bor" | "pro", phone_number?: string): Promise<AuthUser> {
     if (!canReachServer()) {
       throw new Error("Admin yaratish uchun server kerak");
     }
     const payload: Record<string, any> = { username, password };
+    if (phone_number !== undefined) {
+      payload.phone_number = phone_number;
+    }
     if (tier !== undefined) {
       payload.tier = tier;
     }
@@ -1015,7 +1019,7 @@ class ApiClient {
     return this.unwrap(response);
   }
 
-  async updateAdmin(id: string, data: { username?: string; password?: string; tier?: "tekin" | "bor" | "pro" }): Promise<AuthUser> {
+  async updateAdmin(id: string, data: { username?: string; phone_number?: string; password?: string; tier?: "tekin" | "bor" | "pro" }): Promise<AuthUser> {
     if (!canReachServer()) {
       throw new Error("Admin tahrirlash uchun server kerak");
     }

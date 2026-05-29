@@ -46,6 +46,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [username, setUsername] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +63,10 @@ export default function LoginScreen() {
     }
 
     if (!isLoginMode) {
+      if (!phoneNumber.trim()) {
+        setError(t("enterPhonePassword"));
+        return;
+      }
       if (password !== confirmPassword) {
         setError(t("passwordsDoNotMatch"));
         return;
@@ -80,7 +85,7 @@ export default function LoginScreen() {
       if (isLoginMode) {
         result = await apiClient.login(username.trim(), password);
       } else {
-        result = await apiClient.register(username.trim(), password);
+        result = await apiClient.register(username.trim(), password, phoneNumber.trim());
       }
 
       await secureStorage.setItemAsync(STORAGE_KEYS.USER_TOKEN, result.token);
@@ -223,6 +228,24 @@ export default function LoginScreen() {
                 autoCorrect={false}
               />
             </View>
+
+            {!isLoginMode && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>{t("authPhoneNumber")}</Text>
+                <TextInput
+                  style={inputStyle("phone")}
+                  placeholder={t("phoneNumberPlaceholder")}
+                  placeholderTextColor={C.textTertiary}
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  onFocus={() => setFocusedField("phone")}
+                  onBlur={() => setFocusedField(null)}
+                  keyboardType="phone-pad"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            )}
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{t("password")}</Text>

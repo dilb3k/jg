@@ -400,6 +400,25 @@ export const translations = {
       totalDebtors: "Qarzdorlar",
       loadStats: "Statistikani yuklash",
       refreshing: "Yangilanmoqda...",
+
+      // Buttons & barcode/common actions
+      update: "Yangilash",
+      enterBlockCode: "Blok kodni kiriting",
+      addToCart: "Savatga qo'shish",
+      barcodes: "Shtrix kodlar",
+      grantPermission: "Ruxsat berish",
+      codeAlreadyExists: "Bu kod ro'yxatda mavjud",
+      codeDetected: "Kod aniqlandi",
+      rescan: "Qayta skaner",
+      accept: "Qabul qilish",
+      cameraPermissionTitle: "Kamera ruxsati kerak",
+      cameraPermissionDesc: "Shtrix kodni skaner qilish uchun kamera ruxsatini bering",
+      authPhoneNumber: "Telefon raqam",
+      phoneNumberPlaceholder: "+998 90 123 45 67",
+      enterPhonePassword: "Telefon raqam va parolni kiriting",
+      takePhoto: "Suratga olish",
+      chooseFromGallery: "Galereyadan tanlash",
+      imageSourceTitle: "Rasm qo'shish",
    },
 
   ru: {
@@ -798,6 +817,25 @@ export const translations = {
       totalDebtors: "Должники",
       loadStats: "Загрузить статистику",
       refreshing: "Обновление...",
+
+      // Buttons & barcode/common actions
+      update: "Обновить",
+      enterBlockCode: "Введите блок-код",
+      addToCart: "Добавить в корзину",
+      barcodes: "Штрихкоды",
+      grantPermission: "Разрешить",
+      codeAlreadyExists: "Этот код уже есть в списке",
+      codeDetected: "Код обнаружен",
+      rescan: "Сканировать заново",
+      accept: "Принять",
+      cameraPermissionTitle: "Требуется доступ к камере",
+      cameraPermissionDesc: "Разрешите доступ к камере для сканирования штрихкодов",
+      authPhoneNumber: "Номер телефона",
+      phoneNumberPlaceholder: "+998 90 123 45 67",
+      enterPhonePassword: "Введите номер телефона и пароль",
+      takePhoto: "Сделать фото",
+      chooseFromGallery: "Выбрать из галереи",
+      imageSourceTitle: "Добавить фото",
    },
 };
 

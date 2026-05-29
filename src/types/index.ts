@@ -150,6 +150,7 @@ export type SubscriptionTier = "tekin" | "bor" | "pro";
 export interface AuthUser {
   id: string;
   username: string;
+  phone_number?: string;
   role: UserRole;
   createdBy: string | null;
   isActive: boolean;

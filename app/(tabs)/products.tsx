@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -208,20 +209,48 @@ export default function ProductsScreen() {
     setShowProductModal(true);
   };
 
-  const pickImage = async () => {
+  const applyPickedImage = useCallback(
+    (result: ImagePicker.ImagePickerResult) => {
+      if (result.canceled) return;
+      const file = result.assets[0];
+      const mime = file.mimeType || "image/jpeg";
+      const image = file.base64 ? `data:${mime};base64,${file.base64}` : "";
+      if (image) setForm((prev) => ({ ...prev, image }));
+    },
+    [],
+  );
+
+  const captureFromCamera = useCallback(async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      showToast(t("cameraPermissionDesc"), "error");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      base64: true,
+      quality: 0.7,
+      allowsEditing: true,
+    });
+    applyPickedImage(result);
+  }, [applyPickedImage, showToast, t]);
+
+  const pickFromGallery = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       base64: true,
       quality: 0.7,
     });
+    applyPickedImage(result);
+  }, [applyPickedImage]);
 
-    if (!result.canceled) {
-      const file = result.assets[0];
-      const mime = file.mimeType || "image/jpeg";
-      const image = file.base64 ? `data:${mime};base64,${file.base64}` : "";
-      setForm((prev) => ({ ...prev, image }));
-    }
-  };
+  const pickImage = useCallback(() => {
+    Alert.alert(t("imageSourceTitle"), undefined, [
+      { text: t("takePhoto"), onPress: () => void captureFromCamera() },
+      { text: t("chooseFromGallery"), onPress: () => void pickFromGallery() },
+      { text: t("cancel"), style: "cancel" },
+    ]);
+  }, [captureFromCamera, pickFromGallery, t]);
 
   const validate = () => {
     const nextErrors = validateProductInput({
@@ -506,6 +535,10 @@ export default function ProductsScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={11}
+          removeClippedSubviews
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }
@@ -689,7 +722,7 @@ export default function ProductsScreen() {
             <View style={[styles.barcodeSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.barcodeHeader}>
                 <Scan size={20} color={colors.primary} />
-                <Text style={[styles.barcodeLabel, { color: colors.textSecondary }]}>Barcodes</Text>
+                <Text style={[styles.barcodeLabel, { color: colors.textSecondary }]}>{t("barcodes")}</Text>
                 <TouchableOpacity
                   style={[styles.barcodeAddBtn, { backgroundColor: colors.primary }]}
                   onPress={() => setShowBarcodeScanner(true)}
@@ -968,15 +1001,15 @@ export default function ProductsScreen() {
               {blockCode ? (
                 <>
                   <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.danger }]} onPress={handleRemoveBlockCode}>
-                    <Text style={styles.blockBtnText}>O'chirish</Text>
+                    <Text style={styles.blockBtnText}>{t("delete")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.primary }]} onPress={handleSetBlockCode}>
-                    <Text style={styles.blockBtnText}>Yangilash</Text>
+                    <Text style={styles.blockBtnText}>{t("update")}</Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.primary, flex: 1 }]} onPress={handleSetBlockCode}>
-                  <Text style={styles.blockBtnText}>Saqlash</Text>
+                  <Text style={styles.blockBtnText}>{t("save")}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -989,7 +1022,7 @@ export default function ProductsScreen() {
         <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={() => setShowPinVerify(false)}>
           <Pressable style={[styles.blockCard, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
             <Lock size={32} color={colors.warning} />
-            <Text style={[styles.blockTitle, { color: colors.text }]}>Blok kodni kiriting</Text>
+            <Text style={[styles.blockTitle, { color: colors.text }]}>{t("enterBlockCode")}</Text>
             <Text style={[styles.blockDesc, { color: colors.textSecondary }]}>
               Mahsulotni saqlash uchun himoya kodini kiriting
             </Text>
@@ -1005,10 +1038,10 @@ export default function ProductsScreen() {
             />
             <View style={styles.blockActions}>
               <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.surfaceSecondary, flex: 1 }]} onPress={() => setShowPinVerify(false)}>
-                <Text style={[styles.blockBtnText, { color: colors.text }]}>Bekor qilish</Text>
+                <Text style={[styles.blockBtnText, { color: colors.text }]}>{t("cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.blockBtnAction, { backgroundColor: colors.primary, flex: 1 }]} onPress={handleConfirmPin}>
-                <Text style={styles.blockBtnText}>Tasdiqlash</Text>
+                <Text style={styles.blockBtnText}>{t("confirm")}</Text>
               </TouchableOpacity>
             </View>
           </Pressable>

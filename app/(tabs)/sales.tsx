@@ -396,13 +396,13 @@ export default function SalesScreen() {
                 style={[styles.qtyCancelBtn, { backgroundColor: colors.surfaceSecondary }]}
                 onPress={() => { setShowQtyModal(false); setBarcodeProduct(null); }}
               >
-                <Text style={[styles.qtyCancelText, { color: colors.text }]}>Bekor qilish</Text>
+                <Text style={[styles.qtyCancelText, { color: colors.text }]}>{t("cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.qtyConfirmBtn, { backgroundColor: colors.primary }]}
                 onPress={handleBarcodeQtyConfirm}
               >
-                <Text style={styles.qtyConfirmText}>Savatga qo'shish</Text>
+                <Text style={styles.qtyConfirmText}>{t("addToCart")}</Text>
               </TouchableOpacity>
             </View>
           </View>

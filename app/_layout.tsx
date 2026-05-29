@@ -105,6 +105,7 @@ export default function RootLayoutNav() {
           const userData = {
             id: (freshUser as any).id || (freshUser as any).userId,
             username: freshUser.username,
+            phone_number: (freshUser as any).phone_number ?? "",
             role: freshUser.role,
             createdBy: (freshUser as any).createdBy,
             isActive: (freshUser as any).isActive ?? true,

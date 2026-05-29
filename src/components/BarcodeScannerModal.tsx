@@ -24,6 +24,7 @@ import {
 } from "lucide-react-native";
 
 import { BORDER_RADIUS, FONT_SIZE, SPACING, type ThemeColors } from "../theme";
+import { useI18n } from "../i18n";
 
 export type BarcodeConflict = {
   conflictName?: string;
@@ -60,6 +61,7 @@ export function BarcodeScannerModal({
   manualCapture,
   conflictCheck,
 }: Props) {
+  const { t } = useI18n();
   const [permission, requestPermission] = useCameraPermissions();
   const [scannedCode, setScannedCode] = useState<string | null>(null);
   const [scannedType, setScannedType] = useState<string | null>(null);
@@ -103,20 +105,20 @@ export function BarcodeScannerModal({
           <View style={[styles.card, { backgroundColor: colors.surface }]}>
             <Scan size={40} color={colors.primary} />
             <Text style={[styles.title, { color: colors.text }]}>
-              Kamera ruxsati kerak
+              {t("cameraPermissionTitle")}
             </Text>
             <Text style={[styles.desc, { color: colors.textSecondary }]}>
-              Barcode skaner qilish uchun kamera ruxsatini bering
+              {t("cameraPermissionDesc")}
             </Text>
             <TouchableOpacity
               style={[styles.btn, { backgroundColor: colors.primary }]}
               onPress={requestPermission}
             >
-              <Text style={styles.btnText}>Ruxsat berish</Text>
+              <Text style={styles.btnText}>{t("grantPermission")}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={onClose}>
               <Text style={[styles.cancel, { color: colors.textSecondary }]}>
-                Bekor qilish
+                {t("cancel")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -208,12 +210,12 @@ export function BarcodeScannerModal({
                   {conflict ? (
                     <View style={[styles.manualBadge, { backgroundColor: colors.warning + "99" }]}>
                       <AlertTriangle size={16} color="#ffffff" />
-                      <Text style={styles.manualBadgeText}>Bu code ro'yxatda o'tgan</Text>
+                      <Text style={styles.manualBadgeText}>{t("codeAlreadyExists")}</Text>
                     </View>
                   ) : (
                     <View style={styles.manualBadge}>
                       <Check size={16} color="#ffffff" />
-                      <Text style={styles.manualBadgeText}>Kod aniqlandi</Text>
+                      <Text style={styles.manualBadgeText}>{t("codeDetected")}</Text>
                     </View>
                   )}
                 </View>
@@ -322,7 +324,7 @@ export function BarcodeScannerModal({
                   }}
                 >
                   <RotateCw size={18} color={colors.text} />
-                  <Text style={[styles.actionText, { color: colors.text }]}>Qayta skaner</Text>
+                  <Text style={[styles.actionText, { color: colors.text }]}>{t("rescan")}</Text>
                 </TouchableOpacity>
                 {!conflict?.notFound ? (
                   <TouchableOpacity
@@ -333,7 +335,7 @@ export function BarcodeScannerModal({
                     }}
                   >
                     <Check size={20} color="#ffffff" />
-                    <Text style={[styles.actionText, { color: "#ffffff" }]}>Qabul qilish</Text>
+                    <Text style={[styles.actionText, { color: "#ffffff" }]}>{t("accept")}</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>

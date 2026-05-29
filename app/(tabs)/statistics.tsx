@@ -1,7 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import {
   ActivityIndicator,
-  Linking,
   RefreshControl,
   ScrollView,
   Text,
@@ -9,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { MessageCircle, RefreshCw, Download, CalendarClock } from "lucide-react-native";
+import { RefreshCw, Download, CalendarClock } from "lucide-react-native";
 import dayjs from "dayjs";
 
 import { DatePickerModal } from "../../src/features/statistics/components/DatePickerModal";

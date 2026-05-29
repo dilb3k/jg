@@ -37,7 +37,20 @@
       "expo-router",
       "expo-secure-store",
       "expo-font",
-      "expo-splash-screen"
+      "expo-splash-screen",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Shtrix kodlarni skaner qilish uchun kameradan foydalaniladi."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Mahsulot rasmini tanlash uchun galereyaga ruxsat kerak.",
+          "cameraPermission": "Mahsulotni suratga olish uchun kameradan foydalaniladi."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

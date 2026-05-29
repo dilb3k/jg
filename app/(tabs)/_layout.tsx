@@ -3,7 +3,6 @@ import { Tabs, useRouter } from "expo-router";
 import {
   ActivityIndicator,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -25,7 +24,6 @@ import { useTheme } from "../../src/store/themeStore";
 import { useI18n } from "../../src/i18n";
 import { OfflineWarningModal } from "../../src/components/OfflineWarningModal";
 import { useNetworkStatus } from "../../src/hooks/useNetworkStatus";
-import { SPACING } from "../../src/theme";
 
 const TabIcon = ({
   name,

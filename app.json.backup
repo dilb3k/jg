@@ -37,7 +37,7 @@
     },
     "nodeModules": "./.expo/node_modules",
     "extra": {
-      "EXPO_PUBLIC_API_BASE_URL": "https://comp-bar-server-1.onrender.com/api",
+      "EXPO_PUBLIC_API_BASE_URL": "https://comp-bar-server.onrender.com/api",
       "eas": {
         "projectId": "80e6d2f2-8fb5-4715-84c0-02fc3dc1e635"
       }

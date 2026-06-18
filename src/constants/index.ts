@@ -26,7 +26,7 @@ export const COLORS = {
   overlay: "rgba(0, 0, 0, 0.5)",
 };
 
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://comp-bar-server.onrender.com';
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://comp-bar-server.onrender.com/api';
 // IMPORTANT: Must match BUSINESS_DAY_START_HOUR in bar-backend/backend/src/config/env.ts (default 0)
 export const BUSINESS_DAY_START_HOUR = Number(process.env.EXPO_PUBLIC_BUSINESS_DAY_START_HOUR) || 6;
 

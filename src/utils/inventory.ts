@@ -98,10 +98,15 @@ export const getInventoryMetrics = (
   const buyPrice = storedBuyPrice ?? p.buyPrice;
   const sellPrice = storedSellPrice ?? p.sellPrice;
 
+  const lockedRevenue = item.lockedRevenue ?? 0;
+  const lockedProfit = item.lockedProfit ?? 0;
+  const lockedSold = item.lockedSold ?? 0;
+
   const remaining = Math.max(item.currentQuantity, 0);
-  const sold = Math.max(item.startQuantity - item.currentQuantity, 0);
-  const revenue = sold * sellPrice;
-  const realizedProfit = sold * (sellPrice - buyPrice);
+  const newSold = Math.max(item.startQuantity - item.currentQuantity, 0);
+  const sold = lockedSold + newSold;
+  const revenue = lockedRevenue + newSold * sellPrice;
+  const realizedProfit = lockedProfit + newSold * (sellPrice - buyPrice);
   const stockSellValue = remaining * sellPrice;
   const stockBuyValue = remaining * buyPrice;
   const potentialProfit = remaining * (sellPrice - buyPrice);

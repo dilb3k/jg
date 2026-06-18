@@ -12,6 +12,7 @@ export interface Product {
   barcodes?: string[];
   updatedAt: string;
   createdAt: string;
+  isDeleted?: boolean;
 }
 
 export interface InventoryEntry {
@@ -25,6 +26,9 @@ export interface InventoryEntry {
   currentQuantity: number;
   buyPrice?: number;
   sellPrice?: number;
+  lockedRevenue?: number;
+  lockedProfit?: number;
+  lockedSold?: number;
   sold?: number;
   revenue?: number;
   realizedProfit?: number;
@@ -191,4 +195,34 @@ export interface DatabaseStats {
     totalRecords: number;
   };
   collections?: Record<string, { count: number; size: string }>;
+}
+
+export interface AdminTopProduct {
+  productId: string;
+  name: string;
+  totalSold: number;
+  totalRevenue: number;
+  totalProfit: number;
+}
+
+export interface AdminStatsItem extends AuthUser {
+  daysRemaining: number;
+  productCount: number;
+  inventoryCount: number;
+  totalRevenue: number;
+  totalProfit: number;
+  totalSoldItems: number;
+  lastActive: string | null;
+  topProducts: AdminTopProduct[];
+}
+
+export interface AdminStatsResponse {
+  admins: AdminStatsItem[];
+  totals: {
+    totalProducts: number;
+    totalRevenue: number;
+    totalProfit: number;
+    totalSoldItems: number;
+    activeSubscriptions: number;
+  };
 }

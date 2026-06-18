@@ -11,12 +11,14 @@ import type {
   InventorySummary,
   InventoryWithProduct,
   Product,
+  AdminStatsResponse,
 } from "../types";
 import * as dbProducts from "../db/products";
 import * as dbInventory from "../db/inventory";
 import * as dbSnapshots from "../db/snapshots";
 import * as dbSyncQueue from "../db/syncQueue";
 import { getBusinessDate } from "../utils/businessDay";
+import { getDeletedProductNameSync } from "../utils/deletedProductsCache";
 
 type ApiResponse<T> = {
   success: boolean;
@@ -223,12 +225,13 @@ const joinInventoryWithProducts = (
       localId: entry.productId,
       deviceId: entry.deviceId,
       entityType: "product",
-      name: "Noma'lum mahsulot",
+      name: getDeletedProductNameSync(entry.productId) ?? "O'chirilgan mahsulot",
       quantity: entry.currentQuantity,
       buyPrice: 0,
       sellPrice: 0,
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
+      isDeleted: true,
     },
   }));
 };
@@ -417,9 +420,27 @@ class ApiClient {
       return product as Product;
     }
 
-    const priceChanged = (product.buyPrice !== undefined && product.buyPrice !== existing.buyPrice) ||
-      (product.sellPrice !== undefined && product.sellPrice !== existing.sellPrice);
+    const sellPriceChanged = product.sellPrice !== undefined && product.sellPrice !== existing.sellPrice;
+    const priceChanged = sellPriceChanged ||
+      (product.buyPrice !== undefined && product.buyPrice !== existing.buyPrice);
     const quantityChanged = product.quantity !== undefined && product.quantity !== existing.quantity;
+
+    if (sellPriceChanged) {
+      const today = getBusinessDate();
+      const allInv = await dbInventory.getAllInventoryEntries();
+      const todayEntry = allInv.find((e) => e.productId === id && e.date === today);
+      if (todayEntry) {
+        const sold = (todayEntry.startQuantity ?? 0) - (todayEntry.currentQuantity ?? 0);
+        if (sold > 0) {
+          todayEntry.lockedRevenue = (todayEntry.lockedRevenue ?? 0) + sold * existing.sellPrice;
+          todayEntry.lockedProfit = (todayEntry.lockedProfit ?? 0) + sold * (existing.sellPrice - existing.buyPrice);
+          todayEntry.lockedSold = (todayEntry.lockedSold ?? 0) + sold;
+          todayEntry.startQuantity = todayEntry.currentQuantity;
+          todayEntry.updatedAt = new Date().toISOString();
+          await dbInventory.saveInventoryEntries([todayEntry]);
+        }
+      }
+    }
 
     const updated = { ...existing, ...product, updatedAt: new Date().toISOString() };
     await dbProducts.updateProduct(updated);
@@ -442,15 +463,7 @@ class ApiClient {
       }
 
       if (priceChanged) {
-        const allInv = await dbInventory.getAllInventoryEntries();
-        const affectedInv = allInv.filter((e) => e.productId === id && e.date === getBusinessDate());
-        for (const inv of affectedInv) {
-          inv.buyPrice = updated.buyPrice;
-          inv.sellPrice = updated.sellPrice;
-        }
-        if (affectedInv.length > 0) {
-          await dbInventory.saveInventoryEntries(affectedInv);
-        }
+        await dbInventory.syncTodayInventoryWithProducts();
       }
     }
 
@@ -559,12 +572,13 @@ class ApiClient {
             localId: entry.productId,
             deviceId: entry.deviceId,
             entityType: "product" as const,
-            name: "Noma'lum mahsulot",
-      quantity: entry.currentQuantity,
-      buyPrice: 0,
-      sellPrice: 0,
-      createdAt: entry.createdAt,
-      updatedAt: entry.updatedAt,
+            name: getDeletedProductNameSync(entry.productId) ?? "O'chirilgan mahsulot",
+            quantity: entry.currentQuantity,
+            buyPrice: 0,
+            sellPrice: 0,
+            createdAt: entry.createdAt,
+            updatedAt: entry.updatedAt,
+            isDeleted: true,
           },
         };
       });
@@ -639,13 +653,14 @@ class ApiClient {
               localId: item.productId,
               deviceId: item.deviceId || "",
               entityType: "product" as const,
-              name: item.name || "Noma'lum mahsulot",
+              name: getDeletedProductNameSync(item.productId) ?? "O'chirilgan mahsulot",
               quantity: item.currentQuantity,
               buyPrice: item.buyPrice || 0,
               sellPrice: item.sellPrice || 0,
               image: item.image || "",
               createdAt: item.createdAt || new Date().toISOString(),
               updatedAt: item.updatedAt || new Date().toISOString(),
+              isDeleted: true,
             }),
       }));
 
@@ -951,10 +966,11 @@ class ApiClient {
     username: string,
     password: string,
     phone_number?: string,
+    businessDayStartHour?: number,
   ): Promise<{ token: string; user: AuthUser }> {
     const response = await this.client.post<
       ApiResponse<{ token: string; user: AuthUser }>
-    >("/auth/register", { username, password, phone_number });
+    >("/auth/register", { username, password, phone_number, businessDayStartHour });
     return this.unwrap(response);
   }
 
@@ -976,7 +992,7 @@ class ApiClient {
     return this.unwrap(response);
   }
 
-  async updateMe(payload: { businessDayStartHour?: number; blockCode?: string | null }): Promise<{ user: AuthUser; token: string }> {
+  async updateMe(payload: { username?: string; phone_number?: string; businessDayStartHour?: number; blockCode?: string | null }): Promise<{ user: AuthUser; token: string }> {
     const response = await this.client.put<ApiResponse<{ user: AuthUser; token: string }>>("/auth/me", payload);
     return this.unwrap(response);
   }
@@ -990,7 +1006,7 @@ class ApiClient {
     return this.unwrap(response);
   }
 
-  async createAdmin(username: string, password: string, tier?: "tekin" | "bor" | "pro", phone_number?: string): Promise<AuthUser> {
+  async createAdmin(username: string, password: string, tier?: "tekin" | "bor" | "pro", phone_number?: string, durationMonths?: number): Promise<AuthUser> {
     if (!canReachServer()) {
       throw new Error("Admin yaratish uchun server kerak");
     }
@@ -1000,6 +1016,9 @@ class ApiClient {
     }
     if (tier !== undefined) {
       payload.tier = tier;
+    }
+    if (durationMonths !== undefined) {
+      payload.durationMonths = durationMonths;
     }
     const response = await this.client.post<ApiResponse<AuthUser>>(
       "/auth/admins",
@@ -1019,7 +1038,7 @@ class ApiClient {
     return this.unwrap(response);
   }
 
-  async updateAdmin(id: string, data: { username?: string; phone_number?: string; password?: string; tier?: "tekin" | "bor" | "pro" }): Promise<AuthUser> {
+  async updateAdmin(id: string, data: { username?: string; phone_number?: string; password?: string; tier?: "tekin" | "bor" | "pro"; durationMonths?: number }): Promise<AuthUser> {
     if (!canReachServer()) {
       throw new Error("Admin tahrirlash uchun server kerak");
     }
@@ -1036,6 +1055,16 @@ class ApiClient {
     }
     const response = await this.client.get<ApiResponse<DatabaseStats>>(
       "/stats",
+    );
+    return this.unwrap(response);
+  }
+
+  async getAdminStats(): Promise<AdminStatsResponse> {
+    if (!canReachServer()) {
+      throw new Error("Admin statistikasini yuklash uchun server kerak");
+    }
+    const response = await this.client.get<ApiResponse<AdminStatsResponse>>(
+      "/auth/admins/stats",
     );
     return this.unwrap(response);
   }
@@ -1114,7 +1143,27 @@ class ApiClient {
       items: InventoryWithProduct[];
       snapshot: DailySnapshot | null;
     }>>("/inventory/sales", { date, deviceId, lines });
-    return this.unwrap(response);
+    const data = this.unwrap(response);
+    return {
+      ...data,
+      items: data.items.map((item) => ({
+        ...item,
+        product: item.product
+          ? { ...item.product, image: resolveImageUrl(item.product.image) }
+              : {
+                  localId: item.productId,
+                  deviceId: item.deviceId || "",
+                  entityType: "product" as const,
+                  name: getDeletedProductNameSync(item.productId) ?? "O'chirilgan mahsulot",
+                  quantity: item.currentQuantity,
+                  buyPrice: 0,
+                  sellPrice: 0,
+                  createdAt: item.createdAt,
+                  updatedAt: item.updatedAt,
+                  isDeleted: true,
+                },
+          })),
+    };
   }
 
   async getDashboard(): Promise<{
@@ -1132,7 +1181,31 @@ class ApiClient {
       inventorySummary?: InventorySummary;
       snapshot: DailySnapshot | null;
     }>>("/inventory/dashboard");
-    return this.unwrap(response);
+    const data = this.unwrap(response);
+    return {
+      ...data,
+      products: data.products.map((p: Product) => ({
+        ...p,
+        image: resolveImageUrl(p.image),
+      })),
+      inventory: data.inventory.map((item) => ({
+        ...item,
+        product: item.product
+          ? { ...item.product, image: resolveImageUrl(item.product.image) }
+          : {
+              localId: item.productId,
+              deviceId: item.deviceId || "",
+              entityType: "product" as const,
+              name: getDeletedProductNameSync(item.productId) ?? "O'chirilgan mahsulot",
+              quantity: item.currentQuantity,
+              buyPrice: 0,
+              sellPrice: 0,
+              createdAt: item.createdAt,
+              updatedAt: item.updatedAt,
+              isDeleted: true,
+            },
+      })),
+    };
   }
 }
 

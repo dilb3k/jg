@@ -1,4 +1,4 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, useState } from "react";
 import {
   Linking,
   Modal,
@@ -21,11 +21,29 @@ type Props = {
   onClose: () => void;
 };
 
+const DURATIONS = [1, 6, 12] as const;
+
+const BOR_MONTHLY = 44000;
+const PRO_MONTHLY = 99000;
+
+function getPrice(tier: "bor" | "pro", months: number): number {
+  const base = tier === "bor" ? BOR_MONTHLY : PRO_MONTHLY;
+  const total = base * months;
+  if (months === 6) return Math.round(total * 0.94);
+  if (months === 12) return Math.round(total * 0.88);
+  return total;
+}
+
+function formatPrice(amount: number): string {
+  return amount.toLocaleString("uz-UZ") + " so'm";
+}
+
 function SubscriptionModal({ visible, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { t } = useI18n();
   const { user } = useAuthStore();
+  const [duration, setDuration] = useState<1 | 6 | 12>(1);
 
   const userTier = user?.tier ?? "tekin";
   const isSuperAdmin = user?.role?.toLowerCase() === "superadmin";
@@ -121,10 +139,50 @@ function SubscriptionModal({ visible, onClose }: Props) {
               </View>
             )}
 
+            <View style={overlayStyles.durationRow}>
+              {DURATIONS.map((m) => {
+                const active = duration === m;
+                return (
+                  <TouchableOpacity
+                    key={m}
+                    style={[
+                      overlayStyles.durationBtn,
+                      {
+                        backgroundColor: active ? colors.primary + "15" : colors.background,
+                        borderColor: active ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => setDuration(m)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        overlayStyles.durationText,
+                        { color: active ? colors.primary : colors.text },
+                      ]}
+                    >
+                      {m === 1 ? t("duration1m") : m === 6 ? t("duration6m") : t("duration12m")}
+                    </Text>
+                    {m === 6 && (
+                      <Text style={[overlayStyles.discountBadge, { color: colors.success }]}>
+                        {t("duration6mDiscount")}
+                      </Text>
+                    )}
+                    {m === 12 && (
+                      <Text style={[overlayStyles.discountBadge, { color: colors.success }]}>
+                        {t("duration12mDiscount")}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
             <View style={overlayStyles.cards}>
               <PlanCard
                 title={t("planBor")}
-                price={t("planBorPrice")}
+                price={formatPrice(getPrice("bor", duration))}
+                monthlyLabel={`≈ ${(getPrice("bor", duration) / duration).toLocaleString("uz-UZ")} so'm/${t("perMonth")}`}
                 accentColor={colors.success}
                 tier="bor"
                 userTier={userTier}
@@ -141,7 +199,8 @@ function SubscriptionModal({ visible, onClose }: Props) {
               />
               <PlanCard
                 title={t("planPro")}
-                price={t("planProPrice")}
+                price={formatPrice(getPrice("pro", duration))}
+                monthlyLabel={`≈ ${(getPrice("pro", duration) / duration).toLocaleString("uz-UZ")} so'm/${t("perMonth")}`}
                 accentColor={colors.primary}
                 tier="pro"
                 userTier={userTier}
@@ -192,6 +251,7 @@ function SubscriptionModal({ visible, onClose }: Props) {
 const PlanCard = memo(function PlanCard({
   title,
   price,
+  monthlyLabel,
   accentColor,
   tier,
   userTier,
@@ -204,6 +264,7 @@ const PlanCard = memo(function PlanCard({
 }: {
   title: string;
   price: string;
+  monthlyLabel: string;
   accentColor: string;
   tier: string;
   userTier: string;
@@ -235,6 +296,9 @@ const PlanCard = memo(function PlanCard({
       </Text>
       <Text style={[overlayStyles.planPrice, { color: accentColor }]}>
         {price}
+      </Text>
+      <Text style={[overlayStyles.planMonth, { color: colors.textTertiary }]}>
+        {monthlyLabel}
       </Text>
       <View style={overlayStyles.features}>
         {features.map((f, i) => (
@@ -319,6 +383,27 @@ const overlayStyles = StyleSheet.create({
     fontSize: FONT_SIZE.lg,
     fontWeight: "700",
   },
+  durationRow: {
+    flexDirection: "row",
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  durationBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    gap: 2,
+  },
+  durationText: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: "700",
+  },
+  discountBadge: {
+    fontSize: 9,
+    fontWeight: "600",
+  },
   cards: { gap: SPACING.md, marginBottom: SPACING.lg },
   card: {
     padding: SPACING.lg,
@@ -348,6 +433,10 @@ const overlayStyles = StyleSheet.create({
   planPrice: {
     fontSize: FONT_SIZE.xxl,
     fontWeight: "800",
+    marginBottom: 2,
+  },
+  planMonth: {
+    fontSize: FONT_SIZE.xs,
     marginBottom: SPACING.md,
   },
   features: { gap: 6, marginBottom: SPACING.md },

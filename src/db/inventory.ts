@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import dayjs from 'dayjs';
 import type { InventoryEntry, InventorySummary, Product } from '../types';
 import { getBusinessDate } from '../utils/businessDay';
+import { getDeletedProductNameSync } from '../utils/deletedProductsCache';
 
 const SUMMARY_STORAGE_KEY = 'clubbar_inventory_summary';
 
@@ -48,8 +49,6 @@ export const getInventoryWithProduct = async (date: string): Promise<(InventoryE
     if (existingInv) {
       result.push({
         ...existingInv,
-        buyPrice: product.buyPrice,
-        sellPrice: product.sellPrice,
         product,
       });
     } else {
@@ -70,6 +69,8 @@ export const getInventoryWithProduct = async (date: string): Promise<(InventoryE
         date,
         startQuantity: startQty,
         currentQuantity: currentQty,
+        buyPrice: product.buyPrice,
+        sellPrice: product.sellPrice,
         note: '',
         updatedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
@@ -90,12 +91,13 @@ export const getInventoryWithProduct = async (date: string): Promise<(InventoryE
         localId: inv.productId,
         deviceId: inv.deviceId,
         entityType: 'product',
-        name: "Noma'lum mahsulot",
+        name: getDeletedProductNameSync(inv.productId) ?? "O'chirilgan mahsulot",
         quantity: inv.currentQuantity,
         buyPrice: 0,
         sellPrice: 0,
         createdAt: inv.createdAt,
         updatedAt: inv.updatedAt,
+        isDeleted: true,
       };
       result.push({ ...inv, product });
     }
@@ -153,6 +155,8 @@ export const syncTodayInventoryWithProducts = async (): Promise<void> => {
         date: today,
         startQuantity: prevQty,
         currentQuantity: prevQty,
+        buyPrice: product.buyPrice,
+        sellPrice: product.sellPrice,
         note: '',
         updatedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
@@ -162,18 +166,6 @@ export const syncTodayInventoryWithProducts = async (): Promise<void> => {
       return;
     }
 
-    const existing = nextEntries[index];
-    const priceChanged = existing.buyPrice !== product.buyPrice || existing.sellPrice !== product.sellPrice;
-
-    if (priceChanged) {
-      nextEntries[index] = {
-        ...existing,
-        buyPrice: product.buyPrice,
-        sellPrice: product.sellPrice,
-        updatedAt: new Date().toISOString(),
-      };
-      hasChanges = true;
-    }
   });
 
   if (hasChanges) {

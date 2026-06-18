@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Image,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -41,6 +40,7 @@ export default function SalesScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const {
     currentInventory,
+    inventoryPerDateCache,
     loadInventoryByDate,
     applySales,
     showToast,
@@ -51,9 +51,12 @@ export default function SalesScreen() {
   const [search, setSearch] = useState("");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const cachedRef = useRef(inventoryPerDateCache);
+  cachedRef.current = inventoryPerDateCache;
   const [localLoading, setLocalLoading] = useState(
-    () => !currentInventory.some((row) => row.date === businessDate),
+    () => !inventoryPerDateCache[businessDate],
   );
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null);
@@ -63,9 +66,15 @@ export default function SalesScreen() {
 
   const reloadInventory = useCallback(async () => {
     setLocalLoading(true);
+    setLoadError(false);
     setQuantities({});
     try {
       await loadInventoryByDate(businessDate);
+      if (!cachedRef.current[businessDate]) {
+        setLoadError(true);
+      }
+    } catch {
+      setLoadError(true);
     } finally {
       setLocalLoading(false);
     }
@@ -94,6 +103,8 @@ export default function SalesScreen() {
     () =>
       currentInventory.filter(
         (row) =>
+          row.product &&
+          !row.product.isDeleted &&
           row.currentQuantity > 0 &&
           (row.date === businessDate || !row.date),
       ),
@@ -131,7 +142,7 @@ export default function SalesScreen() {
     let pieces = 0;
     for (const row of sellable) {
       const qty = quantities[row.productId] ?? 0;
-      if (qty <= 0) continue;
+      if (qty <= 0 || !row.product) continue;
       revenue += qty * row.product.sellPrice;
       pieces += qty;
     }
@@ -192,13 +203,13 @@ export default function SalesScreen() {
   const renderRow = ({ item }: { item: InventoryWithProduct }) => {
     const max = item.currentQuantity;
     const qty = quantities[item.productId] ?? 0;
-    const lineTotal = qty * item.product.sellPrice;
+    const lineTotal = qty * (item.product?.sellPrice ?? 0);
 
     return (
       <View style={[styles.row, qty > 0 && styles.rowActive]}>
         <View style={styles.rowHeader}>
           <View style={styles.imgBox}>
-            {item.product.image ? (
+            {item.product?.image ? (
               <Image source={{ uri: item.product.image }} style={styles.img} />
             ) : (
               <View style={styles.noImgBox}>
@@ -208,10 +219,10 @@ export default function SalesScreen() {
           </View>
           <View style={styles.rowMain}>
             <Text style={styles.rowName} numberOfLines={2}>
-              {item.product.name}
+              {item.product?.name ?? "O'chirilgan mahsulot"}
             </Text>
             <Text style={styles.rowMeta}>
-              {formatMoney(item.product.sellPrice)} · {t("remaining")}: {max}
+              {formatMoney(item.product?.sellPrice ?? 0)} · {t("remaining")}: {max}
             </Text>
           </View>
           <View style={styles.qtyRow}>
@@ -267,6 +278,14 @@ export default function SalesScreen() {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : loadError ? (
+        <View style={styles.centered}>
+          <ShoppingBag size={40} color={colors.danger} />
+          <Text style={styles.empty}>{t("error")}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
+            <Text style={styles.retryBtnText}>Qayta urinish</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -360,10 +379,10 @@ export default function SalesScreen() {
       >
         <KeyboardAvoidingView
           style={styles.qtyOverlay}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior="padding"
         >
           <View style={[styles.qtyCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.qtyTitle, { color: colors.text }]}>
+            <Text style={[styles.qtyTitle, { color: colors.text }]} numberOfLines={1}>
               {barcodeProduct?.name}
             </Text>
             <Text style={[styles.qtyLabel, { color: colors.textSecondary }]}>
@@ -402,7 +421,7 @@ export default function SalesScreen() {
                 style={[styles.qtyConfirmBtn, { backgroundColor: colors.primary }]}
                 onPress={handleBarcodeQtyConfirm}
               >
-                <Text style={styles.qtyConfirmText}>{t("addToCart")}</Text>
+                <Text style={styles.qtyConfirmText} numberOfLines={1}>{t("addToCart")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -526,6 +545,18 @@ const createStyles = (colors: ThemeColors) =>
       marginTop: SPACING.md,
       color: colors.textTertiary,
       fontSize: FONT_SIZE.md,
+    },
+    retryBtn: {
+      marginTop: SPACING.lg,
+      backgroundColor: colors.primary,
+      paddingHorizontal: SPACING.xl,
+      paddingVertical: SPACING.sm,
+      borderRadius: BORDER_RADIUS.lg,
+    },
+    retryBtnText: {
+      color: colors.white,
+      fontSize: FONT_SIZE.md,
+      fontWeight: "700",
     },
     footer: {
       position: "absolute",

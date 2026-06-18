@@ -22,6 +22,7 @@ import {
   Info,
   ChevronRight,
   Lock,
+  PenSquare,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import dayjs from "dayjs";
@@ -74,11 +75,43 @@ export default function SettingsScreen() {
   const [blockInputConfirm, setBlockInputConfirm] = useState("");
   const [blockError, setBlockError] = useState("");
 
+  const [showBlockVerify, setShowBlockVerify] = useState(false);
+  const [blockVerifyInput, setBlockVerifyInput] = useState("");
+  const [blockVerifyError, setBlockVerifyError] = useState("");
+
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileUsername, setProfileUsername] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const updateProfile = useStore((state) => state.updateProfile);
+
   const openBlockModal = () => {
     setBlockInput("");
     setBlockInputConfirm("");
     setBlockError("");
     setShowBlockModal(true);
+  };
+
+  const openBlockWithVerify = () => {
+    if (blockCode) {
+      setBlockVerifyInput("");
+      setBlockVerifyError("");
+      setShowBlockVerify(true);
+    } else {
+      openBlockModal();
+    }
+  };
+
+  const handleVerifyBlockCode = () => {
+    if (blockVerifyInput === blockCode) {
+      setShowBlockVerify(false);
+      setBlockVerifyInput("");
+      setBlockVerifyError("");
+      openBlockModal();
+    } else {
+      setBlockVerifyError(t("blockCodeWrong"));
+      setBlockVerifyInput("");
+    }
   };
 
   const handleSaveBlockCode = async () => {
@@ -159,12 +192,46 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* User Info */}
+        {/* User Profile */}
         {user && (
           <View style={styles.section}>
-            <View style={styles.userCard}>
-              <View style={styles.userAvatar}>
-                <User size={24} color={colors.primary} />
+            <Pressable
+            style={styles.userCard}
+            onPress={() => {
+              setProfileUsername(user.username);
+              setProfilePhone(user.phone_number ?? "");
+              setShowProfileModal(true);
+            }}
+          >
+              <View
+                style={[
+                  styles.userAvatarWrap,
+                  {
+                    backgroundColor:
+                      userTier === "pro"
+                        ? colors.primary + "20"
+                        : userTier === "bor"
+                          ? colors.success + "20"
+                          : colors.textTertiary + "15",
+                    borderColor:
+                      userTier === "pro"
+                        ? colors.primary + "40"
+                        : userTier === "bor"
+                          ? colors.success + "40"
+                          : colors.border,
+                  },
+                ]}
+              >
+                <User
+                  size={28}
+                  color={
+                    userTier === "pro"
+                      ? colors.primary
+                      : userTier === "bor"
+                        ? colors.success
+                        : colors.textSecondary
+                  }
+                />
               </View>
               <View style={styles.userInfo}>
                 <Text style={styles.userName}>{user.username}</Text>
@@ -174,7 +241,10 @@ export default function SettingsScreen() {
                     : t("admin")}
                 </Text>
               </View>
-            </View>
+              <View style={[styles.settingCardIcon, { backgroundColor: colors.primary + "12" }]}>
+                <PenSquare size={18} color={colors.primary} />
+              </View>
+            </Pressable>
 
             {/* Subscription Card */}
             <TouchableOpacity
@@ -185,15 +255,15 @@ export default function SettingsScreen() {
                 {
                   backgroundColor:
                     userTier === "pro"
-                      ? colors.primary + "15"
+                      ? colors.primary + "12"
                       : userTier === "bor"
-                        ? colors.success + "15"
-                        : colors.background,
+                        ? colors.success + "12"
+                        : colors.surface,
                   borderColor:
                     userTier === "pro"
-                      ? colors.primary + "40"
+                      ? colors.primary + "30"
                       : userTier === "bor"
-                        ? colors.success + "40"
+                        ? colors.success + "30"
                         : colors.border,
                 },
               ]}
@@ -209,7 +279,7 @@ export default function SettingsScreen() {
                             ? colors.primary + "20"
                             : userTier === "bor"
                               ? colors.success + "20"
-                              : colors.textTertiary + "20",
+                              : colors.textTertiary + "15",
                       },
                     ]}
                   >
@@ -233,14 +303,19 @@ export default function SettingsScreen() {
                           : t("planFree")}
                     </Text>
                   </View>
-                  <ChevronRight size={18} color={colors.textTertiary} />
+                  <View style={styles.subArrowWrap}>
+                    <ChevronRight size={16} color={colors.textTertiary} />
+                  </View>
                 </View>
               </View>
               {user?.subscriptionEndDate ? (
-                <Text style={styles.subDate}>
-                  {t("subscriptionEndDate")}:{" "}
-                  {new Date(user.subscriptionEndDate).toLocaleDateString()}
-                </Text>
+                <View style={styles.subDateRow}>
+                  <View style={[styles.subDateDot, { backgroundColor: userTier === "pro" ? colors.primary : userTier === "bor" ? colors.success : colors.textTertiary }]} />
+                  <Text style={styles.subDate}>
+                    {t("subscriptionEndDate")}:{" "}
+                    {new Date(user.subscriptionEndDate).toLocaleDateString()}
+                  </Text>
+                </View>
               ) : null}
             </TouchableOpacity>
           </View>
@@ -249,7 +324,9 @@ export default function SettingsScreen() {
         {/* Language */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Globe size={18} color={colors.textSecondary} />
+            <View style={[styles.sectionIconWrap, { backgroundColor: colors.primary + "12" }]}>
+              <Globe size={16} color={colors.primary} />
+            </View>
             <Text style={styles.sectionTitle}>{t("language")}</Text>
           </View>
           <View style={styles.optionsRow}>
@@ -261,10 +338,15 @@ export default function SettingsScreen() {
                   language === lang.code && {
                     backgroundColor: colors.primary + "15",
                     borderColor: colors.primary,
+                    shadowColor: colors.primary,
+                    shadowOpacity: 0.2,
+                    shadowRadius: 8,
+                    elevation: 3,
                   },
                 ]}
                 onPress={() => handleLanguageChange(lang.code as "uz" | "ru")}
               >
+                <View style={[styles.optionDot, { backgroundColor: language === lang.code ? colors.primary : "transparent", borderColor: language === lang.code ? colors.primary : colors.border }]} />
                 <Text
                   style={[
                     styles.optionPillText,
@@ -284,11 +366,13 @@ export default function SettingsScreen() {
         {/* Theme */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            {theme === "dark" ? (
-              <Moon size={18} color={colors.textSecondary} />
-            ) : (
-              <Sun size={18} color={colors.textSecondary} />
-            )}
+            <View style={[styles.sectionIconWrap, { backgroundColor: colors.warning + "12" }]}>
+              {theme === "dark" ? (
+                <Moon size={16} color={colors.warning} />
+              ) : (
+                <Sun size={16} color={colors.warning} />
+              )}
+            </View>
             <Text style={styles.sectionTitle}>{t("theme")}</Text>
           </View>
           <View style={styles.optionsRow}>
@@ -298,8 +382,12 @@ export default function SettingsScreen() {
                 style={[
                   styles.optionPill,
                   theme === item.code && {
-                    backgroundColor: colors.primary + "15",
-                    borderColor: colors.primary,
+                    backgroundColor: colors.warning + "15",
+                    borderColor: colors.warning,
+                    shadowColor: colors.warning,
+                    shadowOpacity: 0.2,
+                    shadowRadius: 8,
+                    elevation: 3,
                   },
                 ]}
                 onPress={() => setTheme(item.code as "light" | "dark")}
@@ -307,14 +395,14 @@ export default function SettingsScreen() {
                 <item.icon
                   size={18}
                   color={
-                    theme === item.code ? colors.primary : colors.textSecondary
+                    theme === item.code ? colors.warning : colors.textSecondary
                   }
                 />
                 <Text
                   style={[
                     styles.optionPillText,
                     theme === item.code && {
-                      color: colors.primary,
+                      color: colors.warning,
                       fontWeight: "700",
                     },
                   ]}
@@ -329,23 +417,31 @@ export default function SettingsScreen() {
         {/* Business Day */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Info size={18} color={colors.textSecondary} />
+            <View style={[styles.sectionIconWrap, { backgroundColor: colors.secondary + "12" }]}>
+              <Info size={16} color={colors.secondary} />
+            </View>
             <Text style={styles.sectionTitle}>{t("businessDayHour")}</Text>
           </View>
           <Pressable
-            style={styles.businessDayCard}
+            style={[styles.settingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={openBusinessDayModal}
           >
-            <View style={styles.businessDayTimeRow}>
-              <Text style={styles.businessDayLabel}>
-                {t("businessDayHour")}
-              </Text>
-              <View style={styles.businessDayValueRow}>
-                <Text style={styles.businessDayValue}>
+            <View style={styles.settingCardLeft}>
+              <View style={[styles.settingCardIcon, { backgroundColor: colors.secondary + "12" }]}>
+                <Info size={18} color={colors.secondary} />
+              </View>
+              <View style={styles.settingCardInfo}>
+                <Text style={styles.settingCardLabel}>{t("businessDayHour")}</Text>
+                <Text style={styles.settingCardHint}>{t("businessDayHourDesc")}</Text>
+              </View>
+            </View>
+            <View style={styles.settingCardRight}>
+              <View style={[styles.settingCardValue, { backgroundColor: colors.primary + "10" }]}>
+                <Text style={[styles.settingCardValueText, { color: colors.primary }]}>
                   {String(getBusinessDayStartHour()).padStart(2, "0")}:00
                 </Text>
-                <ChevronRight size={18} color={colors.textTertiary} />
               </View>
+              <ChevronRight size={16} color={colors.textTertiary} />
             </View>
           </Pressable>
         </View>
@@ -353,20 +449,31 @@ export default function SettingsScreen() {
         {/* Block code */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Lock size={18} color={colors.textSecondary} />
+            <View style={[styles.sectionIconWrap, { backgroundColor: colors.secondary + "12" }]}>
+              <Lock size={16} color={colors.secondary} />
+            </View>
             <Text style={styles.sectionTitle}>{t("blockCodeTitle")}</Text>
           </View>
-          <Pressable style={styles.businessDayCard} onPress={openBlockModal}>
-            <View style={styles.businessDayTimeRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.businessDayValue}>
-                  {blockCode ? t("blockCodeOn") : t("blockCodeOff")}
-                </Text>
-                <Text style={[styles.businessDayLabel, { marginTop: 2 }]}>
-                  {t("blockCodeHint")}
-                </Text>
+          <Pressable
+            style={[styles.settingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={openBlockWithVerify}
+          >
+            <View style={styles.settingCardLeft}>
+              <View style={[styles.settingCardIcon, { backgroundColor: (blockCode ? colors.success : colors.textTertiary) + "15" }]}>
+                <Lock size={18} color={blockCode ? colors.success : colors.textTertiary} />
               </View>
-              <ChevronRight size={18} color={colors.textTertiary} />
+              <View style={styles.settingCardInfo}>
+                <View style={styles.settingCardLabelRow}>
+                  <View style={[styles.statusDot, { backgroundColor: blockCode ? colors.success : colors.textTertiary }]} />
+                  <Text style={styles.settingCardLabel}>
+                    {blockCode ? t("blockCodeOn") : t("blockCodeOff")}
+                  </Text>
+                </View>
+                <Text style={styles.settingCardHint}>{t("blockCodeHint")}</Text>
+              </View>
+            </View>
+            <View style={styles.settingCardRight}>
+              <ChevronRight size={16} color={colors.textTertiary} />
             </View>
           </Pressable>
         </View>
@@ -374,15 +481,23 @@ export default function SettingsScreen() {
         {/* Support */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MessageCircle size={18} color={colors.textSecondary} />
+            <View style={[styles.sectionIconWrap, { backgroundColor: "#0088cc" + "15" }]}>
+              <MessageCircle size={16} color="#0088cc" />
+            </View>
             <Text style={styles.sectionTitle}>{t("support")}</Text>
           </View>
           <Pressable
-            style={styles.contactCard}
+            style={[styles.contactCard, { backgroundColor: colors.surface, borderColor: "#0088cc" + "25" }]}
             onPress={() => Linking.openURL("https://t.me/dilbek7011")}
           >
-            <MessageCircle size={20} color="#0088cc" />
-            <Text style={styles.contactText}>Telegram: @dilbek7011</Text>
+            <View style={[styles.supportIconWrap, { backgroundColor: "#0088cc" + "12" }]}>
+              <MessageCircle size={22} color="#0088cc" />
+            </View>
+            <View style={styles.supportInfo}>
+              <Text style={styles.supportLabel}>{t("support")}</Text>
+              <Text style={styles.supportHandle}>@dilbek7011</Text>
+            </View>
+            <ChevronRight size={18} color={colors.textTertiary} />
           </Pressable>
         </View>
 
@@ -404,7 +519,7 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.footerSpacer} />
       </ScrollView>
 
       {/* Subscription Modal */}
@@ -412,6 +527,59 @@ export default function SettingsScreen() {
         visible={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
       />
+
+      {/* Block code PIN verification modal */}
+      <Modal
+        visible={showBlockVerify}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowBlockVerify(false)}
+      >
+        <Pressable
+          style={[styles.blockOverlay, { backgroundColor: colors.overlay }]}
+          onPress={() => setShowBlockVerify(false)}
+        >
+          <Pressable
+            style={[styles.blockCard, { backgroundColor: colors.surface }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Lock size={32} color={colors.warning} />
+            <Text style={[styles.blockTitle, { color: colors.text }]}>
+              {t("enterBlockCode")}
+            </Text>
+            <Text style={[styles.blockDesc, { color: colors.textSecondary }]}>
+              {t("unlockFormDesc")}
+            </Text>
+            <TextInput
+              style={[styles.blockInput, { color: colors.text, borderColor: blockVerifyError ? colors.danger : colors.border, backgroundColor: colors.surfaceSecondary }]}
+              placeholder="0000"
+              placeholderTextColor={colors.textTertiary}
+              keyboardType="number-pad"
+              maxLength={4}
+              value={blockVerifyInput}
+              onChangeText={(v) => { setBlockVerifyInput(v.replace(/\D/g, "")); if (blockVerifyError) setBlockVerifyError(""); }}
+              autoFocus
+            />
+            {blockVerifyError ? (
+              <Text style={{ color: colors.danger, fontSize: FONT_SIZE.sm, fontWeight: "600" }}>{blockVerifyError}</Text>
+            ) : null}
+            <View style={styles.blockActions}>
+              <TouchableOpacity
+                style={[styles.blockBtnAction, { backgroundColor: colors.surfaceSecondary, flex: 1 }]}
+                onPress={() => setShowBlockVerify(false)}
+              >
+                <Text style={[styles.blockBtnText, { color: colors.text }]}>{t("cancel")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.blockBtnAction, { backgroundColor: colors.primary, flex: 1 }]}
+                onPress={handleVerifyBlockCode}
+              >
+                <Text style={styles.blockBtnText}>{t("confirm")}</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Block code modal */}
       <Modal
@@ -474,6 +642,73 @@ export default function SettingsScreen() {
                   <Text style={styles.blockBtnText}>{t("save")}</Text>
                 </TouchableOpacity>
               )}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Profile Edit Modal */}
+      <Modal
+        visible={showProfileModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowProfileModal(false)}
+      >
+        <Pressable
+          style={[styles.blockOverlay, { backgroundColor: colors.overlay }]}
+          onPress={() => setShowProfileModal(false)}
+        >
+          <Pressable
+            style={[styles.blockCard, { backgroundColor: colors.surface }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <User size={32} color={colors.primary} />
+            <Text style={[styles.blockTitle, { color: colors.text }]}>
+              {t("editProfile")}
+            </Text>
+            <TextInput
+              style={[styles.blockInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceSecondary }]}
+              placeholder={t("username")}
+              placeholderTextColor={colors.textTertiary}
+              value={profileUsername}
+              onChangeText={setProfileUsername}
+              autoFocus
+            />
+            <TextInput
+              style={[styles.blockInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceSecondary }]}
+              placeholder={t("phoneNumber")}
+              placeholderTextColor={colors.textTertiary}
+              value={profilePhone}
+              onChangeText={setProfilePhone}
+              keyboardType="phone-pad"
+            />
+            <View style={styles.blockActions}>
+              <TouchableOpacity
+                style={[styles.blockBtnAction, { backgroundColor: colors.surfaceSecondary, flex: 1 }]}
+                onPress={() => setShowProfileModal(false)}
+              >
+                <Text style={[styles.blockBtnText, { color: colors.text }]}>{t("cancel")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.blockBtnAction, { backgroundColor: colors.primary, flex: 1 }]}
+                disabled={profileSaving || !profileUsername.trim()}
+                onPress={async () => {
+                  if (!profileUsername.trim()) return;
+                  setProfileSaving(true);
+                  await updateProfile({
+                    username: profileUsername.trim(),
+                    phone_number: profilePhone.trim() || undefined,
+                  });
+                  setProfileSaving(false);
+                  setShowProfileModal(false);
+                }}
+              >
+                {profileSaving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.blockBtnText}>{t("save")}</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </Pressable>
         </Pressable>
@@ -804,10 +1039,18 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: "center",
       gap: SPACING.sm,
       marginBottom: SPACING.md,
+      paddingHorizontal: 2,
+    },
+    sectionIconWrap: {
+      width: 30,
+      height: 30,
+      borderRadius: 9,
+      justifyContent: "center",
+      alignItems: "center",
     },
     sectionTitle: {
       fontSize: FONT_SIZE.sm,
-      fontWeight: "600",
+      fontWeight: "700",
       color: colors.textSecondary,
       textTransform: "uppercase",
       letterSpacing: 0.5,
@@ -817,19 +1060,24 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: "center",
       gap: SPACING.md,
       backgroundColor: colors.surface,
-      padding: SPACING.lg,
+      padding: SPACING.xl,
       borderRadius: BORDER_RADIUS.xl,
-      marginBottom: SPACING.sm,
+      marginBottom: SPACING.md,
       borderWidth: 1,
       borderColor: colors.border,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
+      elevation: 3,
     },
-    userAvatar: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: colors.primary + "15",
+    userAvatarWrap: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
       justifyContent: "center",
       alignItems: "center",
+      borderWidth: 2,
     },
     userInfo: {
       flex: 1,
@@ -842,12 +1090,17 @@ const createStyles = (colors: ThemeColors) =>
     userRole: {
       fontSize: FONT_SIZE.sm,
       color: colors.textSecondary,
-      marginTop: 2,
+      marginTop: 3,
     },
     subCard: {
       padding: SPACING.lg,
       borderRadius: BORDER_RADIUS.xl,
       borderWidth: 1,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 2,
     },
     subCardRow: {
       flexDirection: "row",
@@ -860,18 +1113,34 @@ const createStyles = (colors: ThemeColors) =>
       flex: 1,
     },
     subBadge: {
-      paddingHorizontal: 12,
-      paddingVertical: 4,
+      paddingHorizontal: 14,
+      paddingVertical: 6,
       borderRadius: 12,
     },
     subBadgeText: {
       fontSize: FONT_SIZE.sm,
       fontWeight: "700",
     },
+    subArrowWrap: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    subDateRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SPACING.xs,
+      marginTop: SPACING.md,
+      paddingTop: SPACING.sm,
+    },
+    subDateDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
     subDate: {
       fontSize: FONT_SIZE.xs,
       color: colors.textTertiary,
-      marginTop: SPACING.sm,
     },
     optionsRow: {
       flexDirection: "row",
@@ -888,37 +1157,81 @@ const createStyles = (colors: ThemeColors) =>
       borderColor: colors.border,
       backgroundColor: colors.surface,
     },
+    optionDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      borderWidth: 1.5,
+    },
     optionPillText: {
       fontSize: FONT_SIZE.md,
       color: colors.text,
       fontWeight: "600",
     },
-    businessDayCard: {
-      backgroundColor: colors.surface,
-      borderRadius: BORDER_RADIUS.xl,
-      padding: SPACING.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    businessDayTimeRow: {
+    settingCard: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
+      padding: SPACING.lg,
+      borderRadius: BORDER_RADIUS.xl,
+      borderWidth: 1,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 2,
     },
-    businessDayLabel: {
+    settingCardLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SPACING.md,
+      flex: 1,
+    },
+    settingCardIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    settingCardInfo: {
+      flex: 1,
+      gap: 2,
+    },
+    settingCardLabelRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SPACING.xs,
+    },
+    settingCardLabel: {
       fontSize: FONT_SIZE.md,
       fontWeight: "600",
       color: colors.text,
     },
-    businessDayValueRow: {
+    settingCardHint: {
+      fontSize: FONT_SIZE.xs,
+      color: colors.textTertiary,
+      lineHeight: 16,
+    },
+    settingCardRight: {
       flexDirection: "row",
       alignItems: "center",
       gap: SPACING.sm,
+      marginLeft: SPACING.sm,
     },
-    businessDayValue: {
+    settingCardValue: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 8,
+    },
+    settingCardValueText: {
       fontSize: FONT_SIZE.md,
       fontWeight: "700",
-      color: colors.primary,
+    },
+    statusDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
     },
     contactCard: {
       flexDirection: "row",
@@ -928,12 +1241,32 @@ const createStyles = (colors: ThemeColors) =>
       padding: SPACING.lg,
       borderRadius: BORDER_RADIUS.xl,
       borderWidth: 1,
-      borderColor: colors.border,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 2,
     },
-    contactText: {
+    supportIconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    supportInfo: {
+      flex: 1,
+    },
+    supportLabel: {
       fontSize: FONT_SIZE.md,
       fontWeight: "600",
+      color: colors.text,
+    },
+    supportHandle: {
+      fontSize: FONT_SIZE.sm,
       color: "#0088cc",
+      fontWeight: "500",
+      marginTop: 2,
     },
     logoutButton: {
       flexDirection: "row",
@@ -944,12 +1277,15 @@ const createStyles = (colors: ThemeColors) =>
       padding: SPACING.lg,
       borderRadius: BORDER_RADIUS.xl,
       borderWidth: 1,
-      borderColor: colors.danger + "30",
+      borderColor: colors.danger + "25",
     },
     logoutText: {
       fontSize: FONT_SIZE.md,
       fontWeight: "700",
       color: colors.danger,
+    },
+    footerSpacer: {
+      height: 40,
     },
     modalOverlay: {
       flex: 1,

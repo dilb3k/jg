@@ -5,7 +5,6 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -43,7 +42,6 @@ export default function DebtorsScreen() {
   const [debtors, setDebtors] = useState<Debtor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [offlineMessage, setOfflineMessage] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -94,15 +92,6 @@ export default function DebtorsScreen() {
   useEffect(() => {
     loadDebtors();
   }, [loadDebtors]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await loadDebtorsRef.current();
-    } finally {
-      setRefreshing(false);
-    }
-  }, []);
 
   const resetAddForm = () => {
     setAddName("");
@@ -347,7 +336,7 @@ export default function DebtorsScreen() {
                     <Text style={styles.indexText}>{index + 1}</Text>
                   </View>
                   <View style={styles.cardInfo}>
-                    <Text style={styles.cardName}>{item.name}</Text>
+                    <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
                     {item.phone ? (
                       <Text style={styles.cardPhone}>{displayPhone(item.phone)}</Text>
                     ) : null}
@@ -394,7 +383,7 @@ export default function DebtorsScreen() {
       >
         <KeyboardAvoidingView
           style={[styles.modalContainer, { paddingTop: insets.top }]}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior="padding"
         >
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setShowAddModal(false)}>
@@ -483,7 +472,7 @@ export default function DebtorsScreen() {
       >
         <KeyboardAvoidingView
           style={[styles.modalContainer, { paddingTop: insets.top }]}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior="padding"
         >
           <View style={styles.modalHeader}>
             <TouchableOpacity
@@ -517,7 +506,7 @@ export default function DebtorsScreen() {
                 keyboardShouldPersistTaps="always"
               >
                 <View style={styles.detailHeader}>
-                  <Text style={styles.detailName}>{selectedDebtor.name}</Text>
+                  <Text style={styles.detailName} numberOfLines={1}>{selectedDebtor.name}</Text>
                   {selectedDebtor.phone ? (
                     <Text style={styles.detailPhone}>{displayPhone(selectedDebtor.phone)}</Text>
                   ) : null}
@@ -599,7 +588,7 @@ export default function DebtorsScreen() {
       >
         <KeyboardAvoidingView
           style={[styles.modalContainer, { paddingTop: insets.top }]}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior="padding"
         >
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setShowEditModal(false)}>

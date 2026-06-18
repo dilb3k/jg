@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -50,6 +49,7 @@ export default function LoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState(PHONE_PREFIX);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [businessDayHour, setBusinessDayHour] = useState(BUSINESS_DAY_START_HOUR);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -86,7 +86,7 @@ export default function LoginScreen() {
       if (isLoginMode) {
         result = await apiClient.login(username.trim(), password);
       } else {
-        result = await apiClient.register(username.trim(), password, phoneNumber.trim());
+        result = await apiClient.register(username.trim(), password, phoneNumber.trim(), businessDayHour);
       }
 
       await secureStorage.setItemAsync(STORAGE_KEYS.USER_TOKEN, result.token);
@@ -96,10 +96,7 @@ export default function LoginScreen() {
           ...result.user,
           businessDayStartHour:
             (result.user as any)?.businessDayStartHour || BUSINESS_DAY_START_HOUR,
-          isPayed:
-            result.user?.role?.toLowerCase() === "superadmin"
-              ? true
-              : (result.user as any)?.isPayed ?? false,
+          isPayed: (result.user as any)?.isPayed ?? false,
         };
 
         await secureStorage.setItemAsync(
@@ -133,7 +130,7 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior="padding"
     >
       <LinearGradient
         colors={[C.bg, C.bgMid, C.bgDeep, C.bg]}
@@ -162,142 +159,173 @@ export default function LoginScreen() {
           </Text>
         </View>
 
-        <View style={styles.card}>
-          <View style={styles.tabs}>
-            <TouchableOpacity
+        <View style={styles.tabs}>
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              isLoginMode && { borderBottomColor: C.primary, borderBottomWidth: 2 },
+            ]}
+            onPress={() => {
+              setIsLoginMode(true);
+              setError(null);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text
               style={[
-                styles.tab,
-                isLoginMode && { borderBottomColor: C.primary, borderBottomWidth: 2 },
+                styles.tabText,
+                { color: isLoginMode ? C.primary : C.textTertiary },
+                isLoginMode && { fontWeight: "700" },
               ]}
-              onPress={() => {
-                setIsLoginMode(true);
-                setError(null);
-              }}
-              activeOpacity={0.7}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: isLoginMode ? C.primary : C.textTertiary },
-                  isLoginMode && { fontWeight: "700" },
-                ]}
-              >
-                {t("signIn")}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+              {t("signIn")}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              !isLoginMode && { borderBottomColor: C.primary, borderBottomWidth: 2 },
+            ]}
+            onPress={() => {
+              setIsLoginMode(false);
+              setError(null);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text
               style={[
-                styles.tab,
-                !isLoginMode && { borderBottomColor: C.primary, borderBottomWidth: 2 },
+                styles.tabText,
+                { color: !isLoginMode ? C.primary : C.textTertiary },
+                !isLoginMode && { fontWeight: "700" },
               ]}
-              onPress={() => {
-                setIsLoginMode(false);
-                setError(null);
-              }}
-              activeOpacity={0.7}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: !isLoginMode ? C.primary : C.textTertiary },
-                  !isLoginMode && { fontWeight: "700" },
-                ]}
-              >
-                {t("signUp")}
-              </Text>
-            </TouchableOpacity>
+              {t("signUp")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.form}>
+          {error ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>{t("loginLabel")}</Text>
+            <TextInput
+              style={inputStyle("login")}
+              placeholder={t("loginPlaceholder")}
+              placeholderTextColor={C.textTertiary}
+              value={username}
+              onChangeText={setUsername}
+              onFocus={() => setFocusedField("login")}
+              onBlur={() => setFocusedField(null)}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
           </View>
 
-          <View style={styles.form}>
-            {error ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
-
+          {!isLoginMode && (
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{t("loginLabel")}</Text>
+              <Text style={styles.inputLabel}>{t("authPhoneNumber")}</Text>
               <TextInput
-                style={inputStyle("login")}
-                placeholder={t("loginPlaceholder")}
+                style={inputStyle("phone")}
+                placeholder={t("phoneNumberPlaceholder")}
                 placeholderTextColor={C.textTertiary}
-                value={username}
-                onChangeText={setUsername}
-                onFocus={() => setFocusedField("login")}
+                value={phoneNumber}
+                onChangeText={(v) => setPhoneNumber(formatPhone(v))}
+                onFocus={() => setFocusedField("phone")}
                 onBlur={() => setFocusedField(null)}
+                keyboardType="phone-pad"
+                maxLength={17}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
             </View>
+          )}
 
-            {!isLoginMode && (
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t("authPhoneNumber")}</Text>
-                <TextInput
-                  style={inputStyle("phone")}
-                  placeholder={t("phoneNumberPlaceholder")}
-                  placeholderTextColor={C.textTertiary}
-                  value={phoneNumber}
-                  onChangeText={(v) => setPhoneNumber(formatPhone(v))}
-                  onFocus={() => setFocusedField("phone")}
-                  onBlur={() => setFocusedField(null)}
-                  keyboardType="phone-pad"
-                  maxLength={17}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
-            )}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>{t("password")}</Text>
+            <TextInput
+              style={inputStyle("password")}
+              placeholder={t("passwordPlaceholder")}
+              placeholderTextColor={C.textTertiary}
+              value={password}
+              onChangeText={setPassword}
+              onFocus={() => setFocusedField("password")}
+              onBlur={() => setFocusedField(null)}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
 
+          {!isLoginMode && (
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{t("password")}</Text>
+              <Text style={styles.inputLabel}>{t("confirmPassword")}</Text>
               <TextInput
-                style={inputStyle("password")}
-                placeholder={t("passwordPlaceholder")}
+                style={inputStyle("confirm")}
+                placeholder={t("confirmPasswordPlaceholder")}
                 placeholderTextColor={C.textTertiary}
-                value={password}
-                onChangeText={setPassword}
-                onFocus={() => setFocusedField("password")}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                onFocus={() => setFocusedField("confirm")}
                 onBlur={() => setFocusedField(null)}
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
               />
             </View>
+          )}
 
-            {!isLoginMode && (
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t("confirmPassword")}</Text>
-                <TextInput
-                  style={inputStyle("confirm")}
-                  placeholder={t("confirmPasswordPlaceholder")}
-                  placeholderTextColor={C.textTertiary}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  onFocus={() => setFocusedField("confirm")}
-                  onBlur={() => setFocusedField(null)}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
+          {!isLoginMode && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t("businessDayHour")}</Text>
+              <Text style={styles.hourDesc}>{t("businessDayHourDesc")}</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.hourRow}
+              >
+                {Array.from({ length: 24 }, (_, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={[
+                      styles.hourChip,
+                      businessDayHour === i && styles.hourChipSelected,
+                    ]}
+                    onPress={() => setBusinessDayHour(i)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.hourChipText,
+                        businessDayHour === i && styles.hourChipTextSelected,
+                      ]}
+                    >
+                      {String(i).padStart(2, "0")}:00
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[styles.submitButton, isLoading && { opacity: 0.7 }]}
+            onPress={handleAuth}
+            disabled={isLoading}
+            activeOpacity={0.85}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color={C.white} />
+            ) : (
+              <Text style={styles.submitText}>
+                {isLoginMode ? t("signIn") : t("signUp")}
+              </Text>
             )}
-
-            <TouchableOpacity
-              style={[styles.submitButton, isLoading && { opacity: 0.7 }]}
-              onPress={handleAuth}
-              disabled={isLoading}
-              activeOpacity={0.85}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color={C.white} />
-              ) : (
-                <Text style={styles.submitText}>
-                  {isLoginMode ? t("signIn") : t("signUp")}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.footer}>
@@ -327,9 +355,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "center",
     paddingHorizontal: SPACING.xl,
-    paddingTop: 100,
+    paddingTop: 120,
     paddingBottom: SPACING.xl,
   },
   logoSection: {
@@ -337,8 +364,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xl,
   },
   logoImage: {
-    width: 180,
-    height: 180,
+    width: 100,
+    height: 100,
     marginBottom: -SPACING.xxl,
   },
   brandRow: {
@@ -346,33 +373,21 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   brandHis: {
-    fontSize: 40,
+    fontSize: 36,
     fontWeight: "800",
     color: C.primary,
     letterSpacing: -0.5,
   },
   brandVex: {
-    fontSize: 40,
+    fontSize: 36,
     fontWeight: "800",
     color: C.white,
     letterSpacing: -0.5,
   },
   tagline: {
-    fontSize: FONT_SIZE.md,
+    fontSize: FONT_SIZE.sm,
     color: C.accentDim,
     letterSpacing: 0.5,
-  },
-  card: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: C.border,
-    backgroundColor: "rgba(255,255,255,0.03)",
-    padding: SPACING.lg,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    elevation: 8,
   },
   tabs: {
     flexDirection: "row",
@@ -416,6 +431,38 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md,
     fontSize: FONT_SIZE.md,
     borderWidth: 1.5,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  hourDesc: {
+    fontSize: FONT_SIZE.xs,
+    color: C.textTertiary,
+    marginLeft: 2,
+    marginBottom: SPACING.xs,
+  },
+  hourRow: {
+    flexDirection: "row",
+    gap: SPACING.xs,
+    paddingVertical: SPACING.xs,
+  },
+  hourChip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  hourChipSelected: {
+    backgroundColor: C.primary,
+    borderColor: C.primary,
+  },
+  hourChipText: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: "600",
+    color: C.textSecondary,
+  },
+  hourChipTextSelected: {
+    color: C.white,
   },
   submitButton: {
     padding: SPACING.lg,

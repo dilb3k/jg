@@ -8,6 +8,7 @@ import { getAppMeta, setAppMeta, getSyncQueueCount } from "../db/syncQueue";
 import { STORAGE_KEYS } from "../constants";
 import * as secureStorage from "../utils/secureStorage";
 import { hasValidationErrors, validateProductInput } from "../utils/inventory";
+import { initDeletedProductsCache, saveDeletedProductName, getDeletedProductNameSync } from "../utils/deletedProductsCache";
 import {
   getBusinessDate,
   getBusinessDayStartHour,
@@ -171,6 +172,7 @@ interface AppState {
   // Auth actions
   setUser: (user: AuthUser | null) => void;
   setBlockCode: (code: string | null) => Promise<void>;
+  updateProfile: (payload: { username?: string; phone_number?: string }) => Promise<void>;
   logout: () => Promise<void>;
 
   // App actions
@@ -260,19 +262,20 @@ export const useStore = create<AppState>((set, get) => ({
     const normalized = user
       ? {
           ...user,
-          isPayed:
-            user.role?.toLowerCase() === "superadmin"
-              ? true
-              : (user as any).isPayed ?? false,
+          isPayed: (user as any).isPayed ?? false,
         }
       : user;
+    const userBlockCode = (normalized as any)?.blockCode;
+    const prevUserId = get().user?.id;
+    const newUserId = (normalized as any)?.id;
+    const isSameUser = prevUserId && newUserId && prevUserId === newUserId;
     set({
       user: normalized,
       isAuthenticated: !!normalized,
-      // Preserve the existing block code when the refreshed user object does
-      // not carry one (e.g. on refresh / getMe). This stops the lock from
-      // silently opening after a refresh. It is cleared explicitly on logout.
-      blockCode: (normalized as any)?.blockCode ?? get().blockCode ?? null,
+      // Preserve the existing block code only when refreshing the same user
+      // (e.g. on app restart / getMe). When a different user logs in, use the
+      // new user's block code from the server (or null if not set).
+      blockCode: userBlockCode ?? (isSameUser ? get().blockCode : null) ?? null,
     });
     if (normalized && typeof normalized.businessDayStartHour === 'number' && normalized.businessDayStartHour >= 0 && normalized.businessDayStartHour <= 23) {
       setBusinessDayStartHour(normalized.businessDayStartHour);
@@ -280,13 +283,15 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   setBlockCode: async (code) => {
-    // Persist locally first so the lock survives logout and app restart,
-    // independent of the (best-effort) server sync below.
+    const userId = get().user?.id;
+    const storageKey = userId ? `block_code_${userId}` : STORAGE_KEYS.BLOCK_CODE;
     try {
       if (code) {
-        await secureStorage.setItemAsync(STORAGE_KEYS.BLOCK_CODE, code);
-      } else {
+        await secureStorage.setItemAsync(storageKey, code);
+        // Remove old device-level key so other users don't inherit it.
         await secureStorage.deleteItemAsync(STORAGE_KEYS.BLOCK_CODE);
+      } else {
+        await secureStorage.deleteItemAsync(storageKey);
       }
     } catch {
       // local persistence is best-effort
@@ -300,6 +305,23 @@ export const useStore = create<AppState>((set, get) => ({
       set({ user: result.user ?? get().user });
     } catch {
       // Server update is best-effort
+    }
+  },
+
+  updateProfile: async (payload) => {
+    try {
+      const result = await apiClient.updateMe(payload);
+      if (result.token) {
+        await secureStorage.setItemAsync(STORAGE_KEYS.USER_TOKEN, result.token);
+      }
+      if (result.user) {
+        const mergedUser = { ...get().user, ...result.user };
+        set({ user: mergedUser });
+        await secureStorage.setItemAsync(STORAGE_KEYS.AUTH_USER, JSON.stringify(mergedUser));
+      }
+      get().showToast("Profil yangilandi", "success");
+    } catch {
+      get().showToast("Profilni yangilashda xatolik", "error");
     }
   },
 
@@ -332,6 +354,8 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
+      await initDeletedProductsCache();
+
       const savedConnectionMode = await secureStorage.getItemAsync(STORAGE_KEYS.CONNECTION_MODE);
       if (savedConnectionMode === "online" || savedConnectionMode === "offline") {
         setConnectionMode(savedConnectionMode);
@@ -343,12 +367,6 @@ export const useStore = create<AppState>((set, get) => ({
         if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 23) {
           setBusinessDayStartHour(parsed);
         }
-      }
-
-      // Restore the device-level block code (persists across logout/restart).
-      const savedBlockCode = await secureStorage.getItemAsync(STORAGE_KEYS.BLOCK_CODE);
-      if (savedBlockCode) {
-        set({ blockCode: savedBlockCode });
       }
 
       const pendingHourStr = await secureStorage.getItemAsync(STORAGE_KEYS.PENDING_BUSINESS_DAY_HOUR);
@@ -366,6 +384,25 @@ export const useStore = create<AppState>((set, get) => ({
         set({ user, isAuthenticated: true });
         if (typeof user.businessDayStartHour === 'number' && user.businessDayStartHour >= 0 && user.businessDayStartHour <= 23) {
           setBusinessDayStartHour(user.businessDayStartHour);
+        }
+      }
+
+      // Refresh user from server to get latest subscription/payment status
+      try {
+        const freshUser = await apiClient.getMe();
+        const normalized = { ...freshUser, isPayed: (freshUser as any).isPayed ?? false };
+        set({ user: normalized });
+        await secureStorage.setItemAsync(STORAGE_KEYS.AUTH_USER, JSON.stringify(normalized));
+      } catch {
+        // Use cached user if server unreachable
+      }
+
+      // Restore block code for the current user (per-user storage).
+      const currentUserId = get().user?.id;
+      if (currentUserId) {
+        const userBlockCode = await secureStorage.getItemAsync(`block_code_${currentUserId}`);
+        if (userBlockCode) {
+          set({ blockCode: userBlockCode });
         }
       }
 
@@ -397,8 +434,7 @@ export const useStore = create<AppState>((set, get) => ({
         await get().loadProducts();
 
         const authedUser = get().user;
-        const isPaidOrSuper =
-          authedUser?.role?.toLowerCase() === "superadmin" || authedUser?.isPayed;
+        const isPaidOrSuper = authedUser?.isPayed;
         await Promise.all([
           get().loadInventoryByDate(businessDate),
           isPaidOrSuper ? get().loadSnapshots() : Promise.resolve(),
@@ -456,7 +492,7 @@ export const useStore = create<AppState>((set, get) => ({
   createProduct: async (input) => {
     const user = get().user;
     const isPaid =
-      user?.role?.toLowerCase() === "superadmin" || user?.isPayed;
+      user?.isPayed;
     if (!isPaid) {
       throw new Error("Mahsulot qo'shish uchun premium obuna kerak");
     }
@@ -511,7 +547,7 @@ export const useStore = create<AppState>((set, get) => ({
   updateProduct: async (localId, input) => {
     const user = get().user;
     const isPaid =
-      user?.role?.toLowerCase() === "superadmin" || user?.isPayed;
+      user?.isPayed;
 
     const existing = get().products.find(
       (product) => product.localId === localId,
@@ -565,9 +601,14 @@ export const useStore = create<AppState>((set, get) => ({
   deleteProduct: async (localId) => {
     const user = get().user;
     const isPaid =
-      user?.role?.toLowerCase() === "superadmin" || user?.isPayed;
+      user?.isPayed;
     if (!isPaid) {
       throw new Error("Mahsulotni o'chirish uchun premium obuna kerak");
+    }
+
+    const product = get().products.find((p) => p.localId === localId);
+    if (product) {
+      await saveDeletedProductName(localId, product.name);
     }
 
     try {
@@ -810,8 +851,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   loadSnapshots: async (from, to) => {
     const user = get().user;
-    const isSuperAdmin = user?.role?.toLowerCase() === "superadmin";
-    if (!isSuperAdmin && !user?.isPayed) {
+    if (!user?.isPayed) {
       set((state) => ({
         syncStatus: setOnlineStatus(state.syncStatus, false),
       }));
@@ -859,11 +899,27 @@ export const useStore = create<AppState>((set, get) => ({
 
     const result = await apiClient.applySales(date, deviceId, validLines);
 
+    const safeItems = result.items.map((item) => ({
+      ...item,
+      product: item.product ?? {
+        localId: item.productId,
+        deviceId: item.deviceId || "",
+        entityType: "product" as const,
+        name: getDeletedProductNameSync(item.productId) ?? "O'chirilgan mahsulot",
+        quantity: item.currentQuantity,
+        buyPrice: 0,
+        sellPrice: 0,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        isDeleted: true,
+      },
+    }));
+
     {
       const today = getBusinessDate();
       if (date === today) {
         set((state) => {
-          const soldMap = new Map(result.items.map((i) => [i.productId, i]));
+          const soldMap = new Map(safeItems.map((i) => [i.productId, i]));
           return {
             currentInventory: state.currentInventory.map(
               (entry) => soldMap.get(entry.productId) ?? entry,

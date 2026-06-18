@@ -160,7 +160,7 @@ export default function InventoryScreen() {
   );
 
   const preview = useMemo(() => {
-    if (!selectedEntry) return null;
+    if (!selectedEntry || !selectedEntry.product) return null;
     const inputCurrent = parseWholeNumber(currentQty);
     const previousSold = Math.max(
       selectedEntry.startQuantity - selectedEntry.currentQuantity,
@@ -237,18 +237,24 @@ export default function InventoryScreen() {
   };
 
   const renderItem = ({ item }: { item: InventoryWithProduct }) => {
+    const isDeleted = item.product?.isDeleted === true;
     const metrics = getInventoryMetrics(item);
     const stockStatus = getStockStatus(metrics.remaining);
 
     return (
       <TouchableOpacity
-        style={styles.card}
-        onPress={() => openEntry(item)}
-        activeOpacity={0.85}
+        style={[styles.card, isDeleted && styles.cardDeleted]}
+        onPress={isDeleted ? undefined : () => openEntry(item)}
+        activeOpacity={isDeleted ? 1 : 0.85}
       >
-        <View style={styles.cardTop}>
+        {isDeleted && (
+          <View style={styles.deletedBanner}>
+            <Text style={styles.deletedBannerText}>O{'`'}chirilgan</Text>
+          </View>
+        )}
+        <View style={[styles.cardTop, isDeleted && styles.contentDeleted]}>
           <View style={styles.cardTitleRow}>
-            {item.product.image ? (
+            {item.product?.image ? (
               <Image
                 source={{ uri: item.product.image }}
                 style={styles.productImage}
@@ -256,38 +262,48 @@ export default function InventoryScreen() {
               />
             ) : (
               <View style={styles.noImageBox}>
-                <Package size={20} color={colors.textTertiary} />
+                <Package size={20} color={isDeleted ? colors.textTertiary : colors.textTertiary} />
               </View>
             )}
             <View style={styles.cardTitleWrap}>
-              <Text style={styles.productName} numberOfLines={1}>
-                {item.product.displayIndex && item.product.displayIndex > 0 ? `#${item.product.displayIndex}` : ""} {item.product.name}
+              <Text style={[styles.productName, isDeleted && styles.textDeleted]} numberOfLines={1}>
+                {item.product?.displayIndex && item.product.displayIndex > 0 ? `#${item.product.displayIndex}` : ""} {item.product?.name ?? "O'chirilgan mahsulot"}
               </Text>
               <Text style={styles.productPrice}>
-                {formatMoney(item.product.sellPrice)}
+                {formatMoney(item.product?.sellPrice ?? 0)}
               </Text>
             </View>
-            <View style={[styles.stockBadge, { backgroundColor: stockStatus.color + "20" }]}>
-              <View style={[styles.stockDot, { backgroundColor: stockStatus.color }]} />
-              <Text style={[styles.stockBadgeText, { color: stockStatus.color }]}>
-                {stockStatus.label}
-              </Text>
-            </View>
+            {isDeleted ? (
+              <View style={[styles.stockBadge, { backgroundColor: colors.textTertiary + "20" }]}>
+                <View style={[styles.stockDot, { backgroundColor: colors.textTertiary }]} />
+                <Text style={[styles.stockBadgeText, { color: colors.textTertiary }]}>
+                  Blok
+                </Text>
+              </View>
+            ) : (
+              <View style={[styles.stockBadge, { backgroundColor: stockStatus.color + "20" }]}>
+                <View style={[styles.stockDot, { backgroundColor: stockStatus.color }]} />
+                <Text style={[styles.stockBadgeText, { color: stockStatus.color }]}>
+                  {stockStatus.label}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
-        <View style={styles.quantityRow}>
+        <View style={[styles.quantityRow, isDeleted && styles.contentDeleted]}>
           <View style={styles.quantityItem}>
-            <Text style={styles.quantityLabel}>{t("start")}</Text>
-            <Text style={styles.quantityValue}>{item.startQuantity}</Text>
+            <Text style={styles.quantityLabel} numberOfLines={1}>{t("start")}</Text>
+            <Text style={[styles.quantityValue, isDeleted && styles.textDeleted]}>{item.startQuantity}</Text>
           </View>
           <View style={styles.separator} />
           <View style={styles.quantityItem}>
-            <Text style={styles.quantityLabel}>{t("remaining")}</Text>
+            <Text style={styles.quantityLabel} numberOfLines={1}>{t("remaining")}</Text>
             <Text
               style={[
                 styles.quantityValue,
-                metrics.remaining <= 5 ? { color: colors.danger } : null,
+                metrics.remaining <= 5 && !isDeleted ? { color: colors.danger } : null,
+                isDeleted && styles.textDeleted,
               ]}
             >
               {metrics.remaining}
@@ -295,11 +311,12 @@ export default function InventoryScreen() {
           </View>
           <View style={styles.separator} />
           <View style={styles.quantityItem}>
-            <Text style={styles.quantityLabel}>{t("sold")}</Text>
+            <Text style={styles.quantityLabel} numberOfLines={1}>{t("sold")}</Text>
             <Text
               style={[
                 styles.quantityValue,
-                metrics.sold > 0 ? { color: colors.secondary } : null,
+                metrics.sold > 0 && !isDeleted ? { color: colors.secondary } : null,
+                isDeleted && styles.textDeleted,
               ]}
             >
               {metrics.sold}
@@ -307,23 +324,23 @@ export default function InventoryScreen() {
           </View>
         </View>
 
-        <View style={styles.statsRow}>
+        <View style={[styles.statsRow, isDeleted && styles.contentDeleted]}>
           <View style={styles.statItemGroup}>
-            <Text style={styles.statsLabelSmall}>{t("revenue")}</Text>
-            <Text style={styles.statValue}>{formatMoney(metrics.revenue)}</Text>
+            <Text style={styles.statsLabelSmall} numberOfLines={1}>{t("revenue")}</Text>
+            <Text style={[styles.statValue, isDeleted && styles.textDeleted]}>{formatMoney(metrics.revenue)}</Text>
           </View>
           <View style={styles.statsDivider} />
           <View style={styles.statItemGroup}>
-            <Text style={styles.statsLabelSmall}>{t("stockValue")}</Text>
-            <Text style={styles.statValue}>{formatMoney(metrics.stockSellValue)}</Text>
+            <Text style={styles.statsLabelSmall} numberOfLines={1}>{t("stockValue")}</Text>
+            <Text style={[styles.statValue, isDeleted && styles.textDeleted]}>{formatMoney(metrics.stockSellValue)}</Text>
           </View>
           <View style={styles.statsDivider} />
           <View style={styles.statItemGroup}>
-            <Text style={styles.statsLabelSmall}>{t("unitProfit")}</Text>
-            <Text style={[styles.statValueProfit, { color: colors.secondary }]}>
-              {formatMoney(item.product.sellPrice - item.product.buyPrice)}
+            <Text style={styles.statsLabelSmall} numberOfLines={1}>{t("unitProfit")}</Text>
+            <Text style={[styles.statValueProfit, isDeleted ? { color: colors.textTertiary } : { color: colors.secondary }]}>
+              {formatMoney((item.product?.sellPrice ?? 0) - (item.product?.buyPrice ?? 0))}
             </Text>
-            <Text style={[styles.statProfit, metrics.realizedProfit >= 0 ? { color: colors.secondary } : { color: colors.danger }]}>
+            <Text style={[styles.statProfit, isDeleted ? { color: colors.textTertiary } : metrics.realizedProfit >= 0 ? { color: colors.secondary } : { color: colors.danger }]}>
               {t("profit")}: {formatMoney(metrics.realizedProfit)}
             </Text>
           </View>
@@ -402,24 +419,24 @@ export default function InventoryScreen() {
       {!isFutureDate && !isDateLoading && (
         <View style={styles.totalsSummary}>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>{t("start")}</Text>
+            <Text style={styles.summaryLabel} numberOfLines={1}>{t("start")}</Text>
             <Text style={styles.summaryValue}>{totals.start}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>{t("remaining")}</Text>
+            <Text style={styles.summaryLabel} numberOfLines={1}>{t("remaining")}</Text>
             <Text style={styles.summaryValue}>{totals.current}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>{t("sold")}</Text>
+            <Text style={styles.summaryLabel} numberOfLines={1}>{t("sold")}</Text>
             <Text style={[styles.summaryValue, { color: colors.secondary }]}>
               {totals.sold}
             </Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>{t("profit")}</Text>
+            <Text style={styles.summaryLabel} numberOfLines={1}>{t("profit")}</Text>
             <Text
               style={[
                 styles.summaryValue,
@@ -473,7 +490,7 @@ export default function InventoryScreen() {
         onRequestClose={closeModal}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior="padding"
           style={[styles.modalContainer, { paddingTop: insets.top }]}
         >
           <View style={styles.modalHeader}>
@@ -490,7 +507,7 @@ export default function InventoryScreen() {
             style={styles.modalContent}
             contentContainerStyle={styles.modalBody}
           >
-            {selectedEntry && (
+            {selectedEntry && selectedEntry.product && (
               <>
                 <View style={styles.infoBox}>
                   <Text style={styles.infoTitle}>
@@ -846,6 +863,30 @@ const createStyles = (colors: ThemeColors) =>
       borderColor: colors.border,
       boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.04)",
       elevation: 2,
+    },
+    cardDeleted: {
+      borderColor: colors.text,
+      borderWidth: 1.5,
+      opacity: 0.75,
+    },
+    deletedBanner: {
+      backgroundColor: colors.text,
+      alignSelf: "flex-start",
+      paddingHorizontal: SPACING.sm,
+      paddingVertical: 2,
+      borderRadius: BORDER_RADIUS.sm,
+      marginBottom: SPACING.sm,
+    },
+    deletedBannerText: {
+      color: colors.background,
+      fontSize: FONT_SIZE.xs,
+      fontWeight: "700",
+    },
+    contentDeleted: {
+      opacity: 0.6,
+    },
+    textDeleted: {
+      color: colors.textTertiary,
     },
     cardTop: { marginBottom: SPACING.md },
     cardTitleRow: {

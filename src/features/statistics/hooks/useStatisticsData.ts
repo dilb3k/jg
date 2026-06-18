@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dayjs from "dayjs";
 
 import { useStore } from "../../../store";
+import { getDeletedProductNameSync } from "../../../utils/deletedProductsCache";
 import type {
   InventorySummary,
   InventoryWithProduct,
@@ -93,7 +94,7 @@ function buildAllProductPeriodStats(
 
   return Array.from(stats.entries()).map(([id, totals]) => ({
     id,
-    name: namesById.get(id) || "Noma'lum mahsulot",
+    name: namesById.get(id) || getDeletedProductNameSync(id) || "O'chirilgan mahsulot",
     sold: totals.sold,
     profit: totals.profit,
   }));

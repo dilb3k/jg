@@ -2,7 +2,7 @@
   "expo": {
     "name": "Hisvex",
     "slug": "hisvex",
-    "version": "1.0.0",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "scheme": "hisvex",
@@ -22,7 +22,7 @@
     },
     "android": {
       "package": "com.hisvex.app",
-      "versionCode": 1,
+      "versionCode": 4,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo.png",
@@ -56,7 +56,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "EXPO_PUBLIC_API_BASE_URL": "https://comp-bar-server-1.onrender.com/api",
+      "EXPO_PUBLIC_API_BASE_URL": "https://comp-bar-server.onrender.com/api",
       "router": {},
       "eas": {
         "projectId": "2319ed04-72c5-4a00-9ea5-532ecf90bb74"

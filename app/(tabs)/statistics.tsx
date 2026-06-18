@@ -1,6 +1,8 @@
 import { useMemo, useState, useCallback } from "react";
 import {
   ActivityIndicator,
+  Linking,
+  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -8,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { RefreshCw, Download, CalendarClock } from "lucide-react-native";
+import { RefreshCw, Download, CalendarClock, Lock, MessageCircle } from "lucide-react-native";
 import dayjs from "dayjs";
 
 import { DatePickerModal } from "../../src/features/statistics/components/DatePickerModal";
@@ -54,8 +56,7 @@ export default function StatisticsScreen() {
   const styles = useMemo(() => createStatisticsStyles(colors), [colors]);
   const { getStatistics, products } = useStatisticsScreenStore();
 
-  const isSuperAdmin = user?.role?.toLowerCase() === "superadmin";
-  const isPayed = isSuperAdmin || (user?.isPayed ?? false);
+  const isPayed = user?.isPayed ?? false;
 
   const [period, setPeriod] = useState<PeriodType>("daily");
   const [selectedDate, setSelectedDate] = useState(() => getBusinessDate());
@@ -201,7 +202,35 @@ export default function StatisticsScreen() {
   };
 
   if (!isPayed) {
-    return <View style={styles.container} />;
+    return (
+      <View style={styles.container}>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: SPACING.xl }}>
+          <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.warning + "20", justifyContent: "center", alignItems: "center", marginBottom: SPACING.lg }}>
+            <Lock size={32} color={colors.warning} />
+          </View>
+          <Text style={{ fontSize: FONT_SIZE.xl, fontWeight: "700", color: colors.text, textAlign: "center", marginBottom: SPACING.sm }}>
+            {t("premiumFeaturesLocked")}
+          </Text>
+          <Text style={{ fontSize: FONT_SIZE.md, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: SPACING.xl }}>
+            {t("paymentRequiredMessage")}
+          </Text>
+          <Pressable
+            style={{ flexDirection: "row", alignItems: "center", gap: SPACING.sm, backgroundColor: "#0088cc", paddingVertical: SPACING.md, paddingHorizontal: SPACING.xl, borderRadius: BORDER_RADIUS.xl, marginBottom: SPACING.md }}
+            onPress={() => Linking.openURL("https://t.me/dilbek7011")}
+          >
+            <MessageCircle size={20} color="#fff" />
+            <Text style={{ color: "#fff", fontSize: FONT_SIZE.md, fontWeight: "700" }}>{t("contactAdmin")}</Text>
+          </Pressable>
+          <Pressable
+            style={{ flexDirection: "row", alignItems: "center", gap: SPACING.sm, backgroundColor: colors.primary, paddingVertical: SPACING.md, paddingHorizontal: SPACING.xl, borderRadius: BORDER_RADIUS.xl }}
+            onPress={handleRefreshUser}
+          >
+            <RefreshCw size={18} color="#fff" />
+            <Text style={{ color: "#fff", fontSize: FONT_SIZE.md, fontWeight: "700" }}>{refreshingUser ? t("refreshing") : t("update")}</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
   }
 
   return (
